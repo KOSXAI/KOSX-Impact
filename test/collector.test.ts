@@ -1,0 +1,107 @@
+import { env } from "cloudflare:workers";
+import { beforeEach, describe, expect, it } from "vitest";
+import { collectWithSource } from "../src/collector";
+import type { RosterFile } from "../src/roster";
+import type { FollowerSource, FollowerStats } from "../src/sources/types";
+
+const testRoster: RosterFile = {
+  members: [
+    { id: "alice", handle: "alice_x", goal: 10000, joinedAt: "2026-08-30" },
+    { id: "bob", handle: "bob_x", goal: 5000, joinedAt: "2026-08-30" },
+  ],
+};
+
+function stubSource(stats: Record<string, FollowerStats | Error>): FollowerSource {
+  return {
+    name: "stub",
+    async fetchStats(handle) {
+      const value = stats[handle];
+      if (value instanceof Error) throw value;
+      return value;
+    },
+  };
+}
+
+beforeEach(async () => {
+  await env.DB.prepare("DELETE FROM snapshots").run();
+  await env.DB.prepare("DELETE FROM milestones").run();
+  await env.DB.prepare("DELETE FROM members").run();
+});
+
+async function seedBaselines() {
+  await env.DB.prepare(
+    "INSERT INTO members (id, handle, goal, joined_at) VALUES ('alice', 'alice_x', 10000, '2026-08-30'), ('bob', 'bob_x', 5000, '2026-08-30')"
+  ).run();
+  await env.DB.prepare(
+    "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('alice', 900, '2026-08-30T00:00:00Z'), ('bob', 1200, '2026-08-30T00:00:00Z')"
+  ).run();
+}
+
+describe("collectWithSource", () => {
+  it("为每个成员写入当日快照", async () => {
+    await seedBaselines();
+    const summary = await collectWithSource(env, stubSource({
+      alice_x: { followers: 1500 },
+      bob_x: { followers: 1300 },
+    }), testRoster);
+    expect(summary).toEqual({ ok: 2, failed: [] });
+
+    const latest = (await env.DB.prepare(
+      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
+    ).first()) as { followers: number };
+    expect(latest.followers).toBe(1500);
+  });
+
+  it("跨过阈值时写入里程碑", async () => {
+    await seedBaselines();
+    // alice: 900 → 1500 跨过 1000；bob: 1200 → 1300 无跨档
+    await collectWithSource(env, stubSource({
+      alice_x: { followers: 1500 },
+      bob_x: { followers: 1300 },
+    }), testRoster);
+
+    const { results } = await env.DB.prepare(
+      "SELECT member_id, threshold FROM milestones ORDER BY member_id"
+    ).all();
+    expect(results).toEqual([{ member_id: "alice", threshold: 1000 }]);
+  });
+
+  it("部分成员失败不影响其他成员", async () => {
+    await seedBaselines();
+    const summary = await collectWithSource(env, stubSource({
+      alice_x: { followers: 1500 },
+      bob_x: new Error("HTTP 404"),
+    }), testRoster);
+
+    expect(summary.ok).toBe(1);
+    expect(summary.failed).toHaveLength(1);
+    expect(summary.failed[0]).toMatchObject({ handle: "bob_x", error: "HTTP 404" });
+  });
+
+  it("同一天重复采集只保留最新快照，且里程碑不重复", async () => {
+    await seedBaselines();
+    await collectWithSource(env, stubSource({
+      alice_x: { followers: 1500 },
+      bob_x: { followers: 1300 },
+    }), testRoster);
+    await collectWithSource(env, stubSource({
+      alice_x: { followers: 1600 },
+      bob_x: { followers: 1300 },
+    }), testRoster);
+
+    const snapshots = (await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'"
+    ).first()) as { n: number };
+    expect(snapshots.n).toBe(2); // 基线 + 当日一条
+
+    const latest = (await env.DB.prepare(
+      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
+    ).first()) as { followers: number };
+    expect(latest.followers).toBe(1600);
+
+    const milestones = (await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM milestones WHERE member_id = 'alice' AND threshold = 1000"
+    ).first()) as { n: number };
+    expect(milestones.n).toBe(1);
+  });
+});

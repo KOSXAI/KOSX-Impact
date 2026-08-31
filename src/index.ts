@@ -46,6 +46,10 @@ app.get("/", (c) => c.html(renderDashboard()));
 export default {
   fetch: app.fetch,
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(collect(env));
+    ctx.waitUntil(
+      collect(env).then((summary) =>
+        console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`)
+      )
+    );
   },
 } satisfies ExportedHandler<Env>;

@@ -1,21 +1,101 @@
+import { detectMilestones, thresholdsForGoal } from "./milestones";
+import type { RosterFile } from "./roster";
 import { roster, syncRoster } from "./roster";
+import { getSource } from "./sources";
+import type { FollowerSource, FollowerStats } from "./sources/types";
+
+export interface CollectSummary {
+  ok: number;
+  failed: Array<{ handle: string; error: string }>;
+}
+
+interface ActiveMember {
+  id: string;
+  handle: string;
+  goal: number;
+}
 
 /**
- * 每日数据采集入口，由 Cron Trigger（wrangler.jsonc 中的 crons）调用。
- *
- * 当前流程：
+ * 每日数据采集入口，由 Cron Trigger（wrangler.jsonc 中的 crons）调用：
  * 1. 同步成员名册（data/members.json 是追踪名单的事实来源）
- * 2. 更新站点元数据
- *
- * TODO(kosx-impact): 接入 X 数据源后，在这里拉取每位成员的粉丝量并写入
- * snapshots 表；当粉丝量首次跨过里程碑阈值（如 1000 / 5000 / 10000）时
- * 写入 milestones 表。数据来源与口径见 README「数据与隐私」。
+ * 2. 逐个成员拉取最新粉丝量并写入当日快照
+ * 3. 检测跨过的里程碑档位
+ * 4. 把同步结果写入 site_meta
  */
-export async function collect(env: Env): Promise<void> {
-  await syncRoster(env, roster);
+export async function collect(env: Env): Promise<CollectSummary> {
+  return collectWithSource(env, getSource(env), roster);
+}
+
+export async function collectWithSource(
+  env: Env,
+  source: FollowerSource,
+  rosterFile: RosterFile = roster
+): Promise<CollectSummary> {
+  await syncRoster(env, rosterFile);
+
+  const { results: members } = (await env.DB.prepare(
+    "SELECT id, handle, goal FROM members WHERE status = 'active'"
+  ).all()) as { results: ActiveMember[] };
+
+  const now = new Date().toISOString();
+  const summary: CollectSummary = { ok: 0, failed: [] };
+
+  for (const member of members) {
+    try {
+      const stats = await source.fetchStats(member.handle);
+      await writeSnapshot(env, member.id, stats, now);
+      await checkMilestones(env, member.id, member.goal, stats.followers, now);
+      summary.ok++;
+    } catch (error) {
+      summary.failed.push({
+        handle: member.handle,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      console.error(`[collect] @${member.handle} 采集失败：`, error);
+    }
+  }
 
   await env.DB.prepare(
-    `INSERT INTO site_meta (key, value) VALUES ('last_sync_at', ?1)
+    `INSERT INTO site_meta (key, value) VALUES ('last_sync_at', ?1), ('last_sync_summary', ?2)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-  ).bind(new Date().toISOString()).run();
+  ).bind(now, JSON.stringify(summary)).run();
+
+  return summary;
+}
+
+/** 写当日快照：同一天重复采集以最新值为准 */
+async function writeSnapshot(
+  env: Env,
+  memberId: string,
+  stats: FollowerStats,
+  now: string
+): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare(
+      "DELETE FROM snapshots WHERE member_id = ?1 AND date(recorded_at) = date(?2)"
+    ).bind(memberId, now),
+    env.DB.prepare(
+      "INSERT INTO snapshots (member_id, followers, following, posts, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+    ).bind(memberId, stats.followers, stats.following ?? null, stats.posts ?? null, now),
+  ]);
+}
+
+/** 与本次采集之前的最新快照对比，写入新跨过的里程碑 */
+async function checkMilestones(
+  env: Env,
+  memberId: string,
+  goal: number,
+  followers: number,
+  now: string
+): Promise<void> {
+  const prev = (await env.DB.prepare(
+    "SELECT followers FROM snapshots WHERE member_id = ?1 AND recorded_at < ?2 ORDER BY recorded_at DESC LIMIT 1"
+  ).bind(memberId, now).first()) as { followers: number } | null;
+
+  const events = detectMilestones(prev?.followers, followers, thresholdsForGoal(goal), now);
+  for (const event of events) {
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO milestones (member_id, threshold, achieved_at) VALUES (?1, ?2, ?3)"
+    ).bind(memberId, event.threshold, event.achievedAt).run();
+  }
 }
