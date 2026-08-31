@@ -41,15 +41,30 @@ Cloudflare D1（SQLite：成员 / 每日快照 / 里程碑）
 ```
 .
 ├── .github/                  # CI/CD、Issue/PR 模板、CODEOWNERS、Dependabot
+├── data/
+│   ├── members.json          # 成员名册：追踪名单的事实来源（通过 PR 修改）
+│   └── members.schema.json   # 名册的 JSON Schema
 ├── migrations/               # D1 数据库迁移（SQL）
+├── scripts/                  # 校验脚本（名册格式等）
 ├── src/
 │   ├── index.ts              # Worker 入口（Hono 路由 + 定时任务）
-│   ├── collector.ts          # 每日数据采集（当前为骨架）
+│   ├── collector.ts          # 每日数据采集（名册同步 + 快照采集）
+│   ├── roster.ts             # 名册同步逻辑
 │   └── dashboard.ts          # 看板页面骨架
 ├── test/                     # Vitest 测试（基于 cloudflare:test）
 ├── wrangler.jsonc            # Cloudflare 配置（Worker + D1 + Cron）
 └── worker-configuration.d.ts # 由 wrangler types 生成，勿手改
 ```
+
+## 成员名册
+
+`data/members.json` 是追踪名单的**事实来源**，格式由同目录的 JSON Schema 定义，CI 会校验每次修改。每日采集任务把名册同步进 D1：
+
+- 新成员在名册中加一行 → 下次同步自动开始追踪
+- 成员退出 → 从名册中删除对应条目，自动停止公开追踪、历史数据保留
+- `baselineFollowers` 是加入时的粉丝量，用于回填成长曲线的起点（冷启动）
+
+加入方式：在「成员申请」Issue 中确认同意声明后，通过 PR 把成员加进名册。初始名单可以一次性批量加入。
 
 ## 本地开发
 
@@ -84,7 +99,7 @@ GitHub Actions 自动部署：在仓库 Secrets 中配置 `CLOUDFLARE_API_TOKEN`
 
 ## 数据与隐私
 
-- **只追踪 opt-in 的成员**：成员通过「成员申请」Issue 主动加入，勾选同意声明后方可纳入
+- **只追踪 opt-in 的成员**：追踪名单来自 `data/members.json`，成员通过「成员申请」Issue 主动加入，勾选同意声明后方可纳入
 - **随时退出**：任何成员可以通过 Issue 申请退出，停止采集并可申请移除历史数据
 - 追踪的数据全部来自账号的**公开信息**（粉丝量等），每日更新一次
 - 数据来源与统计口径公布在站点「关于」页，保持透明
@@ -103,6 +118,7 @@ GitHub Actions 自动部署：在仓库 Secrets 中配置 `CLOUDFLARE_API_TOKEN`
 ## Roadmap
 
 - [x] 仓库基座：Worker + D1 + GitHub 贡献机制
+- [x] 成员名册机制：PR 加入 / 自动同步 / 基线回填
 - [ ] Phase 1：X 数据采集（Road to 10K）
 - [ ] 看板前端：增长榜 / 里程碑 / 社群总量
 - [ ] 成员进度卡片（可嵌入个人主页）

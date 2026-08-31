@@ -47,14 +47,8 @@ npm run check   # typecheck + 测试，与 CI 一致
 
 - 开启 `main` 分支保护，要求 CI 通过后才能合并
 - 部署依赖两个 Secrets：`CLOUDFLARE_API_TOKEN`（Workers 编辑权限）、`CLOUDFLARE_ACCOUNT_ID`
-- **成员加入流程**：审核「成员申请」Issue（确认同意声明已勾选）→ 在 D1 中插入 `members` 记录：
-
-  ```bash
-  npx wrangler d1 execute kosx-impact --remote \
-    --command "INSERT INTO members (id, handle, display_name, joined_at) VALUES ('kosx', 'kosx', 'KOSX', '2026-08-31')"
-  ```
-
-- **成员退出**：将该成员 `status` 置为 `removed`；如成员要求移除历史数据，删除其 `snapshots` / `milestones` 记录
+- **成员加入流程**：审核「成员申请」Issue（确认同意声明已勾选）→ 在 `data/members.json` 中按 id 排序加入该成员（通过 PR 提交，CI 会校验格式）。合并并部署后，每日采集任务自动同步进 D1。初始名单可批量加入。
+- **成员退出**：从名册中删除该成员（PR），同步后自动停止公开追踪、数据保留；如成员要求移除历史数据，删除其 `snapshots` / `milestones` 记录
 - 数据库变更一律通过 `migrations/` 下的新迁移文件进行，不直接改线上库
 
 ## 沟通与行为规范

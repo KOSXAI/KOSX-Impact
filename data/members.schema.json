@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KOSX Impact 成员名册",
+  "description": "追踪名单的事实来源。成员加入/退出通过 PR 修改 data/members.json，每日采集任务会同步到 D1。",
+  "type": "object",
+  "required": ["members"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "handle", "joinedAt"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "description": "稳定标识，创建后不变（改名只改 handle）"
+          },
+          "handle": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_]{1,15}$",
+            "description": "X 用户名，不含 @"
+          },
+          "displayName": { "type": "string" },
+          "goal": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "个人目标粉丝量，默认 10000（Road to 10K）"
+          },
+          "joinedAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "加入追踪的日期 YYYY-MM-DD"
+          },
+          "baselineFollowers": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "加入时的粉丝量，用于回填成长曲线的起点"
+          }
+        }
+      }
+    }
+  }
+}

@@ -15,6 +15,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Validate members roster
+        run: npm run validate:members
       - name: Typecheck
         run: npm run typecheck
       - name: Test
