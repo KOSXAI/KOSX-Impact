@@ -1,128 +1,59 @@
 # KOSX Impact
 
-> KOSX 社群的公开影响力数据平台：把分散在每个人账号里的影响力，汇聚成一张可视化的「KOSX 影响力网络」。
+> 把分散在每个人账号里的影响力，汇聚成一张可视化的「KOSX 影响力网络」。
 
-🚧 **当前状态**：仓库基座已就绪（数据模型 + API + 贡献机制），X 数据采集与可视化看板开发中。
+[![CI](https://github.com/KOSXAI/KOSX-Impact/actions/workflows/ci.yml/badge.svg)](https://github.com/KOSXAI/KOSX-Impact/actions/workflows/ci.yml)
+
+🚧 **Road to 10K 万粉计划进行中**——每一位 KOSX 成员从当前粉丝量走向 10,000 Followers 的过程，都被记录在这里。数据采集与看板开发中，欢迎第一批成员。
 
 ## 这是什么
 
-KOSX Impact 持续追踪和展示 KOSX 成员在 X 等公开平台上的成长数据，通过成员粉丝量、增长速度、里程碑、社群总影响力等指标，让原本分散在每个人账号里的影响力汇聚成一张可视化的「KOSX 影响力网络」。
+KOSX Impact 是 KOSX 社群的公开影响力数据平台。它持续追踪和展示 KOSX 成员在 X 等公开平台上的成长数据——粉丝量、增长速度、里程碑、社群总影响力——把原本分散在每个人账号里的影响力，汇聚成一张属于 KOSX 的可视化网络。
 
-它既是一块公开的数据看板，也是一场社群共同成长的游戏。
+它既是一块公开的数据看板，也是一场社群共同成长的游戏：
 
-### 第一阶段：Road to 10K「万粉计划」
+- **看见自己**：每天更新你的成长曲线，记录从加入到今天走过的每一步
+- **看见彼此**：增长榜、里程碑、正在冲刺的伙伴，让彼此的进步互相照亮
+- **看见社群**：所有人的影响力加在一起，就是 KOSX 正在产生的影响
 
-以 X 为核心，记录每一位成员从当前粉丝量走向 10,000 Followers 的过程：
+## Road to 10K「万粉计划」
 
-- 每日更新数据
-- 增长榜、里程碑、社群累计影响力
-- 每位成员看到的是自己相对基线的进度，而不只是冷冰冰的排名
+第一阶段以 X 为核心：记录每一位成员从当前粉丝量走向 10,000 Followers 的过程。
 
-### 未来：Creator Influence Graph
+- **每日更新**，成长曲线完整保留，每一步都有迹可循
+- **里程碑庆祝**：1K、2.5K、5K、7.5K、10K——每一个台阶都值得被看见
+- **和自己比**：更关注你相对自己基线的进步，而不是绝对排名——这不是一场竞赛，是一次共同的远征
 
-继续接入 GitHub、YouTube、Newsletter、独立产品等数据，让「影响力」不再只等于粉丝数量，逐渐形成一套属于 KOSX 的 Creator Influence Graph——看见每个人的成长，也看见整个社群正在产生多大的影响。
+不一定非要有 10K 的目标。任何一位想被看见、想和社群一起成长的成员，都欢迎加入。
 
-## 技术架构
+## 如何加入
 
-```
-Cloudflare Worker + Cron Trigger（每天定时采集 X 数据）
-        ↓ 写入
-Cloudflare D1（SQLite：成员 / 每日快照 / 里程碑）
-        ↓ 按日预渲染
-静态页面 + JSON API → 全球 CDN 分发
-```
-
-- 数据一天更新一次，页面采用「定时采集 + 预渲染」，不做每次访问实时计算
-- 全链路在 Cloudflare 免费额度内即可支撑当前量级，无服务器运维
-- 看板前端后续可迁移至 Cloudflare Pages / Workers Static Assets，API 保持不变
-
-## 仓库结构
-
-```
-.
-├── .github/                  # CI/CD、Issue/PR 模板、CODEOWNERS、Dependabot
-├── data/
-│   ├── members.json          # 成员名册：追踪名单的事实来源（通过 PR 修改）
-│   └── members.schema.json   # 名册的 JSON Schema
-├── migrations/               # D1 数据库迁移（SQL）
-├── scripts/                  # 校验脚本（名册格式等）
-├── src/
-│   ├── index.ts              # Worker 入口（Hono 路由 + 定时任务）
-│   ├── collector.ts          # 每日数据采集（名册同步 + 快照采集）
-│   ├── roster.ts             # 名册同步逻辑
-│   └── dashboard.ts          # 看板页面骨架
-├── test/                     # Vitest 测试（基于 cloudflare:test）
-├── wrangler.jsonc            # Cloudflare 配置（Worker + D1 + Cron）
-└── worker-configuration.d.ts # 由 wrangler types 生成，勿手改
-```
-
-## 成员名册
-
-`data/members.json` 是追踪名单的**事实来源**，格式由同目录的 JSON Schema 定义，CI 会校验每次修改。每日采集任务把名册同步进 D1：
-
-- 新成员在名册中加一行 → 下次同步自动开始追踪
-- 成员退出 → 从名册中删除对应条目，自动停止公开追踪、历史数据保留
-- `baselineFollowers` 是加入时的粉丝量，用于回填成长曲线的起点（冷启动）
-
-加入方式：在「成员申请」Issue 中确认同意声明后，通过 PR 把成员加进名册。初始名单可以一次性批量加入。
-
-## 本地开发
-
-需要 Node ≥ 20，无需 Cloudflare 登录即可本地开发：
-
-```bash
-npm install
-npm run db:migrate:local   # 首次或迁移变更后执行
-npm run dev                # http://localhost:8787
-```
-
-常用命令：
-
-| 命令 | 说明 |
-| --- | --- |
-| `npm run dev` | 本地启动 Worker |
-| `npm run check` | typecheck + 测试（CI 同款检查） |
-| `npm run cf-typegen` | 重新生成 `worker-configuration.d.ts` |
-| `npm run db:migrate:local` | 应用 D1 迁移（本地） |
-
-## 部署（Cloudflare）
-
-一次性设置：
-
-1. `npx wrangler login` 登录 Cloudflare 账号
-2. `npm run db:create` 创建 D1 数据库，把输出的 `database_id` 填入 `wrangler.jsonc`
-3. `npm run db:migrate:remote` 应用迁移
-4. `npm run deploy` 部署 Worker（Cron Trigger 随 Worker 一起部署）
-5. 可选：绑定自定义域名
-
-GitHub Actions 自动部署：在仓库 Secrets 中配置 `CLOUDFLARE_API_TOKEN`（Workers 编辑权限）和 `CLOUDFLARE_ACCOUNT_ID`，之后 push 到 `main` 会自动应用迁移并部署。
+1. 提交[成员申请](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=member-application.yml)，确认公开追踪同意声明
+2. 通过 PR 把你的账号加入成员名册（不会操作也没关系，维护者会协助你完成）
+3. 从当天起，你的成长曲线开始每天更新
 
 ## 数据与隐私
 
-- **只追踪 opt-in 的成员**：追踪名单来自 `data/members.json`，成员通过「成员申请」Issue 主动加入，勾选同意声明后方可纳入
-- **随时退出**：任何成员可以通过 Issue 申请退出，停止采集并可申请移除历史数据
+- **只追踪主动加入（opt-in）的成员**，加入即代表同意公开展示
 - 追踪的数据全部来自账号的**公开信息**（粉丝量等），每日更新一次
-- 数据来源与统计口径公布在站点「关于」页，保持透明
+- **随时可以退出**：停止采集、移除数据，你的数据你做主
+- 数据来源与统计口径在站点「关于」页公开，保持透明
+
+## 未来：Creator Influence Graph
+
+影响力不只是粉丝数。未来 KOSX Impact 将接入 GitHub、YouTube、Newsletter、独立产品等更多数据，逐渐形成一套属于 KOSX 的 Creator Influence Graph——看见每个人的成长，也看见整个社群正在产生多大的影响。
 
 ## 参与贡献
 
-欢迎通过 Issue 和 PR 参与：
+这是一个公开的社区项目。技术架构、本地开发与部署说明见 [CONTRIBUTING.md](CONTRIBUTING.md)，欢迎通过 Issue 和 PR 参与。
 
-- 🐛 [Bug 报告](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=bug-report.yml)
-- 💡 [功能建议](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=feature-request.yml)
-- 🙋 [成员申请](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=member-application.yml)
-- 📊 [数据源建议](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=data-source-proposal.yml)
+## 当前进度
 
-详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-## Roadmap
-
-- [x] 仓库基座：Worker + D1 + GitHub 贡献机制
-- [x] 成员名册机制：PR 加入 / 自动同步 / 基线回填
-- [ ] Phase 1：X 数据采集（Road to 10K）
-- [ ] 看板前端：增长榜 / 里程碑 / 社群总量
+- [x] 数据底座：成员名册、每日快照与里程碑
+- [ ] X 数据采集（Road to 10K 数据上线）
+- [ ] 可视化看板：增长榜 / 里程碑 / 社群总量
 - [ ] 成员进度卡片（可嵌入个人主页）
-- [ ] Phase 2：GitHub / YouTube / Newsletter 接入 → Creator Influence Graph
+- [ ] Creator Influence Graph
 
 ## License
 
