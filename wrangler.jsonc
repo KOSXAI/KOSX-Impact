@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kosx-impact",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kosx-impact",
+      // 运行 `npm run db:create` 后，把输出的 database_id 粘贴到这里
+      "database_id": "REPLACE_WITH_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    // 每天 UTC 00:00（北京时间 08:00）采集一次数据
+    "crons": ["0 0 * * *"]
+  }
+}

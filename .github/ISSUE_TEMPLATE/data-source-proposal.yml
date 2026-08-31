@@ -1,0 +1,29 @@
+name: 📊 数据源建议
+description: 提议接入新的数据平台（GitHub、YouTube、Newsletter 等）
+title: "[数据源] "
+labels: ["data-source"]
+body:
+  - type: input
+    id: platform
+    attributes:
+      label: 平台名称
+      placeholder: 例如 GitHub / YouTube / 竹白
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: 想追踪哪些指标
+      description: 例如 stars、订阅数、阅读量等，以及期望的更新频率
+    validations:
+      required: true
+  - type: textarea
+    id: access
+    attributes:
+      label: 数据获取方式
+      description: 已知的 API / 公开页面 / 需要成员授权等
+  - type: textarea
+    id: why
+    attributes:
+      label: 为什么值得接入
+      description: 对「Creator Influence Graph」的意义

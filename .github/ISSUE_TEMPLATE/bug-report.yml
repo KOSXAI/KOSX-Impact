@@ -1,0 +1,26 @@
+name: 🐛 Bug 报告
+description: 报告站点或数据的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么？期望发生什么？
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      placeholder: "1. 打开 …\n2. 点击 …\n3. 看到 …"
+  - type: input
+    id: url
+    attributes:
+      label: 相关页面 / API 地址
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充信息
+      description: 截图、时间点、涉及成员等

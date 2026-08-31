@@ -1,0 +1,32 @@
+{
+  "name": "kosx-impact",
+  "version": "0.1.0",
+  "private": true,
+  "description": "KOSX 社群的公开影响力数据平台（Road to 10K）",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "db:create": "wrangler d1 create kosx-impact",
+    "db:migrate:local": "wrangler d1 migrations apply kosx-impact --local",
+    "db:migrate:remote": "wrangler d1 migrations apply kosx-impact --remote",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run test"
+  },
+  "dependencies": {
+    "hono": "^4.13.5"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.1.2",
+    "@cloudflare/workers-types": "^5.20260831.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.127.1"
+  }
+}

@@ -1,0 +1,32 @@
+name: 🙋 成员申请（加入影响力追踪）
+description: KOSX 成员申请将自己的公开账号纳入 KOSX Impact 追踪
+title: "[成员申请] @X用户名"
+labels: ["member-application"]
+body:
+  - type: input
+    id: handle
+    attributes:
+      label: X 用户名（handle）
+      description: 不含 @ 前缀，例如 kosx
+      placeholder: kosx
+    validations:
+      required: true
+  - type: input
+    id: goal
+    attributes:
+      label: 个人目标（可选）
+      description: 默认参加 Road to 10K（目标 10,000 粉丝）；也可以写自己的目标
+      placeholder: "10000"
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: 公开追踪同意声明
+      description: 数据来自账号的公开信息（粉丝量等），每日采集并公开展示
+      options:
+        - label: 我同意 KOSX Impact 每日采集并公开展示我的公开数据，并知晓可以随时通过 Issue 申请退出（退出后停止采集，并可申请移除历史数据）。
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 想对社区说的话（可选）

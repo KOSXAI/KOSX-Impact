@@ -1,0 +1,22 @@
+name: 💡 功能建议
+description: 提出新的功能或改进想法
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决的问题
+      description: 现在的体验缺了什么？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议的方案
+      description: 描述你期望的形态（页面、API、展示方式等）
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充信息
+      description: 参考案例、草图、数据口径等
