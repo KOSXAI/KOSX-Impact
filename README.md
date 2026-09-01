@@ -2,8 +2,6 @@
 
 > 把分散在每个人账号里的影响力，汇聚成一张可视化的「KOSX 影响力网络」。
 
-[![CI](https://github.com/KOSXAI/KOSX-Impact/actions/workflows/ci.yml/badge.svg)](https://github.com/KOSXAI/KOSX-Impact/actions/workflows/ci.yml)
-
 🚧 **Road to 10K 万粉计划进行中**——每一位 KOSX 成员从当前粉丝量走向 10,000 Followers 的过程，都被记录在这里。数据采集与看板开发中，欢迎第一批成员。
 
 ## 这是什么
