@@ -10,12 +10,16 @@
     {
       "binding": "DB",
       "database_name": "kosx-impact",
-      "database_id": "13a56082-f3d4-4a23-a1de-0e29934ac99c",
+      "database_id": "9ff1f928-b3dc-4033-b9fb-e82b6a62ed5b",
       "migrations_dir": "migrations"
     }
   ],
   "triggers": {
     // 每天 UTC 00:00（北京时间 08:00）采集一次数据
     "crons": ["0 0 * * *"]
-  }
+  },
+  "routes": [
+    // 看板自定义域名（zone: kosx.ai）
+    { "pattern": "10k.kosx.ai", "custom_domain": true }
+  ]
 }
