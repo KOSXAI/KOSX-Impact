@@ -11,9 +11,8 @@ const app = new Hono<{ Bindings: Env }>();
 // 健康检查：供 CI 与监控探活使用
 app.get("/api/health", (c) => c.json({ ok: true, now: new Date().toISOString() }));
 
-// 看板统计：社群总量 + 增长榜 + 最近里程碑（一次请求渲染整页）
-// 行读取恒定：每成员只取最近 31 条快照（够算连胜/7天/30天趋势），走索引点查，
-// 不随历史积累增长；缓存 1 小时挡高频访问
+// 看板统计：社群总量 + 增长榜 + 最近里程碑
+// 优先读 daily_stats 预聚合（单查询，行读取 O(成员)）；缺数据的成员回退窗口查询
 app.get("/api/dashboard", async (c) => {
   return cachedResponse(c.req.raw, 3600, async () => {
     const now = new Date().toISOString();
@@ -21,14 +20,35 @@ app.get("/api/dashboard", async (c) => {
       `SELECT id, handle, display_name AS displayName, goal, joined_at AS joinedAt
        FROM members WHERE status = 'active' ORDER BY joined_at`
     ).all();
-    // 每成员最近 31 条快照（窗口查询，走 idx_snapshots_member_date）
     const memberList = memberRows as never as Array<{ id: string; handle: string; displayName: string | null; goal: number; joinedAt: string }>;
-    const snapshotStmt = c.env.DB.prepare(
-      "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 31"
+
+    // 预聚合：每成员 daily_stats 最新一条（走 idx_daily_stats_date + 主键）
+    const { results: statsRows } = await c.env.DB.prepare(
+      `SELECT ds.member_id AS memberId, ds.followers, ds.growth, ds.growth7d, ds.growth30d,
+              ds.progress, ds.streak_days AS streakDays, ds.achieved, ds.overflow, ds.stats_date
+       FROM daily_stats ds
+       WHERE ds.stats_date = (SELECT MAX(stats_date) FROM daily_stats WHERE member_id = ds.member_id)`
+    ).all();
+    const statsByMember = new Map(
+      (statsRows as never as Array<{
+        memberId: string; followers: number; growth: number; growth7d: number; growth30d: number;
+        progress: number; streakDays: number; achieved: number; overflow: number; stats_date: string;
+      }>).map((r) => [r.memberId, r])
     );
-    const snapshotBatches = await c.env.DB.batch(
-      memberList.map((m) => snapshotStmt.bind(m.id))
-    );
+
+    // 无预聚合数据的成员回退窗口查询（新加入、尚未被滚动采集轮到）
+    const missing = memberList.filter((m) => !statsByMember.has(m.id));
+    const fallbackStats = new Map<string, { followers: number; recordedAt: string }[]>();
+    if (missing.length > 0) {
+      const windowStmt = c.env.DB.prepare(
+        "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 31"
+      );
+      const batches = await c.env.DB.batch(missing.map((m) => windowStmt.bind(m.id)));
+      missing.forEach((m, i) => {
+        const rows = (batches[i]?.results ?? []) as never as Array<{ followers: number; recordedAt: string }>;
+        fallbackStats.set(m.id, rows.slice().reverse());
+      });
+    }
 
     const { results: milestoneRows } = await c.env.DB.prepare(
       `SELECT ms.member_id AS memberId, m.handle, m.display_name AS displayName, ms.threshold, ms.achieved_at AS achievedAt
@@ -37,14 +57,45 @@ app.get("/api/dashboard", async (c) => {
        WHERE m.status = 'active'`
     ).all();
 
-    const memberStats = memberList.map((m, i) => {
-      const rows = (snapshotBatches[i]?.results ?? []) as never as Array<{ memberId: string; followers: number; recordedAt: string }>;
-      // 窗口内是倒序取的，统计层期望正序
-      const snapshots = rows.slice().reverse();
-      return { ...m, snapshots };
-    });
-
-    const stats = computeDashboardStats(roster, memberStats, milestoneRows as never, now);
+    const stats = computeDashboardStats(
+      roster,
+      memberList.map((m) => {
+        const pre = statsByMember.get(m.id);
+        if (pre) {
+          return {
+            id: m.id,
+            handle: m.handle,
+            displayName: m.displayName,
+            goal: m.goal,
+            joinedAt: m.joinedAt,
+            snapshots: [{
+              followers: pre.followers,
+              recordedAt: `${pre.stats_date}T00:00:00Z`,
+            }],
+            // 预聚合字段直传，绕过窗口重算
+            preset: {
+              growth: pre.growth,
+              growth7d: pre.growth7d,
+              growth30d: pre.growth30d,
+              progress: pre.progress,
+              streakDays: pre.streakDays,
+              achieved: pre.achieved === 1,
+              overflow: pre.overflow,
+            },
+          };
+        }
+        return {
+          id: m.id,
+          handle: m.handle,
+          displayName: m.displayName,
+          goal: m.goal,
+          joinedAt: m.joinedAt,
+          snapshots: fallbackStats.get(m.id) ?? [],
+        };
+      }),
+      milestoneRows as never,
+      now
+    );
     return c.json(stats);
   });
 });
@@ -128,24 +179,58 @@ app.get("/card/:id", async (c) => {
   if (!id) return c.body(renderNotFoundCard("unknown"), 404, { "Content-Type": "image/svg+xml" });
   // 卡片是嵌入在成员个人主页里的高频图，边缘缓存挡掉绝大部分回源
   return cachedResponse(c.req.raw, 3600, async () => {
-    const member = await c.env.DB.prepare("SELECT * FROM members WHERE id = ? AND status = 'active'").bind(id).first();
+    const member = await c.env.DB.prepare("SELECT id, handle, display_name, goal, joined_at FROM members WHERE id = ? AND status = 'active'").bind(id).first();
     if (!member) {
       return c.body(renderNotFoundCard(id), 404, { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" });
     }
-    const { results: snapshots } = await c.env.DB.prepare(
-      "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ? ORDER BY recorded_at"
-    ).bind(id).all();
-    const stats = computeMemberStats(
-      {
-        id: member.id,
-        handle: member.handle,
-        displayName: member.display_name,
-        goal: member.goal,
-        joinedAt: member.joined_at,
-      } as { id: string; handle: string; displayName: string | null; goal: number; joinedAt: string },
-      snapshots as never,
-      new Date().toISOString()
-    );
+    // 优先读预聚合（单行点查），缺数据回退窗口查询
+    const pre = await c.env.DB.prepare(
+      `SELECT followers, growth, growth7d, growth30d, progress, streak_days AS streakDays, achieved, overflow, stats_date
+       FROM daily_stats WHERE member_id = ?1 ORDER BY stats_date DESC LIMIT 1`
+    ).bind(id).first() as never as {
+      followers: number; growth: number; growth7d: number; growth30d: number;
+      progress: number; streakDays: number; achieved: number; overflow: number; stats_date: string;
+    } | null;
+
+    let stats;
+    if (pre) {
+      stats = computeMemberStats(
+        {
+          id: member.id,
+          handle: member.handle,
+          displayName: member.display_name,
+          goal: member.goal,
+          joinedAt: member.joined_at,
+        } as { id: string; handle: string; displayName: string | null; goal: number; joinedAt: string },
+        [{ followers: pre.followers, recordedAt: `${pre.stats_date}T00:00:00Z` }],
+        new Date().toISOString()
+      );
+      stats = {
+        ...stats,
+        growth: pre.growth,
+        growth7d: pre.growth7d,
+        growth30d: pre.growth30d,
+        progress: pre.progress,
+        streakDays: pre.streakDays,
+        achieved: pre.achieved === 1,
+        overflow: pre.overflow,
+      };
+    } else {
+      const { results: snapshots } = await c.env.DB.prepare(
+        "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ? ORDER BY recorded_at"
+      ).bind(id).all();
+      stats = computeMemberStats(
+        {
+          id: member.id,
+          handle: member.handle,
+          displayName: member.display_name,
+          goal: member.goal,
+          joinedAt: member.joined_at,
+        } as { id: string; handle: string; displayName: string | null; goal: number; joinedAt: string },
+        snapshots as never,
+        new Date().toISOString()
+      );
+    }
     return c.body(renderMemberCard(stats), 200, {
       "Content-Type": "image/svg+xml",
     });
@@ -153,32 +238,25 @@ app.get("/card/:id", async (c) => {
 });
 
 // 站点 OG 图：分享到社媒时的动态预览（社群总量）
-// 只需每成员最新一条快照（窗口 LIMIT 1），缓存 6 小时挡爬虫高频预览
+// 读 daily_stats 预聚合（单查询），缓存 6 小时挡爬虫高频预览
 app.get("/og.svg", async (c) => {
   return cachedResponse(c.req.raw, 21600, async () => {
-    const now = new Date().toISOString();
-    const { results: memberRows } = await c.env.DB.prepare(
-      `SELECT id, handle, display_name AS displayName, goal, joined_at AS joinedAt
-       FROM members WHERE status = 'active'`
-    ).all();
-    const memberList = memberRows as never as Array<{ id: string; handle: string; displayName: string | null; goal: number; joinedAt: string }>;
+    const agg = await c.env.DB.prepare(
+      `SELECT COALESCE(SUM(ds.followers), 0) AS totalFollowers, COUNT(DISTINCT ds.member_id) AS memberCount
+       FROM daily_stats ds
+       WHERE ds.stats_date = (SELECT MAX(stats_date) FROM daily_stats)`
+    ).first<{ totalFollowers: number; memberCount: number }>();
 
-    // 每成员最新 1 条快照（走索引，恒定行读取）
-    const latestStmt = c.env.DB.prepare(
-      "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 1"
-    );
-    const snapshotBatches = await c.env.DB.batch(memberList.map((m) => latestStmt.bind(m.id)));
-
-    const stats = computeDashboardStats(
-      roster,
-      memberList.map((m, i) => {
-        const rows = (snapshotBatches[i]?.results ?? []) as never as Array<{ followers: number; recordedAt: string }>;
-        return { ...m, snapshots: rows };
-      }),
-      [],
-      now
-    );
-    return c.body(renderSiteOgCard(stats.totalFollowers, stats.members.length), 200, {
+    // 无预聚合数据时（首次部署）回退统计 active 成员数
+    let totalFollowers = agg?.totalFollowers ?? 0;
+    let memberCount = agg?.memberCount ?? 0;
+    if (memberCount === 0) {
+      const row = await c.env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM members WHERE status = 'active'"
+      ).first<{ n: number }>();
+      memberCount = row?.n ?? 0;
+    }
+    return c.body(renderSiteOgCard(totalFollowers, memberCount), 200, {
       "Content-Type": "image/svg+xml",
     });
   });

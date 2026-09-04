@@ -27,6 +27,17 @@ export interface MemberStats {
   overflow: number;
 }
 
+/** 预聚合字段（来自 daily_stats）：直传绕过窗口重算 */
+export interface PresetStats {
+  growth: number;
+  growth7d: number;
+  growth30d: number;
+  progress: number;
+  streakDays: number;
+  achieved: boolean;
+  overflow: number;
+}
+
 export interface DashboardStats {
   totalFollowers: number;
   totalGrowth: number;
@@ -123,6 +134,8 @@ export function computeDashboardStats(
     goal: number;
     joinedAt: string;
     snapshots: Array<{ followers: number; recordedAt: string }>;
+    /** daily_stats 预聚合字段：有值时直接采用，不重算 */
+    preset?: PresetStats;
   }>,
   milestones: Array<{
     memberId: string;
@@ -136,7 +149,7 @@ export function computeDashboardStats(
   const byId = new Map(roster.members.map((m) => [m.id, m]));
   const members = rows.map((row) => {
     const rosterMember = byId.get(row.id);
-    return computeMemberStats(
+    const computed = computeMemberStats(
       {
         id: row.id,
         handle: row.handle,
@@ -148,6 +161,20 @@ export function computeDashboardStats(
       now,
       rosterMember?.baselineFollowers
     );
+    // 预聚合覆盖：growth/趋势/连胜等来自采集时算好的 daily_stats，
+    // followers/recordedAt 仍用窗口值（滚动采集下 daily_stats 可能滞后）
+    return row.preset
+      ? {
+          ...computed,
+          growth: row.preset.growth,
+          growth7d: row.preset.growth7d,
+          growth30d: row.preset.growth30d,
+          progress: row.preset.progress,
+          streakDays: row.preset.streakDays,
+          achieved: row.preset.achieved,
+          overflow: row.preset.overflow,
+        }
+      : computed;
   });
 
   const totalFollowers = members.reduce((sum, m) => sum + (m.latestFollowers ?? 0), 0);

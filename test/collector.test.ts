@@ -25,6 +25,7 @@ function stubSource(stats: Record<string, FollowerStats | Error>): FollowerSourc
 beforeEach(async () => {
   await env.DB.prepare("DELETE FROM snapshots").run();
   await env.DB.prepare("DELETE FROM milestones").run();
+  await env.DB.prepare("DELETE FROM daily_stats").run();
   await env.DB.prepare("DELETE FROM members").run();
 });
 
@@ -38,18 +39,46 @@ async function seedBaselines() {
 }
 
 describe("collectWithSource", () => {
-  it("为每个成员写入当日快照", async () => {
+  it("滚动采集：各成员在其小时槽被采集并写入当日快照", async () => {
     await seedBaselines();
-    const summary = await collectWithSource(env, stubSource({
+    // alice 在槽 0，bob 在槽 13
+    const summaryA = await collectWithSource(env, stubSource({
       alice_x: { followers: 1500 },
       bob_x: { followers: 1300 },
-    }), testRoster);
-    expect(summary).toEqual({ ok: 2, failed: [] });
+    }), testRoster, undefined, 0);
+    expect(summaryA.ok).toBe(1);
+    expect(summaryA.shard).toEqual({ hourUtc: 0, eligible: 1, sampled: 1 });
+
+    const summaryB = await collectWithSource(env, stubSource({
+      alice_x: { followers: 1500 },
+      bob_x: { followers: 1300 },
+    }), testRoster, undefined, 13);
+    expect(summaryB.ok).toBe(1);
 
     const latest = (await env.DB.prepare(
       "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
     ).first()) as { followers: number };
     expect(latest.followers).toBe(1500);
+    const latestBob = (await env.DB.prepare(
+      "SELECT followers FROM snapshots WHERE member_id = 'bob' ORDER BY recorded_at DESC LIMIT 1"
+    ).first()) as { followers: number };
+    expect(latestBob.followers).toBe(1300);
+  });
+
+  it("滚动采集：daily_stats 预聚合随采集写入", async () => {
+    await seedBaselines();
+    await collectWithSource(env, stubSource({
+      alice_x: { followers: 1500 },
+      bob_x: { followers: 1300 },
+    }), testRoster, undefined, 0);
+
+    const stats = (await env.DB.prepare(
+      "SELECT followers, growth, progress, achieved FROM daily_stats WHERE member_id = 'alice'"
+    ).first()) as { followers: number; growth: number; progress: number; achieved: number };
+    expect(stats.followers).toBe(1500);
+    expect(stats.growth).toBe(600); // 900 → 1500
+    expect(stats.progress).toBe(6); // 600/10000
+    expect(stats.achieved).toBe(0);
   });
 
   it("跨过阈值时写入里程碑", async () => {
@@ -58,7 +87,7 @@ describe("collectWithSource", () => {
     await collectWithSource(env, stubSource({
       alice_x: { followers: 1500 },
       bob_x: { followers: 1300 },
-    }), testRoster);
+    }), testRoster, undefined, 0);
 
     const { results } = await env.DB.prepare(
       "SELECT member_id, threshold FROM milestones ORDER BY member_id"
@@ -68,14 +97,20 @@ describe("collectWithSource", () => {
 
   it("部分成员失败不影响其他成员", async () => {
     await seedBaselines();
-    const summary = await collectWithSource(env, stubSource({
+    const summaryA = await collectWithSource(env, stubSource({
+      alice_x: { followers: 1500 },
+      bob_x: { followers: 1300 },
+    }), testRoster, undefined, 0);
+    expect(summaryA.ok).toBe(1);
+    expect(summaryA.failed).toHaveLength(0);
+
+    const summaryB = await collectWithSource(env, stubSource({
       alice_x: { followers: 1500 },
       bob_x: new Error("HTTP 404"),
-    }), testRoster);
-
-    expect(summary.ok).toBe(1);
-    expect(summary.failed).toHaveLength(1);
-    expect(summary.failed[0]).toMatchObject({ handle: "bob_x", error: "HTTP 404" });
+    }), testRoster, undefined, 13);
+    expect(summaryB.ok).toBe(0);
+    expect(summaryB.failed).toHaveLength(1);
+    expect(summaryB.failed[0]).toMatchObject({ handle: "bob_x", error: "HTTP 404" });
   });
 
   it("同一天重复采集只保留最新快照，且里程碑不重复", async () => {
@@ -83,11 +118,11 @@ describe("collectWithSource", () => {
     await collectWithSource(env, stubSource({
       alice_x: { followers: 1500 },
       bob_x: { followers: 1300 },
-    }), testRoster);
+    }), testRoster, undefined, 0);
     await collectWithSource(env, stubSource({
       alice_x: { followers: 1600 },
       bob_x: { followers: 1300 },
-    }), testRoster);
+    }), testRoster, undefined, 0);
 
     const snapshots = (await env.DB.prepare(
       "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'"
