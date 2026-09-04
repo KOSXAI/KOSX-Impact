@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { animate } from "motion";
-import { div as MotionDiv } from "motion/react-m";
+// 必须用全量入口 motion/react：mini 入口（motion/react-m）按特性裁剪，
+// 不含 whileInView/IntersectionObserver 实现，视口入场动画会停在 initial（整页黑屏）
+import { motion } from "motion/react";
 import { Progress } from "@/components/ui/progress";
 import { fmt } from "@/lib/format";
 
@@ -59,7 +61,7 @@ export function Reveal({
   const reduced = useReducedMotionPreference();
   if (!hydrated || reduced) return <div className={className}>{children}</div>;
   return (
-    <MotionDiv
+    <motion.div
       className={className}
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
@@ -67,7 +69,7 @@ export function Reveal({
       transition={{ duration: 0.5, ease: easeOutQuint, delay }}
     >
       {children}
-    </MotionDiv>
+    </motion.div>
   );
 }
 
@@ -86,7 +88,7 @@ export function RevealGroup({
   const reduced = useReducedMotionPreference();
   if (!hydrated || reduced) return <div className={className}>{children}</div>;
   return (
-    <MotionDiv
+    <motion.div
       className={className}
       initial="hidden"
       whileInView="visible"
@@ -97,7 +99,7 @@ export function RevealGroup({
       }}
     >
       {children}
-    </MotionDiv>
+    </motion.div>
   );
 }
 
@@ -111,7 +113,7 @@ export function RevealItem({
   y?: number;
 }) {
   return (
-    <MotionDiv
+    <motion.div
       className={className}
       variants={{
         hidden: { opacity: 0, y },
@@ -119,7 +121,7 @@ export function RevealItem({
       }}
     >
       {children}
-    </MotionDiv>
+    </motion.div>
   );
 }
 
@@ -129,14 +131,14 @@ export function PopIn({ children, className }: { children: ReactNode; className?
   const reduced = useReducedMotionPreference();
   if (!hydrated || reduced) return <div className={className}>{children}</div>;
   return (
-    <MotionDiv
+    <motion.div
       className={className}
       initial={{ opacity: 0, y: 16, scale: 0.92 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={springPop}
     >
       {children}
-    </MotionDiv>
+    </motion.div>
   );
 }
 
