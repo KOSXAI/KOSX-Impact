@@ -1,6 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import "../src/index";
+import "../src/api-entry";
 
 beforeEach(async () => {
   await env.DB.prepare("DELETE FROM snapshots").run();
@@ -56,10 +56,19 @@ describe("API", () => {
     expect(res.status).toBe(404);
   });
 
-  it("GET / 返回看板页面骨架", async () => {
-    const res = await exports.default.fetch("https://example.com/");
+  it("GET /api/dashboard 返回看板统计（camelCase 派生字段）", async () => {
+    await seedMember();
+    const res = await exports.default.fetch("https://example.com/api/dashboard");
     expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toContain("text/html");
-    expect(await res.text()).toContain("KOSX Impact");
+    const body = (await res.json()) as {
+      totalFollowers: number;
+      totalGrowth: number;
+      totalMilestones: number;
+      members: Array<{ handle: string; progress: number; achieved: boolean; streakDays: number }>;
+      recentMilestones: unknown[];
+    };
+    expect(body.totalFollowers).toBe(1234);
+    expect(body.members).toHaveLength(1);
+    expect(body.members[0]).toMatchObject({ handle: "alice_x", progress: 0, achieved: false });
   });
 });

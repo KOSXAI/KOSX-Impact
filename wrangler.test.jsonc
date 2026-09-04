@@ -1,0 +1,29 @@
+/**
+ * 测试专用 Worker 配置：main 指向不含 TanStack SSR 入口的轻量 API Worker，
+ * 避免 vitest（无 TanStack Vite 插件）解析 #tanstack-*-entry 虚拟别名失败。
+ * 其余绑定（D1/cron/域名）与 wrangler.jsonc 保持一致。
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kosx-impact",
+  "main": "src/api-entry.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kosx-impact",
+      "database_id": "9ff1f928-b3dc-4033-b9fb-e82b6a62ed5b",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
+  "routes": [
+    { "pattern": "10k.kosx.ai", "custom_domain": true }
+  ]
+}

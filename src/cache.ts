@@ -20,7 +20,9 @@ export async function cachedResponse(
   ttl: number,
   build: () => Promise<Response>
 ): Promise<Response> {
-  const cache = caches.default;
+  // DOM lib 的 CacheStorage 与 Workers CacheStorage 同名合并后丢失 default，
+  // 此处显式按 Workers 运行时类型取用
+  const cache = (caches as unknown as { default: Cache }).default;
   const cacheKey = new Request(request.url, { method: "GET" });
 
   const hit = await cache.match(cacheKey);
@@ -41,12 +43,22 @@ export async function cachedResponse(
  * 采集完成后主动清缓存：新数据立即可见，不必等 TTL 自然过期。
  * Cache API 的 delete 只作用于当前数据中心，但采集源（cron）在固定区域跑，
  * 各边缘节点会在 TTL 内自然过期——主动 purge 是"尽力而为"的加速，不是保证。
+ * 除看板/列表/OG 外，还按成员 id 清详情缓存（API 与成员页 SSR 共用同一键）。
  */
-export async function purgeReadCaches(baseUrls: string[]): Promise<void> {
-  const cache = caches.default;
+export async function purgeReadCaches(
+  baseUrls: string[],
+  memberIds: string[] = []
+): Promise<void> {
+  const cache = (caches as unknown as { default: Cache }).default;
+  const paths = [
+    "/api/dashboard",
+    "/api/members",
+    "/og.svg",
+    ...memberIds.map((id) => `/api/members/${id}`),
+  ];
   await Promise.all(
     baseUrls.flatMap((base) =>
-      ["/api/dashboard", "/api/members", "/og.svg"].map((path) =>
+      paths.map((path) =>
         cache.delete(new Request(base + path, { method: "GET" })).catch(() => undefined)
       )
     )

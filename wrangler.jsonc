@@ -1,10 +1,19 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kosx-impact",
-  "main": "src/index.ts",
+  "main": "src/server.ts",
   "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
+  },
+  "assets": {
+    // Vite 构建的静态资产（@cloudflare/vite-plugin 输出到 dist/client）
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    // API / SVG 卡 / OG 图 / SEO 文件先经 Worker（Hono 分发）；
+    // 页面路由（/ /members/:id /about）无静态资产，自然回退 Worker 做 SSR
+    "run_worker_first": ["/api/*", "/card/*", "/og.svg", "/robots.txt", "/sitemap.xml"]
   },
   "d1_databases": [
     {

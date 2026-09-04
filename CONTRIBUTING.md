@@ -14,17 +14,16 @@
 ## 项目架构
 
 ```
-Cloudflare Worker + Cron Trigger（每天定时采集 X 数据）
+Cloudflare Worker + Cron Trigger（每小时滚动采集 X 数据）
         ↓ 写入
 Cloudflare D1（SQLite：成员 / 每日快照 / 里程碑）
-        ↓ 按日预渲染
-静态页面 + JSON API → 全球 CDN 分发
+        ↓ 读接口（Cache API 边缘缓存，采集后主动刷新）
+React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN 分发
 ```
 
-- 数据一天更新一次，页面采用「定时采集 + 预渲染」，不做每次访问实时计算
+- 数据一天更新一次，页面为服务端渲染（SEO 友好），读接口走边缘缓存，不做每次访问实时计算
 - 全链路在 Cloudflare 免费额度内即可支撑当前量级，无服务器运维
 - 数据源通过抽象层接入（当前：SocialData），未来可切换官方 API / 成员 OAuth 而不改业务逻辑
-- 看板前端后续可迁移至 Cloudflare Pages / Workers Static Assets，API 保持不变
 
 ## 仓库结构
 
@@ -37,12 +36,19 @@ Cloudflare D1（SQLite：成员 / 每日快照 / 里程碑）
 ├── migrations/               # D1 数据库迁移（SQL）
 ├── scripts/                  # 校验脚本（名册格式等）
 ├── src/
-│   ├── index.ts              # Worker 入口（Hono 路由 + 定时任务）
-│   ├── collector.ts          # 每日数据采集（名册同步 + 快照采集）
+│   ├── server.ts             # Worker 入口：API/SVG 卡分发 + TanStack SSR + cron
+│   ├── api.ts                # Hono：JSON API / SVG 卡 / robots / sitemap
+│   ├── queries.ts            # 共享查询层（API 与 SSR 共用，含边缘缓存）
+│   ├── data.functions.ts     # TanStack server functions（路由 loader 取数）
+│   ├── routes/               # React 页面（看板 / 成员详情 / 关于）
+│   ├── components/           # React 组件（shadcn/ui + 图表）
+│   ├── collector.ts          # 数据采集（名册同步 + 快照采集）
 │   ├── roster.ts             # 名册同步逻辑
-│   └── dashboard.ts          # 看板页面骨架
+│   ├── stats.ts              # 统计计算（纯函数）
+│   └── card.ts               # SVG 进度卡 / OG 图生成
 ├── test/                     # Vitest 测试（基于 cloudflare:test）
-├── wrangler.jsonc            # Cloudflare 配置（Worker + D1 + Cron）
+├── wrangler.jsonc            # Cloudflare 配置（Worker + D1 + Cron + Assets）
+├── wrangler.test.jsonc       # 测试专用配置（轻量 API 入口，不含 SSR）
 └── worker-configuration.d.ts # 由 wrangler types 生成，勿手改
 ```
 
@@ -76,7 +82,8 @@ SOCIALDATA_API_KEY=你的key
 
 | 命令 | 说明 |
 | --- | --- |
-| `npm run dev` | 本地启动 Worker |
+| `npm run dev` | 本地启动（Vite + SSR），http://localhost:5173 |
+| `npm run build` | 构建前端与 Worker 产物 |
 | `npm run check` | 名册校验 + typecheck + 测试（提交前的本地检查，无远程 CI） |
 | `npm run cf-typegen` | 重新生成 `worker-configuration.d.ts` |
 | `npm run db:migrate:local` | 应用 D1 迁移（本地） |

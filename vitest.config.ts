@@ -11,7 +11,8 @@ export default defineConfig(async () => {
   return {
     plugins: [
       cloudflareTest({
-        wrangler: { configPath: "./wrangler.jsonc" },
+        // 测试专用配置：main 指向纯 API 入口，绕开 TanStack SSR 的虚拟模块
+        wrangler: { configPath: "./wrangler.test.jsonc" },
         miniflare: {
           bindings: {
             TEST_MIGRATIONS: migrations,

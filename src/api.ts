@@ -1,0 +1,162 @@
+import { Hono } from "hono";
+import type { DashboardStats } from "./stats";
+import { collect } from "./collector";
+import { cachedResponse } from "./cache";
+import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
+import { computeMemberStats, computeDashboardStats } from "./stats";
+import { getDashboardStats, getMemberDetail } from "./queries";
+import { roster } from "./roster";
+
+const SITE_URL = "https://10k.kosx.ai";
+
+export const api = new Hono<{ Bindings: Env }>();
+
+// 健康检查：供 CI 与监控探活使用
+api.get("/api/health", (c) => c.json({ ok: true, now: new Date().toISOString() }));
+
+// 看板统计：社群总量 + 增长榜 + 最近里程碑（API 与首页 SSR 共用 queries.ts 的缓存）
+api.get("/api/dashboard", async (c) => {
+  const stats = await getDashboardStats(c.env);
+  return c.json(stats);
+});
+
+// 成员列表，附带每人最新一次快照的粉丝量
+api.get("/api/members", async (c) => {
+  return cachedResponse(c.req.raw, 3600, async () => {
+    const { results } = await c.env.DB.prepare(
+      `SELECT
+         m.id, m.handle, m.display_name, m.goal, m.joined_at,
+         s.followers  AS latest_followers,
+         s.recorded_at AS latest_recorded_at
+       FROM members m
+       LEFT JOIN snapshots s ON s.id = (
+         SELECT id FROM snapshots WHERE member_id = m.id ORDER BY recorded_at DESC LIMIT 1
+       )
+       WHERE m.status = 'active'
+       ORDER BY m.joined_at`
+    ).all();
+    return c.json({ members: results });
+  });
+});
+
+// 单个成员的成长曲线与里程碑（API 与成员页 SSR 共用 queries.ts 的缓存）
+api.get("/api/members/:id", async (c) => {
+  const detail = await getMemberDetail(c.env, c.req.param("id") ?? "");
+  if (!detail) return c.json({ error: "member not found" }, 404);
+  return c.json(detail);
+});
+
+// 成员进度卡片：可嵌入 GitHub README / 个人主页（<img src="https://10k.kosx.ai/card/{id}.svg">）
+// 注：路由用 :id 而非 :id.svg——Hono 不支持参数名里带点，.svg 后缀在 handler 内剔除
+// 卡片是嵌入在成员个人主页里的高频图，边缘缓存挡掉绝大部分回源
+export async function renderMemberCardSvg(id: string, env: Env): Promise<Response> {
+  return cachedResponse(new Request(`${SITE_URL}/card/${id}`), 3600, async () => {
+    const member = await env.DB.prepare("SELECT * FROM members WHERE id = ? AND status = 'active'").bind(id).first();
+    if (!member) {
+      return new Response(renderNotFoundCard(id), {
+        status: 404,
+        headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },
+      });
+    }
+    const { results: snapshots } = await env.DB.prepare(
+      "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ? ORDER BY recorded_at"
+    ).bind(id).all();
+    // SELECT * 返回 snake_case 列名，computeMemberStats 需要 camelCase 字段
+    const m = member as Record<string, unknown>;
+    const stats = computeMemberStats(
+      {
+        id: m.id as string,
+        handle: m.handle as string,
+        displayName: (m.display_name as string | null) ?? null,
+        goal: m.goal as number,
+        joinedAt: m.joined_at as string,
+      },
+      snapshots as never,
+      new Date().toISOString(),
+      m.baseline_followers as number | null
+    );
+    return new Response(renderMemberCard(stats), {
+      headers: { "Content-Type": "image/svg+xml" },
+    });
+  });
+}
+
+// 站点 OG 图：分享到社媒时的动态预览（社群总量）
+// 只需每成员最新一条快照（窗口 LIMIT 1），缓存 6 小时挡爬虫高频预览
+export async function renderOgSvg(env: Env): Promise<Response> {
+  return cachedResponse(new Request(`${SITE_URL}/og.svg`), 21600, async () => {
+    const now = new Date().toISOString();
+    const { results: memberRows } = await env.DB.prepare(
+      `SELECT id, handle, display_name AS displayName, goal, joined_at AS joinedAt
+       FROM members WHERE status = 'active'`
+    ).all();
+    const memberList = memberRows as never as Array<{ id: string; handle: string; displayName: string | null; goal: number; joinedAt: string }>;
+
+    // 每成员最新 1 条快照（走索引，恒定行读取）
+    const latestStmt = env.DB.prepare(
+      "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 1"
+    );
+    const snapshotBatches = await env.DB.batch(memberList.map((m) => latestStmt.bind(m.id)));
+
+    const stats: DashboardStats = computeDashboardStats(
+      roster,
+      memberList.map((m, i) => {
+        const rows = (snapshotBatches[i]?.results ?? []) as never as Array<{ followers: number; recordedAt: string }>;
+        return { ...m, snapshots: rows };
+      }),
+      [],
+      now
+    );
+    return new Response(renderSiteOgCard(stats.totalFollowers, stats.members.length), {
+      headers: { "Content-Type": "image/svg+xml" },
+    });
+  });
+}
+
+export const honoApp = new Hono<{ Bindings: Env }>().route("/", api);
+
+// robots.txt / sitemap.xml：SEO 基础设施，由 server.ts 显式分发
+function renderRobots(): Response {
+  return new Response(`User-agent: *\nAllow: /\nSitemap: ${SITE_URL}/sitemap.xml\n`, {
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=86400" },
+  });
+}
+
+function renderSitemap(): Response {
+  const today = new Date().toISOString().slice(0, 10);
+  const urls = [
+    { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
+    { loc: `${SITE_URL}/about`, changefreq: "monthly", priority: "0.3" },
+    ...roster.members.map((m) => ({ loc: `${SITE_URL}/members/${m.id}`, changefreq: "daily", priority: "0.8" })),
+  ];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${today}</lastmod><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`).join("\n")}
+</urlset>`;
+  return new Response(xml, {
+    headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+  });
+}
+
+/** 非 React SSR 请求的统一分发：API / SVG 卡 / OG 图 / SEO 文件；未命中返回 null 交给 SSR */
+export async function handleWorkerRoutes(request: Request, env: Env): Promise<Response | null> {
+  const { pathname } = new URL(request.url);
+  if (pathname.startsWith("/api/")) return honoApp.fetch(request, env);
+  if (pathname === "/og.svg") return renderOgSvg(env);
+  if (pathname === "/robots.txt") return renderRobots();
+  if (pathname === "/sitemap.xml") return renderSitemap();
+  if (pathname.startsWith("/card/")) {
+    const id = pathname.slice("/card/".length).replace(/\.svg$/, "").split("/")[0];
+    if (!id) return new Response(renderNotFoundCard("unknown"), { status: 404, headers: { "Content-Type": "image/svg+xml" } });
+    return renderMemberCardSvg(id, env);
+  }
+  return null;
+}
+
+export async function runScheduled(env: Env, ctx: ExecutionContext): Promise<void> {
+  ctx.waitUntil(
+    collect(env, ctx).then((summary) =>
+      console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`)
+    )
+  );
+}
