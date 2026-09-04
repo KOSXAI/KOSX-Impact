@@ -12,7 +12,8 @@ const app = new Hono<{ Bindings: Env }>();
 app.get("/api/health", (c) => c.json({ ok: true, now: new Date().toISOString() }));
 
 // 看板统计：社群总量 + 增长榜 + 最近里程碑（一次请求渲染整页）
-// 全量扫描快照表（计算连胜/趋势必需），高频端点，缓存 1 小时挡回源
+// 行读取恒定：每成员只取最近 31 条快照（够算连胜/7天/30天趋势），走索引点查，
+// 不随历史积累增长；缓存 1 小时挡高频访问
 app.get("/api/dashboard", async (c) => {
   return cachedResponse(c.req.raw, 3600, async () => {
     const now = new Date().toISOString();
@@ -20,9 +21,15 @@ app.get("/api/dashboard", async (c) => {
       `SELECT id, handle, display_name AS displayName, goal, joined_at AS joinedAt
        FROM members WHERE status = 'active' ORDER BY joined_at`
     ).all();
-    const { results: snapshotRows } = await c.env.DB.prepare(
-      "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots ORDER BY recorded_at"
-    ).all();
+    // 每成员最近 31 条快照（窗口查询，走 idx_snapshots_member_date）
+    const memberList = memberRows as never as Array<{ id: string; handle: string; displayName: string | null; goal: number; joinedAt: string }>;
+    const snapshotStmt = c.env.DB.prepare(
+      "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 31"
+    );
+    const snapshotBatches = await c.env.DB.batch(
+      memberList.map((m) => snapshotStmt.bind(m.id))
+    );
+
     const { results: milestoneRows } = await c.env.DB.prepare(
       `SELECT ms.member_id AS memberId, m.handle, m.display_name AS displayName, ms.threshold, ms.achieved_at AS achievedAt
        FROM milestones ms
@@ -30,28 +37,14 @@ app.get("/api/dashboard", async (c) => {
        WHERE m.status = 'active'`
     ).all();
 
-    // 快照按成员分组，交给统计层计算基线增长 / 连胜 / 近期趋势
-    const byMember = new Map<string, Array<{ followers: number; recordedAt: string }>>();
-    for (const s of snapshotRows as never as Array<{ memberId: string; followers: number; recordedAt: string }>) {
-      const list = byMember.get(s.memberId) ?? [];
-      list.push({ followers: s.followers, recordedAt: s.recordedAt });
-      byMember.set(s.memberId, list);
-    }
+    const memberStats = memberList.map((m, i) => {
+      const rows = (snapshotBatches[i]?.results ?? []) as never as Array<{ memberId: string; followers: number; recordedAt: string }>;
+      // 窗口内是倒序取的，统计层期望正序
+      const snapshots = rows.slice().reverse();
+      return { ...m, snapshots };
+    });
 
-    const stats = computeDashboardStats(
-      roster,
-      (memberRows as never as Array<{ id: string; handle: string; displayName: string | null; goal: number; joinedAt: string }>)
-        .map((m) => ({
-          id: m.id,
-          handle: m.handle,
-          displayName: m.displayName,
-          goal: m.goal,
-          joinedAt: m.joinedAt,
-          snapshots: byMember.get(m.id) ?? [],
-        })),
-      milestoneRows as never,
-      now
-    );
+    const stats = computeDashboardStats(roster, memberStats, milestoneRows as never, now);
     return c.json(stats);
   });
 });
@@ -160,7 +153,7 @@ app.get("/card/:id", async (c) => {
 });
 
 // 站点 OG 图：分享到社媒时的动态预览（社群总量）
-// 爬虫高频预览，缓存 6 小时挡掉绝大多数 D1 全量扫描
+// 只需每成员最新一条快照（窗口 LIMIT 1），缓存 6 小时挡爬虫高频预览
 app.get("/og.svg", async (c) => {
   return cachedResponse(c.req.raw, 21600, async () => {
     const now = new Date().toISOString();
@@ -168,28 +161,20 @@ app.get("/og.svg", async (c) => {
       `SELECT id, handle, display_name AS displayName, goal, joined_at AS joinedAt
        FROM members WHERE status = 'active'`
     ).all();
-    const { results: snapshotRows } = await c.env.DB.prepare(
-      "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots ORDER BY recorded_at"
-    ).all();
+    const memberList = memberRows as never as Array<{ id: string; handle: string; displayName: string | null; goal: number; joinedAt: string }>;
 
-    const byMember = new Map<string, Array<{ followers: number; recordedAt: string }>>();
-    for (const s of snapshotRows as never as Array<{ memberId: string; followers: number; recordedAt: string }>) {
-      const list = byMember.get(s.memberId) ?? [];
-      list.push({ followers: s.followers, recordedAt: s.recordedAt });
-      byMember.set(s.memberId, list);
-    }
+    // 每成员最新 1 条快照（走索引，恒定行读取）
+    const latestStmt = c.env.DB.prepare(
+      "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 1"
+    );
+    const snapshotBatches = await c.env.DB.batch(memberList.map((m) => latestStmt.bind(m.id)));
 
     const stats = computeDashboardStats(
       roster,
-      (memberRows as never as Array<{ id: string; handle: string; displayName: string | null; goal: number; joinedAt: string }>)
-        .map((m) => ({
-          id: m.id,
-          handle: m.handle,
-          displayName: m.displayName,
-          goal: m.goal,
-          joinedAt: m.joinedAt,
-          snapshots: byMember.get(m.id) ?? [],
-        })),
+      memberList.map((m, i) => {
+        const rows = (snapshotBatches[i]?.results ?? []) as never as Array<{ followers: number; recordedAt: string }>;
+        return { ...m, snapshots: rows };
+      }),
       [],
       now
     );
@@ -209,7 +194,7 @@ export default {
   fetch: app.fetch,
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(
-      collect(env).then((summary) =>
+      collect(env, ctx).then((summary) =>
         console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`)
       )
     );

@@ -36,3 +36,19 @@ export async function cachedResponse(
   }
   return response;
 }
+
+/**
+ * 采集完成后主动清缓存：新数据立即可见，不必等 TTL 自然过期。
+ * Cache API 的 delete 只作用于当前数据中心，但采集源（cron）在固定区域跑，
+ * 各边缘节点会在 TTL 内自然过期——主动 purge 是"尽力而为"的加速，不是保证。
+ */
+export async function purgeReadCaches(baseUrls: string[]): Promise<void> {
+  const cache = caches.default;
+  await Promise.all(
+    baseUrls.flatMap((base) =>
+      ["/api/dashboard", "/api/members", "/og.svg"].map((path) =>
+        cache.delete(new Request(base + path, { method: "GET" })).catch(() => undefined)
+      )
+    )
+  );
+}

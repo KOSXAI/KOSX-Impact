@@ -3,6 +3,7 @@ import type { RosterFile } from "./roster";
 import { roster, syncRoster } from "./roster";
 import { getSource } from "./sources";
 import type { FollowerSource, FollowerStats } from "./sources/types";
+import { purgeReadCaches } from "./cache";
 
 export interface CollectSummary {
   ok: number;
@@ -22,14 +23,15 @@ interface ActiveMember {
  * 3. 检测跨过的里程碑档位
  * 4. 把同步结果写入 site_meta
  */
-export async function collect(env: Env): Promise<CollectSummary> {
-  return collectWithSource(env, getSource(env), roster);
+export async function collect(env: Env, ctx?: ExecutionContext): Promise<CollectSummary> {
+  return collectWithSource(env, getSource(env), roster, ctx);
 }
 
 export async function collectWithSource(
   env: Env,
   source: FollowerSource,
-  rosterFile: RosterFile = roster
+  rosterFile: RosterFile = roster,
+  ctx?: ExecutionContext
 ): Promise<CollectSummary> {
   await syncRoster(env, rosterFile);
 
@@ -59,6 +61,9 @@ export async function collectWithSource(
     `INSERT INTO site_meta (key, value) VALUES ('last_sync_at', ?1), ('last_sync_summary', ?2)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`
   ).bind(now, JSON.stringify(summary)).run();
+
+  // 采集完成后尽力清读缓存：看板/卡片立刻反映新数据（清不到的边缘节点等 TTL 过期）
+  ctx?.waitUntil(purgeReadCaches(["https://10k.kosx.ai"]).catch(() => undefined));
 
   return summary;
 }
