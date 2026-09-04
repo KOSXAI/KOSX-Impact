@@ -1,6 +1,6 @@
 # KOSX 万粉影响力计划
 
-> 看见每个人的成长，也看见整个社群正在产生多大的影响。
+> 记录每一位成员迈向万粉及更高台阶的过程——看见每个人的成长，也看见整个社群正在产生多大的影响。
 
 🌐 **看板：[impact.kosx.ai](https://impact.kosx.ai)** · [数据口径说明](https://impact.kosx.ai/about) · [成员申请](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=member-application.yml)
 
