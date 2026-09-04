@@ -28,10 +28,37 @@ export const Route = createFileRoute("/")({
   component: DashboardPage,
 });
 
+/** 冲榜前三的荣誉样式：冠军/亚军/季军（奖牌渐变 + 榜位徽章） */
+const PODIUM = [
+  {
+    label: "冠军",
+    badge: "from-amber-300 to-amber-500 text-amber-950",
+    ring: "border-amber-400/40 bg-gradient-to-r from-amber-400/15 to-transparent",
+    rankNum: "from-amber-300 to-amber-600 text-white",
+  },
+  {
+    label: "亚军",
+    badge: "from-slate-300 to-slate-400 text-slate-950",
+    ring: "border-slate-400/30 bg-gradient-to-r from-slate-400/12 to-transparent",
+    rankNum: "from-slate-300 to-slate-500 text-white",
+  },
+  {
+    label: "季军",
+    badge: "from-orange-400 to-orange-600 text-white",
+    ring: "border-orange-500/30 bg-gradient-to-r from-orange-500/12 to-transparent",
+    rankNum: "from-orange-400 to-orange-700 text-white",
+  },
+] as const;
+
 function DashboardPage() {
   const stats = Route.useLoaderData();
-  const achieved = stats.members.filter((m) => m.achieved);
-  const chasing = stats.members.filter((m) => !m.achieved);
+  // 冲榜按最新粉丝数从高到低（用户规则）；已达成万粉的进名人堂
+  const chasing = stats.members
+    .filter((m) => !m.achieved)
+    .sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
+  const hall = stats.members
+    .filter((m) => m.achieved)
+    .sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
   const latest = stats.recentMilestones[0];
   const justAchieved = latest && latest.achievedAt.slice(0, 10) >= new Date().toISOString().slice(0, 10);
 
@@ -67,53 +94,30 @@ function DashboardPage() {
             <Link to="/members/$id" params={{ id: latest.memberId }} className="font-semibold underline-offset-4 hover:underline">
               {latest.displayName ?? latest.handle}
             </Link>
-            <span>达成 {badge(latest.threshold)}，进入万粉俱乐部！</span>
+            <span>达成 {badge(latest.threshold)}，进入名人堂！</span>
           </PopIn>
         )}
 
-        {stats.members.length === 0 ? (
-          <p className="text-mist">还没有成员加入，第一批成员正在路上。</p>
-        ) : (
-          <>
-            {achieved.length > 0 && (
-              <Reveal>
-                <section>
-                  <h2 className="text-2xl font-bold">
-                    万粉俱乐部
-                    <span className="accent-dot">。</span>
-                  </h2>
-                  <RevealGroup className="mt-5 space-y-4">
-                    {achieved.map((m) => (
-                      <RevealItem key={m.id}>
-                        <ClubMember member={m} />
-                      </RevealItem>
-                    ))}
-                  </RevealGroup>
-                </section>
-              </Reveal>
+        {/* 冲榜进行时：按最新粉丝数排名，前三名授予冠军/亚军/季军 */}
+        <Reveal>
+          <section>
+            <h2 className="text-2xl font-bold">
+              冲榜进行时
+              <span className="accent-dot">。</span>
+            </h2>
+            {chasing.length === 0 ? (
+              <p className="mt-4 text-mist">当前没有人正在冲榜。</p>
+            ) : (
+              <ol className="mt-5 space-y-3">
+                {chasing.map((m, i) => (
+                  <RevealItem key={m.id} y={16}>
+                    <ChasingMember member={m} rank={i + 1} podium={PODIUM[i]} />
+                  </RevealItem>
+                ))}
+              </ol>
             )}
-
-            <Reveal>
-              <section>
-                <h2 className="text-2xl font-bold">
-                  {achieved.length > 0 ? "冲刺中" : "增长榜"}
-                  <span className="accent-dot">。</span>
-                </h2>
-                {chasing.length === 0 ? (
-                  <p className="mt-4 text-mist">当前没有正在冲刺的成员。</p>
-                ) : (
-                  <RevealGroup className="mt-4 divide-y divide-line">
-                    {chasing.map((m, i) => (
-                      <RevealItem key={m.id} y={16}>
-                        <ChasingMember member={m} rank={i + 1} />
-                      </RevealItem>
-                    ))}
-                  </RevealGroup>
-                )}
-              </section>
-            </Reveal>
-          </>
-        )}
+          </section>
+        </Reveal>
 
         <Reveal>
           <section>
@@ -142,6 +146,25 @@ function DashboardPage() {
             )}
           </section>
         </Reveal>
+
+        {/* 名人堂：已达成万粉的成员，放最后作为荣誉区 */}
+        {hall.length > 0 && (
+          <Reveal>
+            <section>
+              <h2 className="text-2xl font-bold">
+                名人堂
+                <span className="accent-dot">。</span>
+              </h2>
+              <RevealGroup className="mt-5 space-y-4">
+                {hall.map((m) => (
+                  <RevealItem key={m.id}>
+                    <HallMember member={m} />
+                  </RevealItem>
+                ))}
+              </RevealGroup>
+            </section>
+          </Reveal>
+        )}
 
         <Reveal delay={0.1}>
           <section className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
@@ -180,10 +203,72 @@ function StatCard({ label, value, prefix = "" }: { label: string; value: number;
   );
 }
 
-function ClubMember({ member: m }: { member: MemberStats }) {
+/** 冲榜行：前三名带奖牌徽章与渐变底色，其余普通行 */
+function ChasingMember({
+  member: m,
+  rank,
+  podium,
+}: {
+  member: MemberStats;
+  rank: number;
+  podium?: (typeof PODIUM)[number];
+}) {
+  const delta = m.growth > 0 ? `+${fmt(m.growth)}` : fmt(m.growth);
+  const name = m.displayName ?? m.handle;
+  const toGoal = Math.max(0, (m.goal - (m.latestFollowers ?? 0)));
+  return (
+    <div
+      className={
+        podium
+          ? `card-lift flex items-center gap-3 rounded-2xl border p-4 sm:gap-4 sm:p-5 ${podium.ring}`
+          : "flex items-center gap-3 py-4 sm:gap-4"
+      }
+    >
+      {podium ? (
+        <div
+          className={`bg-gradient-to-br flex size-11 shrink-0 items-center justify-center rounded-full text-lg font-extrabold ${podium.rankNum}`}
+        >
+          {rank}
+        </div>
+      ) : (
+        <div className="w-6 shrink-0 text-mist tabular-nums">{rank}</div>
+      )}
+      <Avatar url={m.profileImage} name={name} className="size-10" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+            {name}
+          </Link>
+          {podium && (
+            <Badge className={`bg-gradient-to-r ${podium.badge} border-transparent`}>{podium.label}</Badge>
+          )}
+          <a
+            href={xProfileUrl(m.handle)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-mist text-sm underline-offset-4 hover:text-ink hover:underline"
+          >
+            @{m.handle}
+          </a>
+        </div>
+        <div className="mt-0.5 text-sm text-mist">
+          距万粉还差 {fmt(toGoal)} · 连胜 {m.streakDays} 天 · 7 天 +{fmt(m.growth7d)} · 30 天 +{fmt(m.growth30d)}
+        </div>
+        <GrowProgress value={m.progress} className="mt-2" />
+      </div>
+      <div className="shrink-0 text-right">
+        <div className="font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
+        <div className={`text-sm font-medium ${m.growth >= 0 ? "text-signal" : "text-fog"}`}>{delta}</div>
+      </div>
+    </div>
+  );
+}
+
+/** 名人堂行：已达成万粉的荣誉成员 */
+function HallMember({ member: m }: { member: MemberStats }) {
   const name = m.displayName ?? m.handle;
   return (
-    <div className="card-lift rounded-2xl border border-signal/20 bg-gradient-to-br from-signal/10 to-transparent p-5 sm:p-6">
+    <div className="card-lift rounded-2xl border border-line bg-surface p-5 sm:p-6">
       <div className="flex items-center gap-4">
         <Avatar url={m.profileImage} name={name} className="size-12" />
         <div className="min-w-0 flex-1">
@@ -211,36 +296,6 @@ function ClubMember({ member: m }: { member: MemberStats }) {
           <div className="text-xl font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
           <div className="text-sm font-medium text-signal">超目标 +{fmt(m.overflow)}</div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ChasingMember({ member: m, rank }: { member: MemberStats; rank: number }) {
-  const delta = m.growth > 0 ? `+${fmt(m.growth)}` : fmt(m.growth);
-  const name = m.displayName ?? m.handle;
-  return (
-    <div className="flex items-center gap-3 py-4">
-      <div className="w-6 shrink-0 text-mist tabular-nums">{rank}</div>
-      <Avatar url={m.profileImage} name={name} className="size-10" />
-      <div className="min-w-0 flex-1">
-        <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
-          {name}
-        </Link>
-        <a
-          href={xProfileUrl(m.handle)}
-          target="_blank"
-          rel="noreferrer"
-          className="text-mist block underline-offset-4 hover:text-ink hover:underline"
-        >
-          @{m.handle}
-        </a>
-        <div className="mt-1 text-sm text-mist">连续 {m.streakDays} 天 · 7 天 +{fmt(m.growth7d)} · 30 天 +{fmt(m.growth30d)}</div>
-        <GrowProgress value={m.progress} className="mt-2" />
-      </div>
-      <div className="shrink-0 text-right">
-        <div className="font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
-        <div className={`text-sm font-medium ${m.growth >= 0 ? "text-signal" : "text-fog"}`}>{delta}</div>
       </div>
     </div>
   );
