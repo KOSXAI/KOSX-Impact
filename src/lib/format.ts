@@ -9,7 +9,15 @@ export function fmtDate(iso: string): string {
 }
 
 export function badge(threshold: number): string {
-  return threshold >= 10000 ? "10K" : threshold >= 1000 ? `${threshold / 1000}K` : String(threshold);
+  if (threshold >= 10000) {
+    const w = threshold / 10000;
+    return `${Number.isInteger(w) ? w : w.toFixed(1)}万`;
+  }
+  if (threshold >= 1000) {
+    const k = threshold / 1000;
+    return `${Number.isInteger(k) ? k : k.toFixed(1)}千`;
+  }
+  return String(threshold);
 }
 
 /** 达成后的下一站目标：向上取整到 5000 倍数 */

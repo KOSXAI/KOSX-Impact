@@ -27,6 +27,7 @@
     "@tanstack/react-router": "^1.170.32",
     "@tanstack/react-start": "^1.168.49",
     "hono": "^4.13.5",
+    "motion": "^13.2.0",
     "radix-ui": "^1.6.7",
     "recharts": "^3.8.0"
   },

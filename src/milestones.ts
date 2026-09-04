@@ -3,7 +3,7 @@ export interface MilestoneEvent {
   achievedAt: string;
 }
 
-/** Road to 10K 的标准里程碑档位 */
+/** 万粉影响力计划的标准里程碑档位 */
 const STANDARD_THRESHOLDS = [1000, 2500, 5000, 7500, 10000];
 
 /** 给定个人目标，返回应追踪的里程碑档位（标准档位 + 个人目标本身，去重升序） */

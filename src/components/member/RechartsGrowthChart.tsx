@@ -35,7 +35,7 @@ export default function RechartsGrowthChart({
     const span = Math.max(max - min, 1);
     // 目标线固定在图内上沿 8% 处（超出可视范围时仍在图内可见）
     const goalY = includeGoal ? goal : min + span * 0.92;
-    const goalLabel = includeGoal ? `目标 ${fmt(goal)}` : `目标 ${fmt(goal)}（远在图外）`;
+    const goalLabel = `目标 ${fmt(goal)}`;
     return {
       data: snapshots.map((s) => ({ date: s.recordedAt.slice(5, 10), followers: s.followers })),
       goalY,
@@ -47,7 +47,7 @@ export default function RechartsGrowthChart({
     <ChartContainer config={chartConfig} className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 16, right: 16, bottom: 4, left: 8 }}>
-          <CartesianGrid vertical={false} strokeDasharray="4 4" />
+          <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" />
           <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
           <YAxis
             domain={["dataMin - 10%", "dataMax + 15%"]}
@@ -64,7 +64,7 @@ export default function RechartsGrowthChart({
             y={goalY ?? undefined}
             strokeDasharray="4 4"
             stroke="var(--muted-foreground)"
-            label={{ value: goalLabel, position: "insideTopRight", fontSize: 10, fill: "var(--muted-foreground)" }}
+            label={{ value: goalLabel, position: "insideTopRight", fontSize: 12, fill: "var(--muted-foreground)" }}
           />
           <Line
             dataKey="followers"

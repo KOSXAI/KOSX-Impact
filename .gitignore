@@ -6,3 +6,6 @@ coverage/
 .DS_Store
 *.log
 routeTree.gen.ts
+
+# ZCode 工作区工具产物
+.zcode/
