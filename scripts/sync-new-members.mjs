@@ -1,5 +1,6 @@
 // 新成员入职同步：名册中还没有历史快照的成员（新增的），从 SocialData 拉取
-// 当前粉丝数与头像，生成 members INSERT + 当日快照 + 头像 UPDATE，输出到 /tmp/onboard.sql
+// 当前粉丝数、X 显示名与头像，生成 members INSERT + 当日快照 + 头像 UPDATE，
+// 输出到 /tmp/onboard.sql；显示名同时回写进名册（事实来源保持完整，随 PR 一并提交）
 // 用法：node scripts/sync-new-members.mjs && wrangler d1 execute kosx-impact --remote --file=/tmp/onboard.sql
 import { readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -8,7 +9,8 @@ import { fileURLToPath } from "node:url";
 import { ProxyAgent } from "undici";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const roster = JSON.parse(readFileSync(resolve(root, "data/members.json"), "utf-8")).members;
+const rosterDoc = JSON.parse(readFileSync(resolve(root, "data/members.json"), "utf-8"));
+const roster = rosterDoc.members;
 const apiKey = readFileSync(resolve(root, ".dev.vars"), "utf-8").match(/SOCIALDATA_API_KEY=(\S+)/)?.[1];
 if (!apiKey) throw new Error("SOCIALDATA_API_KEY not found in .dev.vars");
 
@@ -31,6 +33,7 @@ const proxy = process.env.HTTP_PROXY || "http://127.0.0.1:7890";
 const dispatcher = new ProxyAgent(proxy);
 const now = new Date().toISOString();
 const sql = [];
+let nameBackfilled = 0;
 
 for (let i = 0; i < pending.length; i++) {
   const m = pending[i];
@@ -46,11 +49,25 @@ for (let i = 0; i < pending.length; i++) {
   const data = await res.json();
   const followers = data.followers_count;
   const img = data.profile_image_url_https?.replace("_normal.", "_400x400.");
-  console.log(`✓ @${m.handle} -> ${followers} 粉`);
+  // 姓名：名册没填时用 X 显示名补齐——名册是事实来源，若名册留空，
+  // 下次采集同步（syncRoster）会用 NULL 覆盖数据库里的昵称，看板就退化成 handle
+  if (!m.displayName && data.name) {
+    m.displayName = data.name;
+    nameBackfilled++;
+  }
+  const name = m.displayName ?? null;
+  const nameSql = name ? `'${String(name).replace(/'/g, "''")}'` : "NULL";
+  console.log(`✓ @${m.handle} -> ${followers} 粉${name ? ` · ${name}` : "（无显示名，请人工补充 displayName）"}`);
   sql.push(
-    `INSERT INTO members (id, handle, display_name, status, goal, joined_at, profile_image) VALUES ('${m.id}', '${m.handle}', NULL, 'active', ${m.goal ?? 10000}, '${m.joinedAt}', ${img ? `'${img}'` : "NULL"})\n  ON CONFLICT(id) DO UPDATE SET handle = excluded.handle, profile_image = excluded.profile_image;`,
+    `INSERT INTO members (id, handle, display_name, status, goal, joined_at, profile_image) VALUES ('${m.id}', '${m.handle}', ${nameSql}, 'active', ${m.goal ?? 10000}, '${m.joinedAt}', ${img ? `'${img}'` : "NULL"})\n  ON CONFLICT(id) DO UPDATE SET handle = excluded.handle, display_name = excluded.display_name, profile_image = excluded.profile_image;`,
     `INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('${m.id}', ${followers}, '${now}');`
   );
+}
+
+// 回写名册：补到的显示名随本 PR 一并提交，保持可审查、与数据库一致
+if (nameBackfilled > 0) {
+  writeFileSync(resolve(root, "data/members.json"), JSON.stringify(rosterDoc, null, 2) + "\n");
+  console.log(`\n名册已回写 ${nameBackfilled} 个显示名（data/members.json，随本次 PR 提交）`);
 }
 
 writeFileSync("/tmp/onboard.sql", sql.join("\n\n") + "\n");

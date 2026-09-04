@@ -33,5 +33,5 @@ for (const m of roster.members) {
 }
 
 const sql = updates.join("\n") + "\n";
-writeFileSync(resolve(root, "/tmp/backfill-avatars.sql"), sql);
+writeFileSync("/tmp/backfill-avatars.sql", sql);
 console.log(`\n${updates.length} rows -> /tmp/backfill-avatars.sql`);
