@@ -12,7 +12,7 @@ export const Route = createFileRoute("/about")({
       { property: "og:title", content: `关于 · ${SITE_NAME}` },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "https://10k.kosx.ai/og.svg" },
+      { property: "og:image", content: "https://10k.kosx.ai/og.svg?v=2" },
     ],
   }),
   component: AboutPage,
