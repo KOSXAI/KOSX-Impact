@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
+import { TierBadge } from "@/components/member/TierBadge";
 import { ArrowUpRight } from "lucide-react";
-import { fmt, fmtDate, badge, nextGoal } from "@/lib/format";
+import { fmt, fmtDate, badge } from "@/lib/format";
 import { GITHUB_APPLY_URL, SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +31,9 @@ export const Route = createFileRoute("/")({
   component: DashboardPage,
 });
 
-type TabKey = "chasing" | "hall" | "milestones";
+type TabKey = "leaderboard" | "growth" | "climbs";
 
-/** 冲榜前三的荣誉样式：冠军/亚军/季军（奖牌渐变 + 榜位徽章） */
+/** 总排行前三的荣誉样式：冠军/亚军/季军（奖牌渐变 + 榜位徽章） */
 const PODIUM = [
   {
     label: "冠军",
@@ -56,28 +57,26 @@ const PODIUM = [
 
 function DashboardPage() {
   const stats = Route.useLoaderData();
-  // 冲榜按最新粉丝数从高到低（用户规则）；已达成个人目标的进名人堂
-  const chasing = stats.members
-    .filter((m) => !m.achieved)
-    .sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
-  const hall = stats.members
-    .filter((m) => m.achieved)
-    .sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
+  // 总排行：最新粉丝量从高到低（stats.members 已按此排序）
+  const leaderboard = stats.members;
+  // 成长榜：近 30 天增长优先，其次近 7 天、累计增长——小账号也有机会登顶
+  const growth = [...stats.members].sort(
+    (a, b) => b.growth30d - a.growth30d || b.growth7d - a.growth7d || b.growth - a.growth
+  );
   const latest = stats.recentMilestones[0];
   const justAchieved = latest && latest.achievedAt.slice(0, 10) >= new Date().toISOString().slice(0, 10);
 
-  const [tab, setTab] = useState<TabKey>("chasing");
+  const [tab, setTab] = useState<TabKey>("leaderboard");
   const tabs: Array<{ key: TabKey; label: string; count: number }> = [
-    { key: "chasing", label: "冲榜进行时", count: chasing.length },
-    { key: "hall", label: "名人堂", count: hall.length },
-    { key: "milestones", label: "最近里程碑", count: stats.recentMilestones.length },
+    { key: "leaderboard", label: "总排行", count: leaderboard.length },
+    { key: "growth", label: "成长榜", count: growth.length },
+    { key: "climbs", label: "登阶记录", count: stats.recentMilestones.length },
   ];
 
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
-      <Reveal className="flex flex-col gap-3" y={18}>
+      <Reveal y={18}>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{SITE_NAME}</h1>
-        <p className="max-w-xl text-base text-mist">{SLOGAN}</p>
       </Reveal>
 
       {/* 数据卡与 CTA 全局：Tab 只切换榜单视图，页面长度与成员数量无关 */}
@@ -89,7 +88,7 @@ function DashboardPage() {
           <StatCard label="累计增长" value={stats.totalGrowth} prefix="+" />
         </RevealItem>
         <RevealItem>
-          <StatCard label="里程碑" value={stats.totalMilestones} />
+          <StatCard label="登阶成就" value={stats.totalMilestones} />
         </RevealItem>
         <RevealItem>
           <StatCard label="追踪成员" value={stats.members.length} />
@@ -98,15 +97,15 @@ function DashboardPage() {
 
       {justAchieved && (
         <PopIn className="mt-8 flex items-center gap-2 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">
-          <span>恭喜</span>
+          <span>🎉 恭喜</span>
           <Link to="/members/$id" params={{ id: latest.memberId }} className="font-semibold underline-offset-4 hover:underline">
             {latest.displayName ?? latest.handle}
           </Link>
-          <span>达成 {badge(latest.threshold)}，进入名人堂！</span>
+          <span>登上 {badge(latest.threshold)} 台阶</span>
         </PopIn>
       )}
 
-      {/* Tab 切换：冲榜 / 名人堂 / 里程碑 */}
+      {/* Tab 切换：总排行 / 成长榜 / 登阶记录 */}
       <div className="mt-10 inline-flex items-center gap-1 rounded-full border border-line bg-soft-surface p-1">
         {tabs.map((t) => (
           <button
@@ -124,9 +123,9 @@ function DashboardPage() {
       </div>
 
       <main key={tab} className="tab-in mt-6">
-        {tab === "chasing" && <ChasingList members={chasing} />}
-        {tab === "hall" && <HallList members={hall} />}
-        {tab === "milestones" && <MilestoneList stats={stats} />}
+        {tab === "leaderboard" && <LeaderboardList members={leaderboard} />}
+        {tab === "growth" && <GrowthList members={growth} />}
+        {tab === "climbs" && <ClimbsList stats={stats} />}
       </main>
 
       <Reveal delay={0.1}>
@@ -162,21 +161,21 @@ function StatCard({ label, value, prefix = "" }: { label: string; value: number;
   );
 }
 
-function ChasingList({ members }: { members: MemberStats[] }) {
-  if (members.length === 0) return <p className="text-mist">当前没有人正在冲榜。</p>;
+function LeaderboardList({ members }: { members: MemberStats[] }) {
+  if (members.length === 0) return <p className="text-mist">还没有成员上榜。</p>;
   return (
     <ol className="space-y-3">
       {members.map((m, i) => (
         <RevealItem key={m.id} y={16}>
-          <ChasingMember member={m} rank={i + 1} podium={PODIUM[i]} />
+          <LeaderboardMember member={m} rank={i + 1} podium={PODIUM[i]} />
         </RevealItem>
       ))}
     </ol>
   );
 }
 
-/** 冲榜行：前三名带奖牌徽章与渐变底色，其余普通行 */
-function ChasingMember({
+/** 总排行行：前三名带奖牌徽章与渐变底色；右侧粉丝量 + 距下一台阶进度 */
+function LeaderboardMember({
   member: m,
   rank,
   podium,
@@ -185,9 +184,7 @@ function ChasingMember({
   rank: number;
   podium?: (typeof PODIUM)[number];
 }) {
-  const delta = m.growth > 0 ? `+${fmt(m.growth)}` : fmt(m.growth);
   const name = m.displayName ?? m.handle;
-  const toGoal = Math.max(0, m.goal - (m.latestFollowers ?? 0));
   return (
     <div
       className={
@@ -214,80 +211,80 @@ function ChasingMember({
           {podium && (
             <Badge className={`bg-gradient-to-r ${podium.badge} border-transparent`}>{podium.label}</Badge>
           )}
+          <TierBadge tierKey={m.tierKey} tierName={m.tierName} />
           <a
             href={xProfileUrl(m.handle)}
             target="_blank"
             rel="noreferrer"
-            className="text-mist text-sm underline-offset-4 hover:text-ink hover:underline"
+            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
           >
             @{m.handle}
           </a>
         </div>
-        <div className="mt-0.5 text-sm text-mist">
-          距目标还差 {fmt(toGoal)} · 连胜 {m.streakDays} 天 · 7 天 +{fmt(m.growth7d)} · 30 天 +{fmt(m.growth30d)}
-        </div>
-        <GrowProgress value={m.progress} className="mt-2" />
       </div>
-      <div className="shrink-0 text-right">
+      <div className="flex w-40 shrink-0 flex-col items-end gap-1.5">
         <div className="font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
-        <div className={`text-sm font-medium ${m.growth >= 0 ? "text-signal" : "text-fog"}`}>{delta}</div>
+        <div className="flex w-full items-center gap-2">
+          <GrowProgress value={m.progressToNext} className="flex-1" />
+          <span className="text-xs tabular-nums text-mist">{badge(m.nextTier)}</span>
+        </div>
       </div>
     </div>
   );
 }
 
-function HallList({ members }: { members: MemberStats[] }) {
-  if (members.length === 0) return <p className="text-mist">万粉名人堂虚位以待，第一位冲线者将在这里留名。</p>;
+function GrowthList({ members }: { members: MemberStats[] }) {
+  if (members.length === 0) return <p className="text-mist">还没有成员上榜。</p>;
   return (
-    <div className="space-y-4">
-      {members.map((m) => (
-        <RevealItem key={m.id}>
-          <HallMember member={m} />
+    <ol className="space-y-3">
+      {members.map((m, i) => (
+        <RevealItem key={m.id} y={16}>
+          <GrowthMember member={m} rank={i + 1} />
         </RevealItem>
       ))}
-    </div>
+    </ol>
   );
 }
 
-/** 名人堂行：已达成个人目标的荣誉成员 */
-function HallMember({ member: m }: { member: MemberStats }) {
+/** 成长榜行：按近 30 天增长排序，小账号也有机会登顶 */
+function GrowthMember({ member: m, rank }: { member: MemberStats; rank: number }) {
   const name = m.displayName ?? m.handle;
   return (
-    <div className="card-lift rounded-2xl border border-line bg-surface p-5 sm:p-6">
-      <div className="flex items-center gap-4">
-        <Avatar url={m.profileImage} name={name} className="size-12" />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <Link to="/members/$id" params={{ id: m.id }} className="text-lg font-semibold underline-offset-4 hover:underline">
-              {name}
-            </Link>
-            <Badge>已达成 {badge(m.goal)}</Badge>
-          </div>
+    <div className="flex items-center gap-3 py-4 sm:gap-4">
+      <div className="w-6 shrink-0 text-mist tabular-nums">{rank}</div>
+      <Avatar url={m.profileImage} name={name} className="size-10" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+            {name}
+          </Link>
+          <TierBadge tierKey={m.tierKey} tierName={m.tierName} />
           <a
             href={xProfileUrl(m.handle)}
             target="_blank"
             rel="noreferrer"
-            className="text-mist underline-offset-4 hover:text-ink hover:underline"
+            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
           >
             @{m.handle}
           </a>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-        <div className="text-sm text-mist">
-          下一站 {badge(nextGoal(m.goal))} · 连胜 {m.streakDays} 天 · 30 天 +{fmt(m.growth30d)}
+      <div className="flex shrink-0 items-center gap-6">
+        <div className="text-right">
+          <div className="font-bold tabular-nums text-signal">+{fmt(m.growth7d)}</div>
+          <div className="text-xs text-mist">近 7 天</div>
         </div>
         <div className="text-right">
-          <div className="text-xl font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
-          <div className="text-sm font-medium text-signal">超目标 +{fmt(m.overflow)}</div>
+          <div className="font-bold tabular-nums text-signal">+{fmt(m.growth30d)}</div>
+          <div className="text-xs text-mist">近 30 天</div>
         </div>
       </div>
     </div>
   );
 }
 
-function MilestoneList({ stats }: { stats: DashboardStats }) {
-  if (stats.recentMilestones.length === 0) return <p className="text-mist">还没有里程碑，第一个千粉正在路上。</p>;
+function ClimbsList({ stats }: { stats: DashboardStats }) {
+  if (stats.recentMilestones.length === 0) return <p className="text-mist">还没有登阶记录，第一枚成就正在路上。</p>;
   return (
     <div className="divide-y divide-line">
       {stats.recentMilestones.map((m) => (

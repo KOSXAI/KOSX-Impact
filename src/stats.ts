@@ -1,9 +1,11 @@
 import type { RosterFile } from "./roster";
+import { nextThreshold, prevThreshold, progressToNext, tierOf, UNIFORM_THRESHOLDS } from "./milestones";
 
 export interface MemberStats {
   id: string;
   handle: string;
   displayName: string | null;
+  /** 个人目标字段（历史遗留，UI 已改用下一台阶，保留仅为兼容采集预聚合） */
   goal: number;
   joinedAt: string;
   /** X 公开头像 URL（来自最近一次采集），无头像为 null */
@@ -13,9 +15,9 @@ export interface MemberStats {
   latestRecordedAt: string | null;
   /** 相对加入时基线的增长（无基线时取 0） */
   growth: number;
-  /** 相对基线的进度百分比（0-100，超过 100 封顶） */
+  /** 相对个人目标的旧式进度（0-100，UI 不再展示） */
   progress: number;
-  /** 连续有快照的天数（含最新一天） */
+  /** 连续有快照的天数（采集器健康度，UI 不再展示） */
   streakDays: number;
   /** 最近 7 天（含最新一天）的粉丝增长 */
   growth7d: number;
@@ -23,10 +25,19 @@ export interface MemberStats {
   growth30d: number;
   /** 最近一次采集距今天数（null 表示从未采集） */
   daysSinceUpdate: number | null;
-  /** 是否已达成个人目标（latestFollowers >= goal） */
+  /** 是否已达成个人目标（历史遗留，UI 已改用段位） */
   achieved: boolean;
-  /** 达成目标后超出目标的部分（未达成时为 0） */
+  /** 达成目标后超出目标的部分（历史遗留） */
   overflow: number;
+  /** 段位（量级身份徽章） */
+  tierKey: string;
+  tierName: string;
+  /** 当前台阶起点（低于首档时为 0） */
+  prevTier: number;
+  /** 下一级台阶（下一枚成就） */
+  nextTier: number;
+  /** 距下一级台阶的完成度（0-100） */
+  progressToNext: number;
 }
 
 /** 预聚合字段（来自 daily_stats）：直传绕过窗口重算 */
@@ -107,6 +118,8 @@ export function computeMemberStats(
   const baseline = baselineFollowers ?? snapshots[0]?.followers ?? null;
   const growth = latest ? latest.followers - (baseline ?? 0) : 0;
   const progress = latest ? Math.min(100, Math.round((growth / member.goal) * 100)) : 0;
+  const followers = latest?.followers ?? 0;
+  const tier = tierOf(followers);
 
   return {
     id: member.id,
@@ -126,6 +139,11 @@ export function computeMemberStats(
     daysSinceUpdate: latest ? daysBetween(latest.recordedAt, now) : null,
     achieved: (latest?.followers ?? 0) >= member.goal,
     overflow: latest && latest.followers > member.goal ? latest.followers - member.goal : 0,
+    tierKey: tier.key,
+    tierName: tier.name,
+    prevTier: prevThreshold(followers),
+    nextTier: nextThreshold(followers),
+    progressToNext: progressToNext(followers),
   };
 }
 
@@ -185,17 +203,21 @@ export function computeDashboardStats(
 
   const totalFollowers = members.reduce((sum, m) => sum + (m.latestFollowers ?? 0), 0);
   const totalGrowth = members.reduce((sum, m) => sum + m.growth, 0);
-  const recentMilestones = [...milestones]
+
+  // 登阶记录只认均匀成就阶梯上的档位（旧阶梯档位不再展示）
+  const ladderSet = new Set(UNIFORM_THRESHOLDS);
+  const ladderMilestones = milestones.filter((m) => ladderSet.has(m.threshold));
+  const recentMilestones = [...ladderMilestones]
     .sort((a, b) => b.achievedAt.localeCompare(a.achievedAt))
     .slice(0, 10);
 
-  // 冲刺榜按「和自己比」的进步排序：进度百分比优先，其次近期增长——不是绝对粉丝量
-  members.sort((a, b) => b.progress - a.progress || b.growth30d - a.growth30d || b.growth - a.growth);
+  // 总排行按最新粉丝量从高到低；成长榜视角由前端按近期增长另行排序
+  members.sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
 
   return {
     totalFollowers,
     totalGrowth,
-    totalMilestones: milestones.length,
+    totalMilestones: ladderMilestones.length,
     members,
     recentMilestones,
   };

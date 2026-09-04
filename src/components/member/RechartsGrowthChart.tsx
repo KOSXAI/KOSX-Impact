@@ -13,15 +13,15 @@ type Snapshot = { followers: number; recordedAt: string };
 
 const chartConfig = {
   followers: { label: "粉丝量", color: "var(--chart-1)" },
-  goal: { label: "目标" },
+  nextTier: { label: "下一台阶" },
 } satisfies ChartConfig;
 
 export default function RechartsGrowthChart({
   snapshots,
-  goal,
+  nextTier,
 }: {
   snapshots: Snapshot[];
-  goal: number;
+  nextTier: number;
 }) {
   const { data, goalY, goalLabel } = useMemo(() => {
     if (snapshots.length === 0) return { data: [], goalY: null as number | null, goalLabel: "" };
@@ -29,19 +29,19 @@ export default function RechartsGrowthChart({
     const dataMin = Math.min(...values);
     const dataMax = Math.max(...values);
     const dataSpan = Math.max(dataMax - dataMin, 1);
-    const includeGoal = goal > dataMax && goal - dataMax < dataSpan * 2;
+    const includeGoal = nextTier > dataMax && nextTier - dataMax < dataSpan * 2;
     const min = dataMin - dataSpan * 0.1;
-    const max = includeGoal ? goal : dataMax + dataSpan * 0.15;
+    const max = includeGoal ? nextTier : dataMax + dataSpan * 0.15;
     const span = Math.max(max - min, 1);
     // 目标线固定在图内上沿 8% 处（超出可视范围时仍在图内可见）
-    const goalY = includeGoal ? goal : min + span * 0.92;
-    const goalLabel = `目标 ${fmt(goal)}`;
+    const goalY = includeGoal ? nextTier : min + span * 0.92;
+    const goalLabel = `下一台阶 ${fmt(nextTier)}`;
     return {
       data: snapshots.map((s) => ({ date: s.recordedAt.slice(5, 10), followers: s.followers })),
       goalY,
       goalLabel,
     };
-  }, [snapshots, goal]);
+  }, [snapshots, nextTier]);
 
   return (
     <ChartContainer config={chartConfig} className="h-full w-full">

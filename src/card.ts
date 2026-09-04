@@ -1,5 +1,6 @@
 import type { MemberStats } from "./stats";
-import { badge, nextGoal } from "./lib/format";
+import { badge, fmt, fmtDate } from "./lib/format";
+import { TIER_STYLE } from "./milestones";
 import { SITE_URL } from "./lib/site";
 
 /**
@@ -20,34 +21,23 @@ function esc(s: string): string {
   });
 }
 
-function fmt(n: number): string {
+function fmtN(n: number): string {
   return n.toLocaleString("zh-CN");
-}
-
-function fmtDate(iso: string): string {
-  return iso.slice(0, 10);
 }
 
 const W = 600;
 const H = 200;
 
-/** 单成员进度卡片（SVG）。streak 为连续更新天数。 */
+/** 单成员进度卡片（SVG）：段位徽章 + 距下一台阶的进度，永远有下一站 */
 export function renderMemberCard(member: MemberStats): string {
   const name = member.displayName ?? member.handle;
   const current = member.latestFollowers ?? 0;
-  const achieved = member.achieved;
-  const progress = member.progress;
+  const progress = member.progressToNext;
   const barWidth = Math.max(2, Math.min(100, progress)) * 3.2; // 内宽 ~320px
+  const toNext = Math.max(0, member.nextTier - current);
+  const tierFill = (TIER_STYLE[member.tierKey] ?? TIER_STYLE.seed).fill;
 
   const gradientId = `g${member.id.replace(/[^a-z0-9]/gi, "")}`;
-
-  const statsRow = achieved
-    ? `<text x="32" y="128" class="muted">超目标 <tspan class="signal">+${fmt(member.overflow)}</tspan> · 连胜 ${member.streakDays} 天 · 下一站 ${badge(nextGoal(member.goal))}</text>`
-    : `<text x="32" y="128" class="muted">距目标还差 ${fmt(Math.max(0, member.goal - current))} · 连胜 ${member.streakDays} 天 · 7 天 +${fmt(member.growth7d)}</text>`;
-
-  const footer = achieved
-    ? `<text x="32" y="172" class="trophy">已达成 ${badge(member.goal)} · 万粉俱乐部</text>`
-    : `<text x="32" y="172" class="trophy">迈向 ${badge(member.goal)} · KOSX 万粉影响力计划</text>`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(name)} 的万粉影响力进度卡片">
   <defs>
@@ -57,7 +47,7 @@ export function renderMemberCard(member: MemberStats): string {
     </linearGradient>
   </defs>
   <style>
-    .bg { fill: #0a0a0a; stroke: ${achieved ? "#6b3a12" : "#2a2a2e"}; stroke-width: 1.5; }
+    .bg { fill: #0a0a0a; stroke: #2a2a2e; stroke-width: 1.5; }
     .name { font: 700 22px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #f7f7f5; }
     .handle { font: 400 13px -apple-system, sans-serif; fill: #9a9a9f; }
     .num { font: 800 30px -apple-system, sans-serif; fill: #f7f7f5; }
@@ -67,22 +57,22 @@ export function renderMemberCard(member: MemberStats): string {
     .trophy { font: 600 13px -apple-system, "PingFang SC", sans-serif; fill: #ff6a00; }
     .track { fill: #2a2a2e; }
     .badge { font: 700 11px -apple-system, sans-serif; fill: #0a0a0a; }
-    .badgebg { fill: ${achieved ? "#ff6a00" : "#f7f7f5"}; }
+    .badgebg { fill: ${tierFill}; }
   </style>
   <rect class="bg" x="1" y="1" width="${W - 2}" height="${H - 2}" rx="14"/>
   <text x="32" y="46" class="name">${esc(name)}</text>
   <text x="32" y="68" class="handle">@${esc(member.handle)}</text>
   <g transform="translate(${W - 150}, 24)">
     <rect class="badgebg" x="0" y="0" width="118" height="22" rx="11"/>
-    <text x="59" y="15" text-anchor="middle" class="badge">${achieved ? "已达成目标 🏆" : `${progress}% / 100%`}</text>
+    <text x="59" y="15" text-anchor="middle" class="badge">${esc(member.tierName)}</text>
   </g>
-  <text x="${W - 32}" y="86" text-anchor="end" class="num">${fmt(current)}</text>
+  <text x="${W - 32}" y="86" text-anchor="end" class="num">${fmtN(current)}</text>
   <text x="${W - 32}" y="104" text-anchor="end" class="numsub">粉丝</text>
   <rect class="track" x="32" y="88" width="320" height="8" rx="4"/>
-  <rect x="32" y="88" width="${achieved ? 320 : barWidth}" height="8" rx="4" fill="url(#${gradientId})"/>
-  <text x="32" y="112" class="muted">${achieved ? "目标已达成，继续前进" : `${esc(fmt(member.baselineFollowers ?? 0))} → ${esc(fmt(member.goal))}`}</text>
-  ${statsRow}
-  ${footer}
+  <rect x="32" y="88" width="${barWidth}" height="8" rx="4" fill="url(#${gradientId})"/>
+  <text x="32" y="112" class="muted">台阶 ${badge(member.prevTier)} → ${badge(member.nextTier)}</text>
+  <text x="32" y="128" class="muted">距 ${badge(member.nextTier)} 还差 <tspan class="signal">${fmtN(toNext)}</tspan></text>
+  <text x="32" y="172" class="trophy">迈向 ${badge(member.nextTier)} · KOSX 万粉影响力计划</text>
   <text x="${W - 32}" y="172" text-anchor="end" class="handle">${SITE_URL.replace("https://", "")} · 加入于 ${fmtDate(member.joinedAt)}</text>
 </svg>`;
 }
@@ -94,6 +84,7 @@ export function renderNotFoundCard(id: string): string {
   <text x="${W / 2}" y="${H / 4}" text-anchor="middle" font="400 15px sans-serif" fill="#9a9a9f">未找到成员 ${esc(id)} · ${SITE_URL.replace("https://", "")}</text>
 </svg>`;
 }
+
 /** 站点 OG 卡：社群总量 + 成员数（分享首页/关于页到社媒时的预览图） */
 export function renderSiteOgCard(totalFollowers: number, memberCount: number): string {
   const gid = "oggrad";
@@ -115,7 +106,7 @@ export function renderSiteOgCard(totalFollowers: number, memberCount: number): s
   <rect x="1" y="1" width="598" height="298" rx="14" fill="none" stroke="#2a2a2e" stroke-width="1.5"/>
   <text x="40" y="72" class="title">KOSX 万粉影响力计划</text>
   <text x="40" y="102" class="tag">迈向万粉，看见成长</text>
-  <text x="40" y="180" class="num">${fmt(totalFollowers)}</text>
+  <text x="40" y="180" class="num">${fmtN(totalFollowers)}</text>
   <text x="40" y="204" class="lbl">社群总粉丝 · ${memberCount} 位成员被追踪</text>
   <text x="40" y="262" class="url">${SITE_URL.replace("https://", "")}</text>
 </svg>`;

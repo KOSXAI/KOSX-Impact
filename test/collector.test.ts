@@ -81,18 +81,21 @@ describe("collectWithSource", () => {
     expect(stats.achieved).toBe(0);
   });
 
-  it("跨过阈值时写入里程碑", async () => {
+  it("跨过阈值时写入登阶事件", async () => {
     await seedBaselines();
-    // alice: 900 → 1500 跨过 1000；bob: 1200 → 1300 无跨档
+    // alice: 900 → 1500 跨过 1000 与 1500；bob: 1200 → 1300 无跨档
     await collectWithSource(env, stubSource({
       alice_x: { followers: 1500 },
       bob_x: { followers: 1300 },
     }), testRoster, undefined, 0);
 
     const { results } = await env.DB.prepare(
-      "SELECT member_id, threshold FROM milestones ORDER BY member_id"
+      "SELECT member_id, threshold FROM milestones ORDER BY threshold"
     ).all();
-    expect(results).toEqual([{ member_id: "alice", threshold: 1000 }]);
+    expect(results).toEqual([
+      { member_id: "alice", threshold: 1000 },
+      { member_id: "alice", threshold: 1500 },
+    ]);
   });
 
   it("部分成员失败不影响其他成员", async () => {

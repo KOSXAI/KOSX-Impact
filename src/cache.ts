@@ -51,10 +51,10 @@ export async function purgeReadCaches(
 ): Promise<void> {
   const cache = (caches as unknown as { default: Cache }).default;
   const paths = [
-    "/api/dashboard?v=8",
-    "/api/members?v=8",
+    "/api/dashboard?v=9",
+    "/api/members?v=9",
     "/og.svg",
-    ...memberIds.map((id) => `/api/members/${id}?v=8`),
+    ...memberIds.map((id) => `/api/members/${id}?v=9`),
   ];
   await Promise.all(
     baseUrls.flatMap((base) =>

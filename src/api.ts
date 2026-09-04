@@ -13,7 +13,7 @@ export const api = new Hono<{ Bindings: Env }>();
 // 健康检查：供 CI 与监控探活使用
 api.get("/api/health", (c) => c.json({ ok: true, now: new Date().toISOString() }));
 
-// 看板统计：社群总量 + 增长榜 + 最近里程碑（API 与首页 SSR 共用 queries.ts 的缓存）
+// 看板统计：社群总量 + 总排行 + 登阶记录（API 与首页 SSR 共用 queries.ts 的缓存）
 api.get("/api/dashboard", async (c) => {
   const stats = await getDashboardStats(c.env);
   return c.json(stats);
@@ -21,7 +21,7 @@ api.get("/api/dashboard", async (c) => {
 
 // 成员列表，附带每人最新一次快照的粉丝量
 api.get("/api/members", async (c) => {
-  return cachedResponse(c.req.raw, 3600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}/api/members?v=9`), 3600, async () => {
     const { results } = await c.env.DB.prepare(
       `SELECT
          m.id, m.handle, m.display_name, m.goal, m.joined_at,
@@ -38,7 +38,7 @@ api.get("/api/members", async (c) => {
   });
 });
 
-// 单个成员的成长曲线与里程碑（API 与成员页 SSR 共用 queries.ts 的缓存）
+// 单个成员的成长曲线与登阶记录（API 与成员页 SSR 共用 queries.ts 的缓存）
 api.get("/api/members/:id", async (c) => {
   const detail = await getMemberDetail(c.env, c.req.param("id") ?? "");
   if (!detail) return c.json({ error: "member not found" }, 404);
