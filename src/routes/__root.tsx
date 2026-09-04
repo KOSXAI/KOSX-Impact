@@ -40,7 +40,7 @@ function GlobalNotFound() {
     <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <h1 className="text-3xl font-bold">
         页面不存在
-        <span className="accent-dot">。</span>
+
       </h1>
       <p className="mt-4">
         <Link to="/" className="text-mist underline-offset-4 hover:text-ink hover:underline">

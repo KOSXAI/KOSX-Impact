@@ -122,9 +122,13 @@
   }
 }
 
-/* 官网招牌细节：标题末尾的点用信号橙强调 */
-@utility accent-dot {
-  @apply text-signal;
+/* Tab 内容切换入场（轻上浮淡入，SSR 安全：纯 CSS 动画） */
+@keyframes tab-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@utility tab-in {
+  animation: tab-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ===== View Transitions：页面切换过渡（仅 SPA 导航触发，不支持时自动回退） ===== */

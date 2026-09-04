@@ -24,7 +24,7 @@ function AboutPage() {
       <Reveal className="flex flex-col gap-3" y={18}>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
           关于 {SITE_NAME}
-          <span className="accent-dot">。</span>
+
         </h1>
         <p className="text-base text-mist">{SLOGAN}</p>
         <Link to="/" className="text-mist underline-offset-4 hover:text-ink hover:underline">
@@ -37,7 +37,7 @@ function AboutPage() {
           <section>
             <h2 className="text-2xl font-bold">
               这是什么
-              <span className="accent-dot">。</span>
+
             </h2>
             <p className="mt-3 max-w-2xl leading-relaxed text-mist">
               一块追踪 KOSX 成员在 X 上公开成长数据（粉丝量与里程碑）的看板。
@@ -50,7 +50,7 @@ function AboutPage() {
           <section>
             <h2 className="text-2xl font-bold">
               数据来源
-              <span className="accent-dot">。</span>
+
             </h2>
             <ul className="mt-3 max-w-2xl space-y-3 leading-relaxed text-mist">
               <li>数据全部来自成员 X 账号的公开信息（粉丝量等），不含任何私密数据。</li>
@@ -65,7 +65,7 @@ function AboutPage() {
           <section>
             <h2 className="text-2xl font-bold">
               榜单怎么排
-              <span className="accent-dot">。</span>
+
             </h2>
             <p className="mt-3 max-w-2xl leading-relaxed text-mist">
               按「和自己比」的进步排序：目标进度优先，其次近期三十天增长。
@@ -79,7 +79,7 @@ function AboutPage() {
           <section>
             <h2 className="text-2xl font-bold">
               如何加入
-              <span className="accent-dot">。</span>
+
             </h2>
             <p className="mt-3 max-w-2xl leading-relaxed text-mist">
               全程约两分钟，不需要会代码，也不需要提合并请求：
@@ -104,7 +104,7 @@ function AboutPage() {
           <section>
             <h2 className="text-2xl font-bold">
               随时退出
-              <span className="accent-dot">。</span>
+
             </h2>
             <p className="mt-3 max-w-2xl leading-relaxed text-mist">
               你的数据你做主。任何成员可以随时退出：从名册移除后立即停止公开追踪；如需删除历史数据，联系维护者处理即可。
@@ -116,7 +116,7 @@ function AboutPage() {
           <section>
             <h2 className="text-2xl font-bold">
               成员卡片
-              <span className="accent-dot">。</span>
+
             </h2>
             <p className="mt-3 max-w-2xl leading-relaxed text-mist">
               每位成员都有一张可嵌入个人主页或仓库的进度卡片：

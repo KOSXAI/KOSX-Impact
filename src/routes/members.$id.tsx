@@ -92,7 +92,7 @@ function MemberPage() {
           <section>
             <h2 className="text-2xl font-bold">
               成长曲线
-              <span className="accent-dot">。</span>
+
             </h2>
             <GrowthChart snapshots={snapshots} goal={member.goal} className="mt-6" />
           </section>
@@ -102,7 +102,7 @@ function MemberPage() {
           <section>
             <h2 className="text-2xl font-bold">
               里程碑
-              <span className="accent-dot">。</span>
+
             </h2>
             {milestones.length === 0 ? (
               <p className="mt-4 text-mist">还没有里程碑，第一个千粉正在路上。</p>
@@ -154,7 +154,7 @@ function MemberNotFound({ id }: { id: string }) {
     <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <h1 className="text-3xl font-bold">
         成员不存在
-        <span className="accent-dot">。</span>
+
       </h1>
       <p className="mt-4">
         <Link to="/" className="text-mist underline-offset-4 hover:text-ink hover:underline">

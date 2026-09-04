@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard } from "@/data.functions";
-import type { MemberStats } from "@/stats";
+import type { DashboardStats, MemberStats } from "@/stats";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Avatar } from "@/components/member/Avatar";
 import { ArrowUpRight } from "lucide-react";
 import { fmt, fmtDate, badge, nextGoal } from "@/lib/format";
 import { GITHUB_APPLY_URL, SITE_NAME, SLOGAN, xProfileUrl } from "@/lib/site";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   loader: () => fetchDashboard(),
@@ -27,6 +29,8 @@ export const Route = createFileRoute("/")({
   }),
   component: DashboardPage,
 });
+
+type TabKey = "chasing" | "hall" | "milestones";
 
 /** 冲榜前三的荣誉样式：冠军/亚军/季军（奖牌渐变 + 榜位徽章） */
 const PODIUM = [
@@ -62,132 +66,87 @@ function DashboardPage() {
   const latest = stats.recentMilestones[0];
   const justAchieved = latest && latest.achievedAt.slice(0, 10) >= new Date().toISOString().slice(0, 10);
 
+  const [tab, setTab] = useState<TabKey>("chasing");
+  const tabs: Array<{ key: TabKey; label: string; count: number }> = [
+    { key: "chasing", label: "冲榜进行时", count: chasing.length },
+    { key: "hall", label: "名人堂", count: hall.length },
+    { key: "milestones", label: "最近里程碑", count: stats.recentMilestones.length },
+  ];
+
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <Reveal className="flex flex-col gap-3" y={18}>
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          {SITE_NAME}
-          <span className="accent-dot">。</span>
-        </h1>
+        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{SITE_NAME}</h1>
         <p className="max-w-xl text-base text-mist">{SLOGAN}</p>
       </Reveal>
 
-      <main className="mt-10 space-y-12 sm:mt-14">
-        <RevealGroup className="grid grid-cols-2 gap-3 lg:grid-cols-4" stagger={0.06}>
-          <RevealItem>
-            <StatCard label="社群粉丝" value={stats.totalFollowers} />
-          </RevealItem>
-          <RevealItem>
-            <StatCard label="累计增长" value={stats.totalGrowth} prefix="+" />
-          </RevealItem>
-          <RevealItem>
-            <StatCard label="里程碑" value={stats.totalMilestones} />
-          </RevealItem>
-          <RevealItem>
-            <StatCard label="追踪成员" value={stats.members.length} />
-          </RevealItem>
-        </RevealGroup>
+      {/* 数据卡与 CTA 全局：Tab 只切换榜单视图，页面长度与成员数量无关 */}
+      <RevealGroup className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4" stagger={0.06}>
+        <RevealItem>
+          <StatCard label="社群粉丝" value={stats.totalFollowers} />
+        </RevealItem>
+        <RevealItem>
+          <StatCard label="累计增长" value={stats.totalGrowth} prefix="+" />
+        </RevealItem>
+        <RevealItem>
+          <StatCard label="里程碑" value={stats.totalMilestones} />
+        </RevealItem>
+        <RevealItem>
+          <StatCard label="追踪成员" value={stats.members.length} />
+        </RevealItem>
+      </RevealGroup>
 
-        {justAchieved && (
-          <PopIn className="flex items-center gap-2 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">
-            <span>恭喜</span>
-            <Link to="/members/$id" params={{ id: latest.memberId }} className="font-semibold underline-offset-4 hover:underline">
-              {latest.displayName ?? latest.handle}
-            </Link>
-            <span>达成 {badge(latest.threshold)}，进入名人堂！</span>
-          </PopIn>
-        )}
+      {justAchieved && (
+        <PopIn className="mt-8 flex items-center gap-2 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">
+          <span>恭喜</span>
+          <Link to="/members/$id" params={{ id: latest.memberId }} className="font-semibold underline-offset-4 hover:underline">
+            {latest.displayName ?? latest.handle}
+          </Link>
+          <span>达成 {badge(latest.threshold)}，进入名人堂！</span>
+        </PopIn>
+      )}
 
-        {/* 冲榜进行时：按最新粉丝数排名，前三名授予冠军/亚军/季军 */}
-        <Reveal>
-          <section>
-            <h2 className="text-2xl font-bold">
-              冲榜进行时
-              <span className="accent-dot">。</span>
-            </h2>
-            {chasing.length === 0 ? (
-              <p className="mt-4 text-mist">当前没有人正在冲榜。</p>
-            ) : (
-              <ol className="mt-5 space-y-3">
-                {chasing.map((m, i) => (
-                  <RevealItem key={m.id} y={16}>
-                    <ChasingMember member={m} rank={i + 1} podium={PODIUM[i]} />
-                  </RevealItem>
-                ))}
-              </ol>
+      {/* Tab 切换：冲榜 / 名人堂 / 里程碑 */}
+      <div className="mt-10 inline-flex items-center gap-1 rounded-full border border-line bg-soft-surface p-1">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "h-9 rounded-full px-4 text-sm font-semibold transition-colors sm:px-5",
+              tab === t.key ? "bg-white text-paper" : "text-mist hover:text-ink"
             )}
-          </section>
-        </Reveal>
+          >
+            {t.label}
+            <span className="ml-1.5 tabular-nums opacity-70">{t.count}</span>
+          </button>
+        ))}
+      </div>
 
-        <Reveal>
-          <section>
-            <h2 className="text-2xl font-bold">
-              最近里程碑
-              <span className="accent-dot">。</span>
-            </h2>
-            {stats.recentMilestones.length === 0 ? (
-              <p className="mt-4 text-mist">还没有里程碑，第一个千粉正在路上。</p>
-            ) : (
-              <RevealGroup className="mt-4 divide-y divide-line">
-                {stats.recentMilestones.map((m) => (
-                  <RevealItem
-                    key={`${m.memberId}-${m.threshold}`}
-                    y={12}
-                    className="flex items-center gap-3 py-3"
-                  >
-                    <Badge variant="secondary">{badge(m.threshold)}</Badge>
-                    <Link to="/members/$id" params={{ id: m.memberId }} className="font-medium underline-offset-4 hover:underline">
-                      {m.displayName ?? m.handle}
-                    </Link>
-                    <span className="text-mist ml-auto">{fmtDate(m.achievedAt)}</span>
-                  </RevealItem>
-                ))}
-              </RevealGroup>
-            )}
-          </section>
-        </Reveal>
-
-        {/* 名人堂：已达成万粉的成员，放最后作为荣誉区 */}
-        {hall.length > 0 && (
-          <Reveal>
-            <section>
-              <h2 className="text-2xl font-bold">
-                名人堂
-                <span className="accent-dot">。</span>
-              </h2>
-              <RevealGroup className="mt-5 space-y-4">
-                {hall.map((m) => (
-                  <RevealItem key={m.id}>
-                    <HallMember member={m} />
-                  </RevealItem>
-                ))}
-              </RevealGroup>
-            </section>
-          </Reveal>
-        )}
-
-        <Reveal delay={0.1}>
-          <section className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
-            <h2 className="text-xl font-bold">
-              加入这场远征
-              <span className="accent-dot">。</span>
-            </h2>
-            <p className="mt-2 max-w-xl text-mist">
-              把你的 X 账号加入追踪，从加入当天起每天记录你的成长。不需要会代码，填一份申请就好。
-            </p>
-            <div className="mt-5 flex flex-wrap items-center gap-4">
-              <Button asChild>
-                <a href={GITHUB_APPLY_URL} target="_blank" rel="noreferrer">
-                  提交申请 <ArrowUpRight className="size-4" />
-                </a>
-              </Button>
-              <Link to="/about" className="text-mist underline-offset-4 hover:text-ink hover:underline">
-                了解流程
-              </Link>
-            </div>
-          </section>
-        </Reveal>
+      <main key={tab} className="tab-in mt-6">
+        {tab === "chasing" && <ChasingList members={chasing} />}
+        {tab === "hall" && <HallList members={hall} />}
+        {tab === "milestones" && <MilestoneList stats={stats} />}
       </main>
+
+      <Reveal delay={0.1}>
+        <section className="mt-12 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <h2 className="text-xl font-bold">加入这场远征</h2>
+          <p className="mt-2 max-w-xl text-mist">
+            把你的 X 账号加入追踪，从加入当天起每天记录你的成长。不需要会代码，填一份申请就好。
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            <Button asChild>
+              <a href={GITHUB_APPLY_URL} target="_blank" rel="noreferrer">
+                提交申请 <ArrowUpRight className="size-4" />
+              </a>
+            </Button>
+            <Link to="/about" className="text-mist underline-offset-4 hover:text-ink hover:underline">
+              了解流程
+            </Link>
+          </div>
+        </section>
+      </Reveal>
     </div>
   );
 }
@@ -203,6 +162,19 @@ function StatCard({ label, value, prefix = "" }: { label: string; value: number;
   );
 }
 
+function ChasingList({ members }: { members: MemberStats[] }) {
+  if (members.length === 0) return <p className="text-mist">当前没有人正在冲榜。</p>;
+  return (
+    <ol className="space-y-3">
+      {members.map((m, i) => (
+        <RevealItem key={m.id} y={16}>
+          <ChasingMember member={m} rank={i + 1} podium={PODIUM[i]} />
+        </RevealItem>
+      ))}
+    </ol>
+  );
+}
+
 /** 冲榜行：前三名带奖牌徽章与渐变底色，其余普通行 */
 function ChasingMember({
   member: m,
@@ -215,7 +187,7 @@ function ChasingMember({
 }) {
   const delta = m.growth > 0 ? `+${fmt(m.growth)}` : fmt(m.growth);
   const name = m.displayName ?? m.handle;
-  const toGoal = Math.max(0, (m.goal - (m.latestFollowers ?? 0)));
+  const toGoal = Math.max(0, m.goal - (m.latestFollowers ?? 0));
   return (
     <div
       className={
@@ -264,6 +236,19 @@ function ChasingMember({
   );
 }
 
+function HallList({ members }: { members: MemberStats[] }) {
+  if (members.length === 0) return <p className="text-mist">万粉名人堂虚位以待，第一位冲线者将在这里留名。</p>;
+  return (
+    <div className="space-y-4">
+      {members.map((m) => (
+        <RevealItem key={m.id}>
+          <HallMember member={m} />
+        </RevealItem>
+      ))}
+    </div>
+  );
+}
+
 /** 名人堂行：已达成万粉的荣誉成员 */
 function HallMember({ member: m }: { member: MemberStats }) {
   const name = m.displayName ?? m.handle;
@@ -297,6 +282,27 @@ function HallMember({ member: m }: { member: MemberStats }) {
           <div className="text-sm font-medium text-signal">超目标 +{fmt(m.overflow)}</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MilestoneList({ stats }: { stats: DashboardStats }) {
+  if (stats.recentMilestones.length === 0) return <p className="text-mist">还没有里程碑，第一个千粉正在路上。</p>;
+  return (
+    <div className="divide-y divide-line">
+      {stats.recentMilestones.map((m) => (
+        <RevealItem
+          key={`${m.memberId}-${m.threshold}`}
+          y={12}
+          className="flex items-center gap-3 py-3"
+        >
+          <Badge variant="secondary">{badge(m.threshold)}</Badge>
+          <Link to="/members/$id" params={{ id: m.memberId }} className="font-medium underline-offset-4 hover:underline">
+            {m.displayName ?? m.handle}
+          </Link>
+          <span className="text-mist ml-auto">{fmtDate(m.achievedAt)}</span>
+        </RevealItem>
+      ))}
     </div>
   );
 }
