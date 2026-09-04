@@ -11,12 +11,16 @@ export const Route = createFileRoute("/members/$id")({
     if (!detail) throw notFound();
     return detail;
   },
+  // 404 时 loaderData 为空：标题降级为「成员不存在」，并输出 noindex
+  // 让搜索引擎丢弃软 404（SSR 状态码已是 HTTP 404，noindex 兜底防重复抓取）
   head: ({ loaderData }) => {
     const name = loaderData ? loaderData.member.displayName ?? loaderData.member.handle : "成员不存在";
     return {
       meta: [
         { title: `${name} · KOSX Impact` },
-        { name: "description", content: `${name} 在 KOSX Impact 的成长档案：粉丝量曲线、目标进度与里程碑。` },
+        ...(loaderData
+          ? [{ name: "description", content: `${name} 在 KOSX Impact 的成长档案：粉丝量曲线、目标进度与里程碑。` }]
+          : [{ name: "robots", content: "noindex, follow" }]),
         { property: "og:title", content: `${name} · KOSX Impact` },
         { property: "og:description", content: "看见每个人的成长——这是 TA 在 Road to 10K 上的进度。" },
         { property: "og:type", content: "profile" },
