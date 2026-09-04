@@ -21,10 +21,10 @@ api.get("/api/dashboard", async (c) => {
 
 // 成员列表，附带每人最新一次快照的粉丝量
 api.get("/api/members", async (c) => {
-  return cachedResponse(new Request(`${SITE_URL}/api/members?v=9`), 3600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}/api/members?v=10`), 3600, async () => {
     const { results } = await c.env.DB.prepare(
       `SELECT
-         m.id, m.handle, m.display_name, m.goal, m.joined_at,
+         m.id, m.handle, m.display_name, m.joined_at,
          s.followers  AS latest_followers,
          s.recorded_at AS latest_recorded_at
        FROM members m
@@ -67,7 +67,6 @@ export async function renderMemberCardSvg(id: string, env: Env): Promise<Respons
         id: m.id as string,
         handle: m.handle as string,
         displayName: (m.display_name as string | null) ?? null,
-        goal: m.goal as number,
         joinedAt: m.joined_at as string,
       },
       snapshots as never,
@@ -86,10 +85,10 @@ export async function renderOgSvg(env: Env): Promise<Response> {
   return cachedResponse(new Request(`${SITE_URL}/og.svg`), 21600, async () => {
     const now = new Date().toISOString();
     const { results: memberRows } = await env.DB.prepare(
-      `SELECT id, handle, display_name AS displayName, goal, joined_at AS joinedAt
+      `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt
        FROM members WHERE status = 'active'`
     ).all();
-    const memberList = memberRows as never as Array<{ id: string; handle: string; displayName: string | null; goal: number; joinedAt: string }>;
+    const memberList = memberRows as never as Array<{ id: string; handle: string; displayName: string | null; joinedAt: string }>;
 
     // 每成员最新 1 条快照（走索引，恒定行读取）
     const latestStmt = env.DB.prepare(

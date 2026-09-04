@@ -5,8 +5,6 @@ export interface MemberStats {
   id: string;
   handle: string;
   displayName: string | null;
-  /** 个人目标字段（历史遗留，UI 已改用下一台阶，保留仅为兼容采集预聚合） */
-  goal: number;
   joinedAt: string;
   /** X 公开头像 URL（来自最近一次采集），无头像为 null */
   profileImage: string | null;
@@ -15,20 +13,12 @@ export interface MemberStats {
   latestRecordedAt: string | null;
   /** 相对加入时基线的增长（无基线时取 0） */
   growth: number;
-  /** 相对个人目标的旧式进度（0-100，UI 不再展示） */
-  progress: number;
-  /** 连续有快照的天数（采集器健康度，UI 不再展示） */
-  streakDays: number;
   /** 最近 7 天（含最新一天）的粉丝增长 */
   growth7d: number;
   /** 最近 30 天（含最新一天）的粉丝增长 */
   growth30d: number;
   /** 最近一次采集距今天数（null 表示从未采集） */
   daysSinceUpdate: number | null;
-  /** 是否已达成个人目标（历史遗留，UI 已改用段位） */
-  achieved: boolean;
-  /** 达成目标后超出目标的部分（历史遗留） */
-  overflow: number;
   /** 段位（量级身份徽章） */
   tierKey: string;
   tierName: string;
@@ -38,6 +28,8 @@ export interface MemberStats {
   nextTier: number;
   /** 距下一级台阶的完成度（0-100） */
   progressToNext: number;
+  /** 已登台阶数（成就徽章数，看板聚合时按登阶事件计） */
+  climbs: number;
 }
 
 /** 预聚合字段（来自 daily_stats）：直传绕过窗口重算 */
@@ -45,10 +37,6 @@ export interface PresetStats {
   growth: number;
   growth7d: number;
   growth30d: number;
-  progress: number;
-  streakDays: number;
-  achieved: boolean;
-  overflow: number;
 }
 
 export interface DashboardStats {
@@ -77,18 +65,6 @@ export function daysBetween(a: string, b: string): number {
   return Math.floor(ms / 86_400_000);
 }
 
-/** 计算连续有快照的天数：从最新一天往回数，中间断档即停止 */
-export function computeStreakDays(dates: string[]): number {
-  if (dates.length === 0) return 0;
-  const days = [...new Set(dates.map((d) => d.slice(0, 10)))].sort();
-  let streak = 1;
-  for (let i = days.length - 1; i > 0; i--) {
-    if (daysBetween(days[i - 1], days[i]) === 1) streak++;
-    else break;
-  }
-  return streak;
-}
-
 /** 计算最近 n 天（含最新一天）的粉丝增长；快照不足时按已有数据计算 */
 export function computeGrowthNDays(
   snapshots: Array<{ followers: number; recordedAt: string }>,
@@ -106,7 +82,6 @@ export function computeMemberStats(
     id: string;
     handle: string;
     displayName: string | null;
-    goal: number;
     joinedAt: string;
     profileImage?: string | null;
   },
@@ -117,7 +92,6 @@ export function computeMemberStats(
   const latest = snapshots[snapshots.length - 1] ?? null;
   const baseline = baselineFollowers ?? snapshots[0]?.followers ?? null;
   const growth = latest ? latest.followers - (baseline ?? 0) : 0;
-  const progress = latest ? Math.min(100, Math.round((growth / member.goal) * 100)) : 0;
   const followers = latest?.followers ?? 0;
   const tier = tierOf(followers);
 
@@ -125,25 +99,21 @@ export function computeMemberStats(
     id: member.id,
     handle: member.handle,
     displayName: member.displayName,
-    goal: member.goal,
     joinedAt: member.joinedAt,
     profileImage: member.profileImage ?? null,
     baselineFollowers: baseline,
     latestFollowers: latest?.followers ?? null,
     latestRecordedAt: latest?.recordedAt ?? null,
     growth,
-    progress,
-    streakDays: computeStreakDays(snapshots.map((s) => s.recordedAt)),
     growth7d: computeGrowthNDays(snapshots, 7),
     growth30d: computeGrowthNDays(snapshots, 30),
     daysSinceUpdate: latest ? daysBetween(latest.recordedAt, now) : null,
-    achieved: (latest?.followers ?? 0) >= member.goal,
-    overflow: latest && latest.followers > member.goal ? latest.followers - member.goal : 0,
     tierKey: tier.key,
     tierName: tier.name,
     prevTier: prevThreshold(followers),
     nextTier: nextThreshold(followers),
     progressToNext: progressToNext(followers),
+    climbs: 0,
   };
 }
 
@@ -153,7 +123,6 @@ export function computeDashboardStats(
     id: string;
     handle: string;
     displayName: string | null;
-    goal: number;
     joinedAt: string;
     profileImage?: string | null;
     snapshots: Array<{ followers: number; recordedAt: string }>;
@@ -177,7 +146,6 @@ export function computeDashboardStats(
         id: row.id,
         handle: row.handle,
         displayName: row.displayName,
-        goal: row.goal,
         joinedAt: row.joinedAt,
         profileImage: row.profileImage,
       },
@@ -185,7 +153,7 @@ export function computeDashboardStats(
       now,
       rosterMember?.baselineFollowers
     );
-    // 预聚合覆盖：growth/趋势/连胜等来自采集时算好的 daily_stats，
+    // 预聚合覆盖：growth/趋势来自采集时算好的 daily_stats，
     // followers/recordedAt 仍用窗口值（滚动采集下 daily_stats 可能滞后）
     return row.preset
       ? {
@@ -193,20 +161,23 @@ export function computeDashboardStats(
           growth: row.preset.growth,
           growth7d: row.preset.growth7d,
           growth30d: row.preset.growth30d,
-          progress: row.preset.progress,
-          streakDays: row.preset.streakDays,
-          achieved: row.preset.achieved,
-          overflow: row.preset.overflow,
         }
       : computed;
   });
 
-  const totalFollowers = members.reduce((sum, m) => sum + (m.latestFollowers ?? 0), 0);
-  const totalGrowth = members.reduce((sum, m) => sum + m.growth, 0);
-
   // 登阶记录只认均匀成就阶梯上的档位（旧阶梯档位不再展示）
   const ladderSet = new Set(UNIFORM_THRESHOLDS);
   const ladderMilestones = milestones.filter((m) => ladderSet.has(m.threshold));
+
+  // 成就数按登阶事件计数，挂到每个成员上
+  const climbCounts = new Map<string, number>();
+  for (const m of ladderMilestones) {
+    climbCounts.set(m.memberId, (climbCounts.get(m.memberId) ?? 0) + 1);
+  }
+  for (const m of members) m.climbs = climbCounts.get(m.id) ?? 0;
+
+  const totalFollowers = members.reduce((sum, m) => sum + (m.latestFollowers ?? 0), 0);
+  const totalGrowth = members.reduce((sum, m) => sum + m.growth, 0);
   const recentMilestones = [...ladderMilestones]
     .sort((a, b) => b.achievedAt.localeCompare(a.achievedAt))
     .slice(0, 10);

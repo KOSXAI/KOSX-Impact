@@ -17,7 +17,6 @@ export interface CollectSummary {
 interface ActiveMember {
   id: string;
   handle: string;
-  goal: number;
 }
 
 /**
@@ -55,7 +54,7 @@ export async function collectWithSource(
   await syncRoster(env, rosterFile);
 
   const { results: members } = (await env.DB.prepare(
-    "SELECT id, handle, goal FROM members WHERE status = 'active'"
+    "SELECT id, handle FROM members WHERE status = 'active'"
   ).all()) as { results: ActiveMember[] };
 
   const now = new Date();
@@ -73,7 +72,7 @@ export async function collectWithSource(
       const stats = await source.fetchStats(member.handle);
       await writeSnapshot(env, member.id, stats, nowIso);
       await checkMilestones(env, member.id, stats.followers, nowIso);
-      await writeDailyStats(env, member.id, member.goal, stats.followers, nowIso);
+      await writeDailyStats(env, member.id, stats.followers, nowIso);
       summary.ok++;
     } catch (error) {
       summary.failed.push({
@@ -157,7 +156,6 @@ async function checkMilestones(
 async function writeDailyStats(
   env: Env,
   memberId: string,
-  goal: number,
   latestFollowers: number,
   nowIso: string
 ): Promise<void> {
@@ -168,19 +166,17 @@ async function writeDailyStats(
 
   // 基线优先用该成员最早快照（窗口 31 条足够覆盖首月；更早的成员以 daily_stats 首条为准）
   const stats = computeMemberStats(
-    { id: memberId, handle: "", displayName: null, goal, joinedAt: snapshots[0]?.recordedAt.slice(0, 10) ?? nowIso.slice(0, 10) },
+    { id: memberId, handle: "", displayName: null, joinedAt: snapshots[0]?.recordedAt.slice(0, 10) ?? nowIso.slice(0, 10) },
     snapshots,
     nowIso
   );
 
   await env.DB.prepare(
-    `INSERT INTO daily_stats (member_id, stats_date, followers, growth, growth7d, growth30d, progress, streak_days, achieved, overflow, updated_at)
-     VALUES (?1, date(?2), ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?2)
+    `INSERT INTO daily_stats (member_id, stats_date, followers, growth, growth7d, growth30d, updated_at)
+     VALUES (?1, date(?2), ?3, ?4, ?5, ?6, ?2)
      ON CONFLICT(member_id, stats_date) DO UPDATE SET
        followers = excluded.followers, growth = excluded.growth,
        growth7d = excluded.growth7d, growth30d = excluded.growth30d,
-       progress = excluded.progress, streak_days = excluded.streak_days,
-       achieved = excluded.achieved, overflow = excluded.overflow,
        updated_at = excluded.updated_at`
   ).bind(
     memberId,
@@ -188,10 +184,6 @@ async function writeDailyStats(
     stats.latestFollowers ?? latestFollowers,
     stats.growth,
     stats.growth7d,
-    stats.growth30d,
-    stats.progress,
-    stats.streakDays,
-    stats.achieved ? 1 : 0,
-    stats.overflow
+    stats.growth30d
   ).run();
 }

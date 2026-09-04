@@ -10,8 +10,8 @@ beforeEach(async () => {
 
 async function seedMember() {
   await env.DB.prepare(
-    "INSERT INTO members (id, handle, display_name, goal, joined_at) VALUES (?, ?, ?, ?, ?)"
-  ).bind("alice", "alice_x", "Alice", 10000, "2026-08-01").run();
+    "INSERT INTO members (id, handle, display_name, joined_at) VALUES (?, ?, ?, ?)"
+  ).bind("alice", "alice_x", "Alice", "2026-08-01").run();
   await env.DB.prepare(
     "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES (?, ?, ?)"
   ).bind("alice", 1234, "2026-08-31T00:00:00Z").run();
@@ -64,11 +64,11 @@ describe("API", () => {
       totalFollowers: number;
       totalGrowth: number;
       totalMilestones: number;
-      members: Array<{ handle: string; progress: number; achieved: boolean; streakDays: number }>;
+      members: Array<{ handle: string; tierKey: string; nextTier: number; climbs: number }>;
       recentMilestones: unknown[];
     };
     expect(body.totalFollowers).toBe(1234);
     expect(body.members).toHaveLength(1);
-    expect(body.members[0]).toMatchObject({ handle: "alice_x", progress: 0, achieved: false });
+    expect(body.members[0]).toMatchObject({ handle: "alice_x", tierKey: "thousand", nextTier: 1500, climbs: 0 });
   });
 });

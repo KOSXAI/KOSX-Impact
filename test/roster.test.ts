@@ -31,7 +31,6 @@ describe("syncRoster", () => {
       handle: "alice_x",
       display_name: "Alice",
       status: "active",
-      goal: 10000,
       joined_at: "2026-08-01",
     });
 

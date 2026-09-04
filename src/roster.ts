@@ -4,7 +4,6 @@ export interface RosterMember {
   id: string;
   handle: string;
   displayName?: string;
-  goal?: number;
   joinedAt: string;
   baselineFollowers?: number;
 }
@@ -32,12 +31,11 @@ export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
 
   for (const member of roster.members) {
     await env.DB.prepare(
-      `INSERT INTO members (id, handle, display_name, goal, joined_at)
-       VALUES (?1, ?2, ?3, ?4, ?5)
+      `INSERT INTO members (id, handle, display_name, joined_at)
+       VALUES (?1, ?2, ?3, ?4)
        ON CONFLICT(id) DO UPDATE SET
          handle = excluded.handle,
          display_name = excluded.display_name,
-         goal = excluded.goal,
          joined_at = excluded.joined_at,
          status = 'active',
          updated_at = datetime('now')`
@@ -45,8 +43,6 @@ export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
       member.id,
       member.handle,
       member.displayName ?? null,
-      // 默认目标 10000：万粉是每位成员的第一级台阶，达成后可继续申请更高目标（十万/百万…）
-      member.goal ?? 10000,
       member.joinedAt
     ).run();
 

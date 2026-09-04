@@ -7,7 +7,10 @@ import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
 import { GrowthChart } from "@/components/member/GrowthChart";
 import { fmt, fmtDate, badge } from "@/lib/format";
+import { nextThreshold, tierOf, TIER_STYLE } from "@/milestones";
+import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
+import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/members/$id")({
   loader: async ({ params }) => {
@@ -46,16 +49,33 @@ function MemberPage() {
   const { member, snapshots, milestones } = Route.useLoaderData();
   const name = member.displayName ?? member.handle;
 
+  // 接下来的 4 级台阶路线（下一枚成就起）
+  const upcoming: number[] = [];
+  let t = member.nextTier;
+  for (let i = 0; i < 4; i++) {
+    upcoming.push(t);
+    t = nextThreshold(t);
+  }
+
   return (
     <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <Reveal y={18}>
-        <div className="flex items-center gap-4">
-          <Avatar url={member.profileImage} name={name} className="size-16" />
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+        >
+          <ArrowLeft className="size-4" />
+          返回看板
+        </Link>
+
+        <div className="mt-8 flex items-center gap-5">
+          <Avatar url={member.profileImage} name={name} className="size-20" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{name}</h1>
               <TierBadge tierKey={member.tierKey} tierName={member.tierName} />
-              <Badge variant="secondary">加入于 {fmtDate(member.joinedAt)}</Badge>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
               <a
                 href={xProfileUrl(member.handle)}
                 target="_blank"
@@ -64,12 +84,10 @@ function MemberPage() {
               >
                 @{member.handle}
               </a>
+              <Badge variant="secondary">加入于 {fmtDate(member.joinedAt)}</Badge>
             </div>
           </div>
         </div>
-        <Link to="/" className="text-mist underline-offset-4 hover:text-ink hover:underline">
-          ← 返回看板
-        </Link>
       </Reveal>
 
       <main className="mt-10 space-y-12 sm:mt-14">
@@ -94,7 +112,7 @@ function MemberPage() {
             <Card className="card-lift mt-6">
               <CardContent className="p-6 sm:p-8">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="text-sm text-mist">当前段位</div>
+                  <TierBadge tierKey={member.tierKey} tierName={member.tierName} />
                   <div className="text-right">
                     <div className="text-3xl font-bold tabular-nums">{fmt(member.latestFollowers ?? 0)}</div>
                     <div className="text-sm text-mist">
@@ -106,6 +124,14 @@ function MemberPage() {
                 <div className="mt-2 flex justify-between text-sm text-mist">
                   <span>{member.prevTier > 0 ? badge(member.prevTier) : "0"}</span>
                   <span>{badge(member.nextTier)}</span>
+                </div>
+                <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5">
+                  <span className="text-sm text-mist">接下来的台阶</span>
+                  {upcoming.map((threshold) => (
+                    <Badge key={threshold} variant="outline" className="text-mist">
+                      {badge(threshold)}
+                    </Badge>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -121,16 +147,30 @@ function MemberPage() {
 
         <Reveal>
           <section>
-            <h2 className="text-2xl font-bold">成就徽章</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-bold">成就徽章</h2>
+              {milestones.length > 0 && <Badge variant="secondary">{milestones.length}</Badge>}
+            </div>
             {milestones.length === 0 ? (
               <p className="mt-4 text-mist">还没有成就，第一枚徽章正在路上。</p>
             ) : (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {[...milestones].reverse().map((m) => (
-                  <Badge key={m.threshold} variant="secondary" title={`${fmtDate(m.achievedAt)} 达成`}>
-                    🏅 {badge(m.threshold)}
-                  </Badge>
-                ))}
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                {[...milestones].reverse().map((m) => {
+                  const style = TIER_STYLE[tierOf(m.threshold).key] ?? TIER_STYLE.seed;
+                  return (
+                    <div
+                      key={m.threshold}
+                      title={`${fmtDate(m.achievedAt)} 达成`}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold",
+                        style.badge
+                      )}
+                    >
+                      <span aria-hidden="true">🏅</span>
+                      {badge(m.threshold)}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>

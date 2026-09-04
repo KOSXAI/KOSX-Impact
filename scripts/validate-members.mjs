@@ -37,9 +37,6 @@ roster.members.forEach((member, i) => {
   if (member.displayName !== undefined && typeof member.displayName !== "string") {
     fail(`${label} 的 displayName 必须是字符串`);
   }
-  if (member.goal !== undefined && (!Number.isInteger(member.goal) || member.goal < 1)) {
-    fail(`${label} 的 goal 必须是正整数`);
-  }
   if (typeof member.joinedAt !== "string" || !DATE_RE.test(member.joinedAt)) {
     fail(`${label} 的 joinedAt 格式不合法（YYYY-MM-DD）`);
   }

@@ -24,11 +24,6 @@
             "description": "X 用户名，不含 @"
           },
           "displayName": { "type": "string" },
-          "goal": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "个人目标粉丝量（万粉影响力量级台阶），默认 10000；可设十万/百万/千万等更高目标"
-          },
           "joinedAt": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$",

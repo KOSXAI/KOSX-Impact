@@ -6,8 +6,8 @@ import type { FollowerSource, FollowerStats } from "../src/sources/types";
 
 const testRoster: RosterFile = {
   members: [
-    { id: "alice", handle: "alice_x", goal: 10000, joinedAt: "2026-08-30" },
-    { id: "bob", handle: "bob_x", goal: 5000, joinedAt: "2026-08-30" },
+    { id: "alice", handle: "alice_x", joinedAt: "2026-08-30" },
+    { id: "bob", handle: "bob_x", joinedAt: "2026-08-30" },
   ],
 };
 
@@ -31,7 +31,7 @@ beforeEach(async () => {
 
 async function seedBaselines() {
   await env.DB.prepare(
-    "INSERT INTO members (id, handle, goal, joined_at) VALUES ('alice', 'alice_x', 10000, '2026-08-30'), ('bob', 'bob_x', 5000, '2026-08-30')"
+    "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30'), ('bob', 'bob_x', '2026-08-30')"
   ).run();
   await env.DB.prepare(
     "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('alice', 900, '2026-08-30T00:00:00Z'), ('bob', 1200, '2026-08-30T00:00:00Z')"
@@ -73,12 +73,10 @@ describe("collectWithSource", () => {
     }), testRoster, undefined, 0);
 
     const stats = (await env.DB.prepare(
-      "SELECT followers, growth, progress, achieved FROM daily_stats WHERE member_id = 'alice'"
-    ).first()) as { followers: number; growth: number; progress: number; achieved: number };
+      "SELECT followers, growth, growth7d, growth30d FROM daily_stats WHERE member_id = 'alice'"
+    ).first()) as { followers: number; growth: number; growth7d: number; growth30d: number };
     expect(stats.followers).toBe(1500);
     expect(stats.growth).toBe(600); // 900 → 1500
-    expect(stats.progress).toBe(6); // 600/10000
-    expect(stats.achieved).toBe(0);
   });
 
   it("跨过阈值时写入登阶事件", async () => {

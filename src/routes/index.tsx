@@ -212,6 +212,14 @@ function LeaderboardMember({
             <Badge className={`bg-gradient-to-r ${podium.badge} border-transparent`}>{podium.label}</Badge>
           )}
           <TierBadge tierKey={m.tierKey} tierName={m.tierName} />
+          {m.climbs > 0 && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-mist tabular-nums"
+              title={`${m.climbs} 枚成就徽章`}
+            >
+              🏅 {m.climbs}
+            </span>
+          )}
           <a
             href={xProfileUrl(m.handle)}
             target="_blank"
@@ -226,7 +234,7 @@ function LeaderboardMember({
         <div className="font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
         <div className="flex w-full items-center gap-2">
           <GrowProgress value={m.progressToNext} className="flex-1" />
-          <span className="text-xs tabular-nums text-mist">{badge(m.nextTier)}</span>
+          <span className="text-xs tabular-nums text-mist" title="下一台阶">→ {badge(m.nextTier)}</span>
         </div>
       </div>
     </div>
