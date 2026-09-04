@@ -1,4 +1,40 @@
 {
   "$schema": "./members.schema.json",
-  "members": []
+  "members": [
+    {
+      "id": "king1818888",
+      "handle": "king1818888",
+      "displayName": "Kimberly",
+      "joinedAt": "2026-09-04",
+      "baselineFollowers": 10737
+    },
+    {
+      "id": "kosxai",
+      "handle": "kosxai",
+      "displayName": "KOSX",
+      "joinedAt": "2026-09-04",
+      "baselineFollowers": 216
+    },
+    {
+      "id": "sukiea1008",
+      "handle": "Sukiea1008",
+      "displayName": "Su",
+      "joinedAt": "2026-09-04",
+      "baselineFollowers": 2844
+    },
+    {
+      "id": "kekeya88",
+      "handle": "KeKeYa88",
+      "displayName": "可可鸭",
+      "joinedAt": "2026-09-04",
+      "baselineFollowers": 5386
+    },
+    {
+      "id": "realchendahuang",
+      "handle": "realchendahuang",
+      "displayName": "陈大黄",
+      "joinedAt": "2026-09-04",
+      "baselineFollowers": 4462
+    }
+  ]
 }

@@ -10,8 +10,7 @@
     {
       "binding": "DB",
       "database_name": "kosx-impact",
-      // 运行 `npm run db:create` 后，把输出的 database_id 粘贴到这里
-      "database_id": "REPLACE_WITH_DATABASE_ID",
+      "database_id": "13a56082-f3d4-4a23-a1de-0e29934ac99c",
       "migrations_dir": "migrations"
     }
   ],
