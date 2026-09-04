@@ -156,6 +156,9 @@ export function computeDashboardStats(
     .sort((a, b) => b.achievedAt.localeCompare(a.achievedAt))
     .slice(0, 10);
 
+  // 冲刺榜按「和自己比」的进步排序：进度百分比优先，其次近期增长——不是绝对粉丝量
+  members.sort((a, b) => b.progress - a.progress || b.growth30d - a.growth30d || b.growth - a.growth);
+
   return {
     totalFollowers,
     totalGrowth,

@@ -95,7 +95,18 @@ async function checkMilestones(
   const events = detectMilestones(prev?.followers, followers, thresholdsForGoal(goal), now);
   for (const event of events) {
     await env.DB.prepare(
-      "INSERT OR IGNORE INTO milestones (member_id, threshold, achieved_at) VALUES (?1, ?2, ?3)"
+      "INSERT OR IGNORE INTO milestones (member_id, threshold, achieved_at, announced) VALUES (?1, ?2, ?3, 1)"
     ).bind(memberId, event.threshold, event.achievedAt).run();
+  }
+  // 公告机制：把最新跨过的档位写入 site_meta（首页「最新达成」展示源）。
+  // announced=1 表示已入公告流；未来接入推文/Newsletter 播报时复用此标记。
+  if (events.length > 0) {
+    const latest = events[events.length - 1];
+    await env.DB.prepare(
+      `INSERT INTO site_meta (key, value) VALUES ('latest_milestone', ?1)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+    ).bind(
+      JSON.stringify({ memberId, threshold: latest.threshold, achievedAt: latest.achievedAt })
+    ).run();
   }
 }

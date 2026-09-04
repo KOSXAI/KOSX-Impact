@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { collect } from "./collector";
-import { renderDashboard, renderMemberPage } from "./dashboard";
+import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
+import { renderAboutPage, renderDashboard, renderMemberPage } from "./dashboard";
 import { computeDashboardStats, computeMemberStats } from "./stats";
 import { roster } from "./roster";
 
@@ -116,6 +117,77 @@ app.get("/members/:id", async (c) => {
     })
   );
 });
+
+// 成员进度卡片：可嵌入 GitHub README / 个人主页（<img src="https://10k.kosx.ai/card/{id}.svg">）
+// 注：路由用 :id 而非 :id.svg——Hono 不支持参数名里带点，.svg 后缀在 handler 内剔除
+app.get("/card/:id", async (c) => {
+  const id = (c.req.param("id") ?? "").replace(/\.svg$/, "");
+  if (!id) return c.body(renderNotFoundCard("unknown"), 404, { "Content-Type": "image/svg+xml" });
+  const member = await c.env.DB.prepare("SELECT * FROM members WHERE id = ? AND status = 'active'").bind(id).first();
+  if (!member) {
+    return c.html(renderNotFoundCard(id), 404, { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" });
+  }
+  const { results: snapshots } = await c.env.DB.prepare(
+    "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ? ORDER BY recorded_at"
+  ).bind(id).all();
+  const stats = computeMemberStats(
+    {
+      id: member.id,
+      handle: member.handle,
+      displayName: member.display_name,
+      goal: member.goal,
+      joinedAt: member.joined_at,
+    } as { id: string; handle: string; displayName: string | null; goal: number; joinedAt: string },
+    snapshots as never,
+    new Date().toISOString()
+  );
+  return c.body(renderMemberCard(stats), 200, {
+    "Content-Type": "image/svg+xml",
+    // 数据一天一更，缓存 1 小时足够新鲜
+    "Cache-Control": "public, max-age=3600",
+  });
+});
+
+// 站点 OG 图：分享到社媒时的动态预览（社群总量）
+app.get("/og.svg", async (c) => {
+  const now = new Date().toISOString();
+  const { results: memberRows } = await c.env.DB.prepare(
+    `SELECT id, handle, display_name AS displayName, goal, joined_at AS joinedAt
+     FROM members WHERE status = 'active'`
+  ).all();
+  const { results: snapshotRows } = await c.env.DB.prepare(
+    "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots ORDER BY recorded_at"
+  ).all();
+
+  const byMember = new Map<string, Array<{ followers: number; recordedAt: string }>>();
+  for (const s of snapshotRows as never as Array<{ memberId: string; followers: number; recordedAt: string }>) {
+    const list = byMember.get(s.memberId) ?? [];
+    list.push({ followers: s.followers, recordedAt: s.recordedAt });
+    byMember.set(s.memberId, list);
+  }
+
+  const stats = computeDashboardStats(
+    roster,
+    (memberRows as never as Array<{ id: string; handle: string; displayName: string | null; goal: number; joinedAt: string }>)
+      .map((m) => ({
+        id: m.id,
+        handle: m.handle,
+        displayName: m.displayName,
+        goal: m.goal,
+        joinedAt: m.joinedAt,
+        snapshots: byMember.get(m.id) ?? [],
+      })),
+    [],
+    now
+  );
+  return c.body(renderSiteOgCard(stats.totalFollowers, stats.members.length), 200, {
+    "Content-Type": "image/svg+xml",
+    "Cache-Control": "public, max-age=3600",
+  });
+});
+
+// 关于页：数据口径 / 来源 / 退出方式（README 承诺的透明度页面）
+app.get("/about", (c) => c.html(renderAboutPage()));
 
 // 看板页面：预渲染的 HTML 骨架，可视化前端在后续迭代中完善
 app.get("/", (c) => c.html(renderDashboard()));

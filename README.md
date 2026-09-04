@@ -48,9 +48,9 @@ KOSX Impact 是 KOSX 社群的公开影响力数据平台。它持续追踪和�
 ## 当前进度
 
 - [x] 数据底座：成员名册、每日快照与里程碑
-- [x] X 数据采集管线（SocialData 已接入，待配置 API Key 后上线）
-- [ ] 可视化看板：增长榜 / 里程碑 / 社群总量
-- [ ] 成员进度卡片（可嵌入个人主页）
+- [x] X 数据采集管线（SocialData 已接入，每日自动采集）
+- [x] 可视化看板：增长榜 / 里程碑 / 社群总量 / 万粉俱乐部 → **[10k.kosx.ai](https://10k.kosx.ai)**
+- [x] 成员进度卡片（可嵌入个人主页）：`https://10k.kosx.ai/card/{成员id}.svg`
 - [ ] Creator Influence Graph
 
 ## License
