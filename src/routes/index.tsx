@@ -4,8 +4,10 @@ import type { MemberStats } from "@/stats";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, TrendingUp, Users, Target, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Trophy, TrendingUp, Users, Target, Sparkles, ArrowUpRight } from "lucide-react";
 import { fmt, fmtDate, badge, nextGoal } from "@/lib/format";
+import { GITHUB_APPLY_URL } from "@/lib/site";
 
 export const Route = createFileRoute("/")({
   loader: () => fetchDashboard(),
@@ -109,6 +111,24 @@ function DashboardPage() {
               ))}
             </div>
           )}
+        </section>
+        <section className="mt-10">
+          <div className="rounded-xl border border-violet-500/25 bg-gradient-to-r from-violet-500/10 via-transparent to-amber-500/10 p-5">
+            <h2 className="text-lg font-semibold">想加入这场远征？</h2>
+            <p className="text-muted-foreground mt-1 text-sm">
+              看板上的每张曲线背后都是一位成员。把你的 X 账号加入追踪，从提交当天起每天记录你的成长——不需要会代码，填一份申请就够。
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Button asChild>
+                <a href={GITHUB_APPLY_URL} target="_blank" rel="noreferrer">
+                  在 GitHub 提交申请 <ArrowUpRight className="size-4" />
+                </a>
+              </Button>
+              <Link to="/about" className="text-sm underline-offset-4 hover:underline">
+                先了解加入流程
+              </Link>
+            </div>
+          </div>
         </section>
       </main>
 

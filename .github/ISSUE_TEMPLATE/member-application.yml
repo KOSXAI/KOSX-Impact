@@ -1,32 +1,48 @@
-name: 🙋 成员申请（加入影响力追踪）
-description: KOSX 成员申请将自己的公开账号纳入 KOSX Impact 追踪（审核通过后加入成员名册）
-title: "[成员申请] @X用户名"
+name: 🙋 加入万粉计划（成员申请）
+description: 把你的 X 账号加入 KOSX Impact 追踪名册——从提交当天起，你的成长曲线开始更新。填一份表单就够，不需要提 PR。
+title: "[加入万粉计划] @你的X用户名"
 labels: ["member-application"]
+assignees: ["realchendahuang"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        欢迎加入 Road to 10K！🎉
+
+        **不需要会代码、不需要提 PR**——填好这份申请、勾选同意声明就行，剩下的交给维护者。
+        提交前可以先逛逛[看板](https://10k.kosx.ai)和[数据口径说明](https://10k.kosx.ai/about)。填写过程中遇到任何问题，直接在下方评论，维护者会协助你完成。
   - type: input
     id: handle
     attributes:
-      label: X 用户名（handle）
-      description: 不含 @ 前缀，例如 kosx
+      label: 你的 X 用户名（handle）
+      description: 不含 @ 前缀。就是个人主页 x.com/ 后面那串，例如 x.com/kosx → 填 kosx
       placeholder: kosx
     validations:
       required: true
   - type: input
+    id: display_name
+    attributes:
+      label: 看板上显示的名字（可选）
+      description: 在看板、增长榜和里程碑上展示的名字；留空则显示你的 X 账号昵称
+      placeholder: 可可鸭
+  - type: input
     id: goal
     attributes:
-      label: 个人目标（可选）
-      description: 默认参加 Road to 10K（目标 10,000 粉丝）；也可以写自己的目标
+      label: 你的目标（可选）
+      description: 默认是万粉计划的目标 10000。也可以先设一个小目标——5000、1000 都行，每个台阶达成时都会被庆祝
       placeholder: "10000"
   - type: checkboxes
     id: consent
     attributes:
-      label: 公开追踪同意声明
-      description: 数据来自账号的公开信息（粉丝量等），每日采集并公开展示
+      label: 公开追踪同意声明（必勾）
+      description: 数据全部来自账号的公开信息（粉丝量等），每日更新一次并公开展示。你的数据你做主，随时可以退出。
       options:
-        - label: 我同意 KOSX Impact 每日采集并公开展示我的公开数据，并知晓可以随时通过 Issue 申请退出（退出后停止采集，并可申请移除历史数据）。
+        - label: 我确认这是我自己的 X 账号，同意 KOSX Impact 每日采集并公开展示我的公开数据。我知晓可以随时通过 Issue 申请退出——退出后立即停止采集，也可以申请删除历史数据。
     validations:
       required: true
   - type: textarea
-    id: extra
+    id: intro
     attributes:
-      label: 想对社区说的话（可选）
+      label: 想对社群说的话（可选）
+      description: 一句话介绍自己在做什么、为什么想加入——这条会公开显示在申请里，让社群认识你
+      placeholder: 我在做 XX，想和大家一起冲 10K！

@@ -1,4 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { ArrowUpRight } from "lucide-react";
+import { GITHUB_APPLY_URL } from "@/lib/site";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -55,14 +58,28 @@ function AboutPage() {
         <section>
           <h2 className="text-lg font-semibold">如何加入</h2>
           <p className="text-muted-foreground mt-2">
-            在{" "}
-            <a
-              href="https://github.com/KOSXAI/KOSX-Impact/issues/new?template=member-application.yml"
-              className="underline-offset-4 hover:underline"
-            >
-              GitHub 提交成员申请
-            </a>
-            （需勾选公开追踪同意声明），维护者协助把你的账号加入名册，从当天起你的成长曲线开始更新。
+            全程约 2 分钟——<b>不需要会代码，也不需要提 PR</b>：
+          </p>
+          <ol className="text-muted-foreground mt-2 list-decimal space-y-1.5 pl-5">
+            <li>
+              <b>填一份申请</b>：写上你的 X 用户名，勾选公开追踪同意声明即可
+            </li>
+            <li>
+              <b>剩下的交给维护者</b>：收到申请后，维护者把你的账号加入追踪名册
+            </li>
+            <li>
+              <b>看板见</b>：从当天起，看板上出现你的成长曲线，每天更新一次
+            </li>
+          </ol>
+          <div className="mt-4">
+            <Button asChild>
+              <a href={GITHUB_APPLY_URL} target="_blank" rel="noreferrer">
+                在 GitHub 提交申请 <ArrowUpRight className="size-4" />
+              </a>
+            </Button>
+          </div>
+          <p className="text-muted-foreground mt-3 text-sm">
+            操作中遇到任何问题，直接在申请里评论说明，维护者会协助你完成。
           </p>
         </section>
 

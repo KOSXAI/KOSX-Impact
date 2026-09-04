@@ -26,9 +26,11 @@ KOSX Impact 是 KOSX 社群的公开影响力数据平台。它持续追踪和�
 
 ## 如何加入
 
-1. 提交[成员申请](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=member-application.yml)，确认公开追踪同意声明
-2. 通过 PR 把你的账号加入成员名册（不会操作也没关系，维护者会协助你完成）
+1. 提交[成员申请](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=member-application.yml)——写上你的 X 用户名，勾选公开追踪同意声明即可，全程约 2 分钟
+2. **剩下的交给维护者**：收到申请后，维护者会把你的账号加入追踪名册——不需要 PR，不需要操作代码
 3. 从当天起，你的成长曲线开始每天更新
+
+操作过程中遇到任何问题，直接在申请里评论，维护者会协助你完成。
 
 ## 数据与隐私
 
