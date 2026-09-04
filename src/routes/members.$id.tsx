@@ -3,9 +3,10 @@ import { fetchMemberDetail } from "@/data.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedNumber, Reveal, RevealGroup, RevealItem } from "@/components/motion";
+import { Avatar } from "@/components/member/Avatar";
 import { GrowthChart } from "@/components/member/GrowthChart";
 import { fmt, fmtDate, badge } from "@/lib/format";
-import { SITE_NAME } from "@/lib/site";
+import { SITE_NAME, xProfileUrl } from "@/lib/site";
 
 export const Route = createFileRoute("/members/$id")({
   loader: async ({ params }) => {
@@ -46,14 +47,26 @@ function MemberPage() {
   return (
     <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <Reveal className="flex flex-col gap-3" y={18}>
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{member.displayName ?? member.handle}</h1>
-          <span className="text-base text-mist">@{member.handle}</span>
+        <div className="flex items-center gap-4">
+          <Avatar url={member.profileImage} name={member.displayName ?? member.handle} className="size-16" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{member.displayName ?? member.handle}</h1>
+              <a
+                href={xProfileUrl(member.handle)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-base text-mist underline-offset-4 hover:text-ink hover:underline"
+              >
+                @{member.handle}
+              </a>
+            </div>
+            <p className="text-mist">
+              加入于 {fmtDate(member.joinedAt)}
+              {member.baselineFollowers !== null ? `，基线 ${fmt(member.baselineFollowers)} 粉丝` : ""}。
+            </p>
+          </div>
         </div>
-        <p className="text-mist">
-          加入于 {fmtDate(member.joinedAt)}
-          {member.baselineFollowers !== null ? `，基线 ${fmt(member.baselineFollowers)} 粉丝` : ""}。
-        </p>
         <Link to="/" className="text-mist underline-offset-4 hover:text-ink hover:underline">
           ← 返回看板
         </Link>

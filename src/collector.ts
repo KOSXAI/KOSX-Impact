@@ -110,6 +110,11 @@ async function writeSnapshot(
     env.DB.prepare(
       "INSERT INTO snapshots (member_id, followers, following, posts, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5)"
     ).bind(memberId, stats.followers, stats.following ?? null, stats.posts ?? null, now),
+    // 头像随采随更（不落快照，展示当前头像即可）
+    env.DB.prepare("UPDATE members SET profile_image = ?1, updated_at = datetime('now') WHERE id = ?2").bind(
+      stats.profileImageUrl ?? null,
+      memberId
+    ),
   ]);
 }
 

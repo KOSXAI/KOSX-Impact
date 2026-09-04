@@ -6,6 +6,8 @@ export interface MemberStats {
   displayName: string | null;
   goal: number;
   joinedAt: string;
+  /** X 公开头像 URL（来自最近一次采集），无头像为 null */
+  profileImage: string | null;
   baselineFollowers: number | null;
   latestFollowers: number | null;
   latestRecordedAt: string | null;
@@ -95,6 +97,7 @@ export function computeMemberStats(
     displayName: string | null;
     goal: number;
     joinedAt: string;
+    profileImage?: string | null;
   },
   snapshots: Array<{ followers: number; recordedAt: string }>,
   now: string,
@@ -111,6 +114,7 @@ export function computeMemberStats(
     displayName: member.displayName,
     goal: member.goal,
     joinedAt: member.joinedAt,
+    profileImage: member.profileImage ?? null,
     baselineFollowers: baseline,
     latestFollowers: latest?.followers ?? null,
     latestRecordedAt: latest?.recordedAt ?? null,

@@ -3,6 +3,8 @@ export interface FollowerStats {
   followers: number;
   following?: number;
   posts?: number;
+  /** X 公开头像 URL（pbs.twimg.com），无头像时缺省 */
+  profileImageUrl?: string;
 }
 
 /**

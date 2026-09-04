@@ -41,6 +41,7 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
         followers_count?: number;
         friends_count?: number;
         statuses_count?: number;
+        profile_image_url_https?: string;
       };
       if (typeof data.followers_count !== "number") {
         throw new SocialDataError(`响应缺少 followers_count：${JSON.stringify(data)}`);
@@ -49,6 +50,7 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
         followers: data.followers_count,
         following: data.friends_count,
         posts: data.statuses_count,
+        profileImageUrl: data.profile_image_url_https,
       };
     },
   };

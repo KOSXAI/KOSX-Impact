@@ -3,12 +3,12 @@ import { fetchDashboard } from "@/data.functions";
 import type { MemberStats } from "@/stats";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } from "@/components/motion";
+import { Avatar } from "@/components/member/Avatar";
 import { ArrowUpRight } from "lucide-react";
 import { fmt, fmtDate, badge, nextGoal } from "@/lib/format";
-import { GITHUB_APPLY_URL, SITE_NAME, SLOGAN } from "@/lib/site";
+import { GITHUB_APPLY_URL, SITE_NAME, SLOGAN, xProfileUrl } from "@/lib/site";
 
 export const Route = createFileRoute("/")({
   loader: () => fetchDashboard(),
@@ -181,16 +181,29 @@ function StatCard({ label, value, prefix = "" }: { label: string; value: number;
 }
 
 function ClubMember({ member: m }: { member: MemberStats }) {
+  const name = m.displayName ?? m.handle;
   return (
     <div className="card-lift rounded-2xl border border-signal/20 bg-gradient-to-br from-signal/10 to-transparent p-5 sm:p-6">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <Link to="/members/$id" params={{ id: m.id }} className="text-lg font-semibold underline-offset-4 hover:underline">
-          {m.displayName ?? m.handle}
-        </Link>
-        <Badge>已达成 {badge(m.goal)}</Badge>
+      <div className="flex items-center gap-4">
+        <Avatar url={m.profileImage} name={name} className="size-12" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <Link to="/members/$id" params={{ id: m.id }} className="text-lg font-semibold underline-offset-4 hover:underline">
+              {name}
+            </Link>
+            <Badge>已达成 {badge(m.goal)}</Badge>
+          </div>
+          <a
+            href={xProfileUrl(m.handle)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-mist underline-offset-4 hover:text-ink hover:underline"
+          >
+            @{m.handle}
+          </a>
+        </div>
       </div>
-      <div className="text-mist">@{m.handle}</div>
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
         <div className="text-sm text-mist">
           下一站 {fmt(nextGoal(m.goal))} · 连胜 {m.streakDays} 天 · 30 天 +{fmt(m.growth30d)}
         </div>
@@ -205,14 +218,23 @@ function ClubMember({ member: m }: { member: MemberStats }) {
 
 function ChasingMember({ member: m, rank }: { member: MemberStats; rank: number }) {
   const delta = m.growth > 0 ? `+${fmt(m.growth)}` : fmt(m.growth);
+  const name = m.displayName ?? m.handle;
   return (
-    <div className="flex items-center gap-4 py-4">
+    <div className="flex items-center gap-3 py-4">
       <div className="w-6 shrink-0 text-mist tabular-nums">{rank}</div>
+      <Avatar url={m.profileImage} name={name} className="size-10" />
       <div className="min-w-0 flex-1">
         <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
-          {m.displayName ?? m.handle}
+          {name}
         </Link>
-        <div className="text-mist">@{m.handle}</div>
+        <a
+          href={xProfileUrl(m.handle)}
+          target="_blank"
+          rel="noreferrer"
+          className="text-mist block underline-offset-4 hover:text-ink hover:underline"
+        >
+          @{m.handle}
+        </a>
         <div className="mt-1 text-sm text-mist">连续 {m.streakDays} 天 · 7 天 +{fmt(m.growth7d)} · 30 天 +{fmt(m.growth30d)}</div>
         <GrowProgress value={m.progress} className="mt-2" />
       </div>
