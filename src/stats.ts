@@ -137,6 +137,7 @@ export function computeDashboardStats(
     displayName: string | null;
     goal: number;
     joinedAt: string;
+    profileImage?: string | null;
     snapshots: Array<{ followers: number; recordedAt: string }>;
     /** daily_stats 预聚合字段：有值时直接采用，不重算 */
     preset?: PresetStats;
@@ -160,6 +161,7 @@ export function computeDashboardStats(
         displayName: row.displayName,
         goal: row.goal,
         joinedAt: row.joinedAt,
+        profileImage: row.profileImage,
       },
       row.snapshots,
       now,

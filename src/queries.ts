@@ -27,7 +27,7 @@ type SnapshotRow = { memberId: string; followers: number; recordedAt: string };
 
 /** 看板统计（/api/dashboard 与首页 SSR 共用，缓存键 https://10k.kosx.ai/api/dashboard） */
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
-  const res = await cachedResponse(new Request(`${SITE_URL}/api/dashboard?v=3`), 3600, async () => {
+  const res = await cachedResponse(new Request(`${SITE_URL}/api/dashboard?v=4`), 3600, async () => {
     const now = new Date().toISOString();
     const { results: memberRows } = await env.DB.prepare(
       `SELECT ${MEMBER_FIELDS} FROM members WHERE status = 'active' ORDER BY joined_at`
@@ -64,7 +64,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
 /** 成员详情（/api/members/:id 与成员页 SSR 共用，缓存键 https://10k.kosx.ai/api/members/:id） */
 export async function getMemberDetail(env: Env, id: string): Promise<MemberDetail | null> {
-  const res = await cachedResponse(new Request(`${SITE_URL}/api/members/${id}?v=3`), 3600, async () => {
+  const res = await cachedResponse(new Request(`${SITE_URL}/api/members/${id}?v=4`), 3600, async () => {
     const member = await env.DB.prepare(
       `SELECT ${MEMBER_FIELDS} FROM members WHERE id = ? AND status = 'active'`
     ).bind(id).first();
