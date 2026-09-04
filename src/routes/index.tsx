@@ -9,7 +9,7 @@ import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } 
 import { Avatar } from "@/components/member/Avatar";
 import { ArrowUpRight } from "lucide-react";
 import { fmt, fmtDate, badge, nextGoal } from "@/lib/format";
-import { GITHUB_APPLY_URL, SITE_NAME, SLOGAN, xProfileUrl } from "@/lib/site";
+import { GITHUB_APPLY_URL, SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -17,14 +17,14 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: SITE_NAME },
-      { name: "description", content: `${SITE_NAME}：追踪每一位成员从当前粉丝走向万粉的过程，看见每个人的成长，也看见整个社群正在产生多大的影响。` },
+      { name: "description", content: `${SITE_NAME}：追踪每一位成员迈向万粉及更高台阶的过程，看见每个人的成长，也看见整个社群正在产生多大的影响。` },
       { property: "og:title", content: SITE_NAME },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://10k.kosx.ai/" },
-      { property: "og:image", content: "https://10k.kosx.ai/og.svg?v=2" },
+      { property: "og:url", content: `${SITE_URL}/` },
+      { property: "og:image", content: `${SITE_URL}/og.svg?v=2` },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:image", content: "https://10k.kosx.ai/og.svg?v=2" },
+      { name: "twitter:image", content: `${SITE_URL}/og.svg?v=2` },
     ],
   }),
   component: DashboardPage,
@@ -56,7 +56,7 @@ const PODIUM = [
 
 function DashboardPage() {
   const stats = Route.useLoaderData();
-  // 冲榜按最新粉丝数从高到低（用户规则）；已达成万粉的进名人堂
+  // 冲榜按最新粉丝数从高到低（用户规则）；已达成个人目标的进名人堂
   const chasing = stats.members
     .filter((m) => !m.achieved)
     .sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
@@ -224,7 +224,7 @@ function ChasingMember({
           </a>
         </div>
         <div className="mt-0.5 text-sm text-mist">
-          距万粉还差 {fmt(toGoal)} · 连胜 {m.streakDays} 天 · 7 天 +{fmt(m.growth7d)} · 30 天 +{fmt(m.growth30d)}
+          距目标还差 {fmt(toGoal)} · 连胜 {m.streakDays} 天 · 7 天 +{fmt(m.growth7d)} · 30 天 +{fmt(m.growth30d)}
         </div>
         <GrowProgress value={m.progress} className="mt-2" />
       </div>
@@ -249,7 +249,7 @@ function HallList({ members }: { members: MemberStats[] }) {
   );
 }
 
-/** 名人堂行：已达成万粉的荣誉成员 */
+/** 名人堂行：已达成个人目标的荣誉成员 */
 function HallMember({ member: m }: { member: MemberStats }) {
   const name = m.displayName ?? m.handle;
   return (
@@ -275,7 +275,7 @@ function HallMember({ member: m }: { member: MemberStats }) {
       </div>
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
         <div className="text-sm text-mist">
-          下一站 {fmt(nextGoal(m.goal))} · 连胜 {m.streakDays} 天 · 30 天 +{fmt(m.growth30d)}
+          下一站 {badge(nextGoal(m.goal))} · 连胜 {m.streakDays} 天 · 30 天 +{fmt(m.growth30d)}
         </div>
         <div className="text-right">
           <div className="text-xl font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>

@@ -30,6 +30,6 @@
   },
   "routes": [
     // 看板自定义域名（zone: kosx.ai）
-    { "pattern": "10k.kosx.ai", "custom_domain": true }
+    { "pattern": "impact.kosx.ai", "custom_domain": true }
   ]
 }

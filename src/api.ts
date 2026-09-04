@@ -6,8 +6,7 @@ import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { computeMemberStats, computeDashboardStats } from "./stats";
 import { getDashboardStats, getMemberDetail } from "./queries";
 import { roster } from "./roster";
-
-const SITE_URL = "https://10k.kosx.ai";
+import { SITE_URL } from "./lib/site";
 
 export const api = new Hono<{ Bindings: Env }>();
 
@@ -46,7 +45,7 @@ api.get("/api/members/:id", async (c) => {
   return c.json(detail);
 });
 
-// 成员进度卡片：可嵌入 GitHub README / 个人主页（<img src="https://10k.kosx.ai/card/{id}.svg">）
+// 成员进度卡片：可嵌入 GitHub README / 个人主页（<img src="https://impact.kosx.ai/card/{id}.svg">）
 // 注：路由用 :id 而非 :id.svg——Hono 不支持参数名里带点，.svg 后缀在 handler 内剔除
 // 卡片是嵌入在成员个人主页里的高频图，边缘缓存挡掉绝大部分回源
 export async function renderMemberCardSvg(id: string, env: Env): Promise<Response> {

@@ -5,6 +5,7 @@ import { getSource } from "./sources";
 import type { FollowerSource, FollowerStats } from "./sources/types";
 import { purgeReadCaches } from "./cache";
 import { computeMemberStats } from "./stats";
+import { SITE_URL } from "./lib/site";
 
 export interface CollectSummary {
   ok: number;
@@ -90,7 +91,7 @@ export async function collectWithSource(
 
   // 采集完成后尽力清读缓存：看板/成员页/卡片立刻反映新数据（清不到的边缘节点等 TTL 过期）
   ctx?.waitUntil(
-    purgeReadCaches(["https://10k.kosx.ai"], sampled.map((m) => m.id)).catch(() => undefined)
+    purgeReadCaches([SITE_URL], sampled.map((m) => m.id)).catch(() => undefined)
   );
 
   return summary;

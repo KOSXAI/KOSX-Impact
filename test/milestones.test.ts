@@ -9,6 +9,17 @@ describe("thresholdsForGoal", () => {
   it("个人目标低于标准档位时只保留不高于目标的档位", () => {
     expect(thresholdsForGoal(2000)).toEqual([1000, 2000]);
   });
+
+  it("万粉之后继续向上：十万/百万级目标拥有完整阶梯", () => {
+    expect(thresholdsForGoal(150000).slice(-5)).toEqual([25000, 50000, 75000, 100000, 150000]);
+  });
+
+  it("千万级目标也不封顶", () => {
+    const t = thresholdsForGoal(1000000);
+    expect(t[t.length - 1]).toBe(1000000);
+    expect(t).toContain(750000);
+    expect(t).toContain(100000);
+  });
 });
 
 describe("detectMilestones", () => {

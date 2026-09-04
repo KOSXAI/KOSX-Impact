@@ -27,7 +27,7 @@
           "goal": {
             "type": "integer",
             "minimum": 1,
-            "description": "个人目标粉丝量，默认 10000（Road to 10K）"
+            "description": "个人目标粉丝量（万粉影响力量级台阶），默认 10000；可设十万/百万/千万等更高目标"
           },
           "joinedAt": {
             "type": "string",

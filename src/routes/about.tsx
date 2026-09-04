@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/motion";
 import { ArrowUpRight } from "lucide-react";
-import { GITHUB_APPLY_URL, SITE_NAME, SLOGAN } from "@/lib/site";
+import { GITHUB_APPLY_URL, SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -12,7 +12,7 @@ export const Route = createFileRoute("/about")({
       { property: "og:title", content: `关于 · ${SITE_NAME}` },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "https://10k.kosx.ai/og.svg?v=2" },
+      { property: "og:image", content: `${SITE_URL}/og.svg?v=2` },
     ],
   }),
   component: AboutPage,
@@ -41,7 +41,7 @@ function AboutPage() {
             </h2>
             <p className="mt-3 max-w-2xl leading-relaxed text-mist">
               一块追踪 KOSX 成员在 X 上公开成长数据（粉丝量与里程碑）的看板。
-              它记录每位成员从当前粉丝走向万粉的过程，也让整个社群的影响力被看见——和自己比，不是竞赛。
+              它记录每位成员从当前粉丝出发、迈向万粉及更高台阶的过程，也让整个社群的影响力被看见——和自己比，不是竞赛。
             </p>
           </section>
         </Reveal>
@@ -122,7 +122,7 @@ function AboutPage() {
               每位成员都有一张可嵌入个人主页或仓库的进度卡片：
             </p>
             <pre className="mt-4 overflow-x-auto rounded-2xl border border-line bg-soft-surface p-4 font-mono text-sm text-mist">
-              &lt;img src=&quot;https://10k.kosx.ai/card/成员id.svg&quot; width=&quot;480&quot;&gt;
+              &lt;img src=&quot;{`${SITE_URL}/card/成员id.svg`}&quot; width=&quot;480&quot;&gt;
             </pre>
           </section>
         </Reveal>

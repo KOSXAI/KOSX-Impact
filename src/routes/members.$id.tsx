@@ -6,7 +6,7 @@ import { AnimatedNumber, Reveal, RevealGroup, RevealItem } from "@/components/mo
 import { Avatar } from "@/components/member/Avatar";
 import { GrowthChart } from "@/components/member/GrowthChart";
 import { fmt, fmtDate, badge } from "@/lib/format";
-import { SITE_NAME, xProfileUrl } from "@/lib/site";
+import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
 
 export const Route = createFileRoute("/members/$id")({
   loader: async ({ params }) => {
@@ -25,13 +25,13 @@ export const Route = createFileRoute("/members/$id")({
           ? [{ name: "description", content: `${name} 的成长档案：粉丝量曲线、目标进度与里程碑。` }]
           : [{ name: "robots", content: "noindex, follow" }]),
         { property: "og:title", content: `${name} · ${SITE_NAME}` },
-        { property: "og:description", content: "看见每个人的成长——这是 TA 迈向万粉的进度。" },
+        { property: "og:description", content: "看见每个人的成长——这是 TA 迈向万粉及更高台阶的进度。" },
         { property: "og:type", content: "profile" },
         ...(loaderData
           ? [
-              { property: "og:image", content: `https://10k.kosx.ai/card/${loaderData.member.id}.svg` },
+              { property: "og:image", content: `${SITE_URL}/card/${loaderData.member.id}.svg` },
               { name: "twitter:card", content: "summary_large_image" },
-              { name: "twitter:image", content: `https://10k.kosx.ai/card/${loaderData.member.id}.svg` },
+              { name: "twitter:image", content: `${SITE_URL}/card/${loaderData.member.id}.svg` },
             ]
           : []),
       ],

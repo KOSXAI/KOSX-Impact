@@ -2,7 +2,7 @@
   "name": "kosx-impact",
   "version": "0.1.0",
   "private": true,
-  "description": "KOSX 社群的公开影响力数据平台（Road to 10K）",
+  "description": "KOSX 万粉影响力计划：公开影响力数据平台",
   "type": "module",
   "engines": {
     "node": ">=20"

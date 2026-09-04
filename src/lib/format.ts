@@ -1,5 +1,7 @@
 /** 前后端共享的展示格式化工具（千分位 / 日期 / 里程碑档位缩写） */
 
+import { STANDARD_THRESHOLDS } from "../milestones";
+
 export function fmt(n: number): string {
   return n.toLocaleString("zh-CN");
 }
@@ -20,7 +22,8 @@ export function badge(threshold: number): string {
   return String(threshold);
 }
 
-/** 达成后的下一站目标：向上取整到 5000 倍数 */
+/** 达成后的下一站目标：下一个标准档位（万粉之后还有两万五、五万、十万、百万……） */
 export function nextGoal(goal: number): number {
-  return goal >= 10000 ? Math.ceil((goal + 1) / 5000) * 5000 : 10000;
+  // 标准表最高到 7.5 亿，超过后按 5000 步进兜底（现实中不会走到）
+  return STANDARD_THRESHOLDS.find((t) => t > goal) ?? Math.ceil((goal + 1) / 5000) * 5000;
 }

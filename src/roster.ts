@@ -45,6 +45,7 @@ export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
       member.id,
       member.handle,
       member.displayName ?? null,
+      // 默认目标 10000：万粉是每位成员的第一级台阶，达成后可继续申请更高目标（十万/百万…）
       member.goal ?? 10000,
       member.joinedAt
     ).run();

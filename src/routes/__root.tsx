@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { SITE_URL } from "@/lib/site";
 import "@/styles.css";
-
-const SITE_URL = "https://10k.kosx.ai";
 
 export const Route = createRootRoute({
   head: () => ({

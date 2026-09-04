@@ -7,10 +7,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        欢迎加入 Road to 10K！🎉
+        欢迎加入 KOSX 万粉影响力计划！🎉
 
         **不需要会代码、不需要提 PR**——填好这份申请、勾选同意声明就行，剩下的交给维护者。
-        提交前可以先逛逛[看板](https://10k.kosx.ai)和[数据口径说明](https://10k.kosx.ai/about)。填写过程中遇到任何问题，直接在下方评论，维护者会协助你完成。
+        提交前可以先逛逛[看板](https://impact.kosx.ai)和[数据口径说明](https://impact.kosx.ai/about)。填写过程中遇到任何问题，直接在下方评论，维护者会协助你完成。
   - type: input
     id: handle
     attributes:
@@ -29,7 +29,7 @@ body:
     id: goal
     attributes:
       label: 你的目标（可选）
-      description: 默认是万粉计划的目标 10000。也可以先设一个小目标——5000、1000 都行，每个台阶达成时都会被庆祝
+      description: 默认是 10000（万粉是大家的第一个台阶）。也可以先设小目标——1000、5000 都行；达成后想继续冲也可以定更高，比如 10 万、100 万。每个台阶达成时都会被庆祝
       placeholder: "10000"
   - type: checkboxes
     id: consent
@@ -45,4 +45,4 @@ body:
     attributes:
       label: 想对社群说的话（可选）
       description: 一句话介绍自己在做什么、为什么想加入——这条会公开显示在申请里，让社群认识你
-      placeholder: 我在做 XX，想和大家一起冲 10K！
+      placeholder: 我在做 XX，想和大家一起冲上万粉！

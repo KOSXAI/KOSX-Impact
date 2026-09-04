@@ -24,6 +24,6 @@
     "crons": ["0 * * * *"]
   },
   "routes": [
-    { "pattern": "10k.kosx.ai", "custom_domain": true }
+    { "pattern": "impact.kosx.ai", "custom_domain": true }
   ]
 }
