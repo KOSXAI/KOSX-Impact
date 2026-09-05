@@ -7,7 +7,7 @@ import type { DashboardStats, MemberDetail } from "./stats";
 import { computeDashboardStats, computeMemberStats } from "./stats";
 import { UNIFORM_THRESHOLDS } from "./milestones";
 import { roster } from "./roster";
-import { cachedResponse } from "./cache";
+import { CACHE_KEYS, cachedResponse } from "./cache";
 import { SITE_URL } from "./lib/site";
 
 // Env 由 worker-configuration.d.ts / env.d.ts 全局声明（无单独模块）
@@ -26,7 +26,7 @@ type SnapshotRow = { memberId: string; followers: number; recordedAt: string };
 
 /** 看板统计（/api/dashboard 与首页 SSR 共用，缓存键 ${SITE_URL}/api/dashboard） */
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
-  const res = await cachedResponse(new Request(`${SITE_URL}/api/dashboard?v=13`), 3600, async () => {
+  const res = await cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.dashboard}`), 3600, async () => {
     const now = new Date().toISOString();
     const { results: memberRows } = await env.DB.prepare(
       `SELECT ${MEMBER_FIELDS} FROM members WHERE status = 'active' ORDER BY joined_at`
@@ -63,7 +63,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
 /** 成员详情（/api/members/:id 与成员页 SSR 共用，缓存键 ${SITE_URL}/api/members/:id） */
 export async function getMemberDetail(env: Env, id: string): Promise<MemberDetail | null> {
-  const res = await cachedResponse(new Request(`${SITE_URL}/api/members/${id}?v=10`), 3600, async () => {
+  const res = await cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.memberDetail(id)}`), 3600, async () => {
     const member = await env.DB.prepare(
       `SELECT ${MEMBER_FIELDS} FROM members WHERE id = ? AND status = 'active'`
     ).bind(id).first();

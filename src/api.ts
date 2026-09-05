@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { DashboardStats } from "./stats";
 import { collect, processOldestPending } from "./collector";
-import { cachedResponse, purgeReadCaches } from "./cache";
+import { CACHE_KEYS, cachedResponse, purgeReadCaches } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { computeMemberStats, computeDashboardStats } from "./stats";
 import { getDashboardStats, getMemberDetail } from "./queries";
@@ -23,7 +23,7 @@ api.get("/api/dashboard", async (c) => {
 
 // 成员列表，附带每人最新一次快照的粉丝量
 api.get("/api/members", async (c) => {
-  return cachedResponse(new Request(`${SITE_URL}/api/members?v=10`), 3600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.memberList}`), 3600, async () => {
     const { results } = await c.env.DB.prepare(
       `SELECT
          m.id, m.handle, m.display_name, m.joined_at,
@@ -142,7 +142,7 @@ export async function renderMemberCardSvg(id: string, env: Env): Promise<Respons
 // 站点 OG 图：分享到社媒时的动态预览（社群总量）
 // 只需每成员最新一条快照（窗口 LIMIT 1），缓存 6 小时挡爬虫高频预览
 export async function renderOgSvg(env: Env): Promise<Response> {
-  return cachedResponse(new Request(`${SITE_URL}/og.svg`), 21600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.og}`), 21600, async () => {
     const now = new Date().toISOString();
     const { results: memberRows } = await env.DB.prepare(
       `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt
