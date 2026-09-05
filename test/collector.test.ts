@@ -95,6 +95,26 @@ describe("collectWithSource", () => {
     ]);
   });
 
+  it("首个快照补授已达大关：中高粉成员加入即有徽章", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at) VALUES ('carol', 'carol_x', '2026-08-30')"
+    ).run();
+    // 无历史快照：3200 粉加入（注册当场校验走 applyFollowerStats）→ 百里挑一/五福临门/千帆竞发当场补授
+    await applyFollowerStats(env, "carol", { followers: 3200 }, "2026-09-05T04:00:00Z");
+
+    const { results } = await env.DB.prepare(
+      "SELECT threshold FROM milestones WHERE member_id = 'carol' ORDER BY threshold"
+    ).all();
+    expect(results).toEqual([{ threshold: 100 }, { threshold: 500 }, { threshold: 1000 }]);
+
+    // 下一次写入走跨线检测，不重复补授
+    await applyFollowerStats(env, "carol", { followers: 3300 }, "2026-09-05T05:00:00Z");
+    const total = (await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM milestones WHERE member_id = 'carol'"
+    ).first()) as { n: number };
+    expect(total.n).toBe(3);
+  });
+
   it("部分成员失败不影响其他成员", async () => {
     await seedBaselines();
     const summaryA = await collectWithSource(env, stubSource({

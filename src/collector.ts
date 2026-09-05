@@ -132,7 +132,9 @@ async function writeSnapshot(
   ]);
 }
 
-/** 与本次采集之前的最新快照对比，写入新跨过的大关（称号大关表） */
+/** 与本次采集之前的最新快照对比，写入新跨过的大关（称号大关表）。
+ *  首个快照没有「之前」：加入时刻已达到的大关当场补授——否则中高粉成员
+ *  上一道大关早在加入前就过了，第一枚徽章要等几个月，徽章墙长期空转。 */
 async function checkMilestones(
   env: Env,
   memberId: string,
@@ -143,7 +145,11 @@ async function checkMilestones(
     "SELECT followers FROM snapshots WHERE member_id = ?1 AND recorded_at < ?2 ORDER BY recorded_at DESC LIMIT 1"
   ).bind(memberId, now).first()) as { followers: number } | null;
 
-  const events = detectMilestones(prev?.followers, followers, MILESTONE_THRESHOLDS, now);
+  const events = prev
+    ? detectMilestones(prev.followers, followers, MILESTONE_THRESHOLDS, now)
+    : MILESTONE_THRESHOLDS
+        .filter((t) => t <= followers)
+        .map((threshold) => ({ threshold, achievedAt: now }));
   for (const event of events) {
     await env.DB.prepare(
       "INSERT OR IGNORE INTO milestones (member_id, threshold, achieved_at, announced) VALUES (?1, ?2, ?3, 1)"
