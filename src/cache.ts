@@ -30,8 +30,12 @@ export const CACHE_KEYS = {
   dashboard: "/api/dashboard?v=13",
   /** 成员列表（/api/members） */
   memberList: "/api/members?v=10",
-  /** 站点 OG 图 */
+  /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */
   og: "/og.svg",
+  /** 成员 OG 分享卡（PNG，X/微信分享预览用） */
+  ogMember: (id: string) => `/og/members/${id}?v=1`,
+  /** 站点 OG 分享卡（PNG） */
+  ogSite: "/og/site.png?v=1",
   /** 成员详情（/api/members/:id 与成员页 SSR 共用） */
   memberDetail: (id: string) => `/api/members/${id}?v=10`,
 } as const;

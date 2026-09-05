@@ -36,9 +36,12 @@ export const Route = createFileRoute("/members/$id")({
         { property: "og:type", content: "profile" },
         ...(loaderData
           ? [
-              { property: "og:image", content: `${SITE_URL}/card/${loaderData.member.id}.svg` },
+              { property: "og:url", content: `${SITE_URL}/members/${loaderData.member.id}` },
+              // 分享预览卡（PNG）：X/微信不渲染 SVG 的 og:image
+              { property: "og:image", content: `${SITE_URL}/og/members/${loaderData.member.id}.png` },
+              { property: "og:image:alt", content: `${name} 的 KOSX 影响力卡片` },
               { name: "twitter:card", content: "summary_large_image" },
-              { name: "twitter:image", content: `${SITE_URL}/card/${loaderData.member.id}.svg` },
+              { name: "twitter:image", content: `${SITE_URL}/og/members/${loaderData.member.id}.png` },
             ]
           : []),
       ],

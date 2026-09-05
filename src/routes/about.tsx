@@ -15,7 +15,7 @@ export const Route = createFileRoute("/about")({
       { property: "og:title", content: `关于 · ${SITE_NAME}` },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: `${SITE_URL}/og.svg?v=2` },
+      { property: "og:image", content: `${SITE_URL}/og/site.png` },
     ],
   }),
   component: AboutPage,

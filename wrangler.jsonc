@@ -13,7 +13,7 @@
     "binding": "ASSETS",
     // API / SVG 卡 / OG 图 / SEO 文件先经 Worker（Hono 分发）；
     // 页面路由（/ /members/:id /about）无静态资产，自然回退 Worker 做 SSR
-    "run_worker_first": ["/api/*", "/card/*", "/og.svg", "/robots.txt", "/sitemap.xml"]
+    "run_worker_first": ["/api/*", "/card/*", "/og.svg", "/og/*", "/robots.txt", "/sitemap.xml"]
   },
   "d1_databases": [
     {

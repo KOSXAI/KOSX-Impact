@@ -3,6 +3,7 @@ import type { DashboardStats } from "./stats";
 import { applyFollowerStats, collect, drainRefreshQueue, processOldestPending } from "./collector";
 import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
+import { renderMemberOgPng, renderSiteOgPng, ogNotFound } from "./og-render";
 import { computeMemberStats, computeDashboardStats } from "./stats";
 import { getDashboardStats, getMemberDetail } from "./queries";
 import { roster } from "./roster";
@@ -223,9 +224,16 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${today}</lastmod><changef
 
 /** 非 React SSR 请求的统一分发：API / SVG 卡 / OG 图 / SEO 文件；未命中返回 null 交给 SSR */
 export async function handleWorkerRoutes(request: Request, env: Env): Promise<Response | null> {
-  const { pathname } = new URL(request.url);
+  const url = new URL(request.url);
+  const { pathname } = url;
   if (pathname.startsWith("/api/")) return honoApp.fetch(request, env);
   if (pathname === "/og.svg") return renderOgSvg(env);
+  // OG 分享卡（PNG）：X/微信等平台不渲染 SVG 的 og:image，分享预览走这里
+  if (pathname === "/og/site.png") return renderSiteOgPng(env, url.origin);
+  if (pathname.startsWith("/og/members/")) {
+    const id = pathname.slice("/og/members/".length).replace(/\.png$/, "").split("/")[0];
+    return id ? renderMemberOgPng(env, id, url.origin) : ogNotFound();
+  }
   if (pathname === "/robots.txt") return renderRobots();
   if (pathname === "/sitemap.xml") return renderSitemap();
   if (pathname.startsWith("/card/")) {

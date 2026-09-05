@@ -9,7 +9,8 @@ import { SITE_URL } from "./lib/site";
  * 配色对齐官网：纸底 #0a0a0a、墨色 #f7f7f5、信号橙 #ff6a00。
  */
 
-function esc(s: string): string {
+/** SVG 文本转义（og.ts 模板共用） */
+export function esc(s: string): string {
   return s.replace(/[&<>"']/g, (ch) => {
     switch (ch) {
       case "&": return "&amp;";

@@ -41,10 +41,15 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 │   ├── members.json          # 成员名册：追踪名单的事实来源（通过 PR 修改）
 │   └── members.schema.json   # 名册的 JSON Schema
 ├── migrations/               # D1 数据库迁移（SQL）
-├── scripts/                  # 校验脚本（名册格式等）
+├── scripts/                  # 校验脚本（名册格式等）与 OG 字体生成（build-og-fonts.mjs）
+├── public/
+│   ├── kosx-logo-white.png   # 白字标（页面与 OG 卡共用）
+│   └── fonts/                # OG 卡子集字体（生成产物，需提交）
 ├── src/
 │   ├── server.ts             # Worker 入口：API/SVG 卡分发 + TanStack SSR + cron
-│   ├── api.ts                # Hono：JSON API / SVG 卡 / robots / sitemap
+│   ├── api.ts                # Hono：JSON API / SVG 卡 / OG 图 / robots / sitemap
+│   ├── og.ts                 # OG 分享卡 SVG 模板（纯函数，可单测）
+│   ├── og-render.ts          # OG 卡光栅化（resvg-wasm）与取数路由
 │   ├── queries.ts            # 共享查询层（API 与 SSR 共用，含边缘缓存）
 │   ├── data.functions.ts     # TanStack server functions（路由 loader 取数）
 │   ├── routes/               # React 页面（看板 / 成员详情 / 关于）
@@ -58,6 +63,18 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 ├── wrangler.test.jsonc       # 测试专用配置（轻量 API 入口，不含 SSR）
 └── worker-configuration.d.ts # 由 wrangler types 生成，勿手改
 ```
+
+## OG 分享卡
+
+成员页/首页/关于页的 `og:image` 指向动态 PNG（`/og/members/:id.png`、`/og/site.png`）——X、微信等平台不渲染 SVG 格式的 og:image，所以分享预览必须在服务端光栅化：`src/og.ts` 出 SVG 模板，`src/og-render.ts` 用 `@resvg/resvg-wasm` 转 PNG（1200×630）。缓存与读端点同模型：键带 `cache_bust`，与成员页 SSR 共用 `queries.ts` 取数缓存。
+
+中文字体是子集化的 Noto Sans SC（OFL 许可，`public/fonts/`）。改了卡面文案、新增段位名之后必须重新生成并提交产物：
+
+```bash
+npm run build:og-fonts
+```
+
+渲染约定：动态文本（昵称/数字/段位名）一律 `font-weight="700"`（700 档子集带全字表），400 档只装固定文案与 @handle（X handle 必为 ASCII）——两档各管各的，超集才不会豆腐块。
 
 ## 成员名册
 
