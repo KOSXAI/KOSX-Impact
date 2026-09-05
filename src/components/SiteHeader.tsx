@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { GITHUB_URL } from "@/lib/site";
+import { ArrowUpRight } from "lucide-react";
+import { GITHUB_URL, OFFICIAL_SITE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /** GitHub 官方 octocat 标记（lucide 已移除品牌图标，内联 SVG 用 currentColor 跟主题） */
@@ -12,7 +13,7 @@ function GitHubIcon({ className }: { className?: string }) {
 }
 
 /**
- * 全站统一头部：左侧 KOSX 标识（回看板首页），右侧 GitHub 开源仓库。
+ * 全站统一头部：左侧 KOSX 标识（回看板首页），右侧官网与 GitHub 开源仓库。
  * sticky + 半透明毛玻璃，滚动时内容从下方穿过仍可辨识。
  */
 export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClassName?: string }) {
@@ -27,16 +28,28 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
         <Link to="/" aria-label="返回看板" className="flex shrink-0 items-center">
           <img src="/kosx-logo-white.png" alt="KOSX.ai" className="h-6 w-auto" />
         </Link>
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noreferrer"
-          title="KOSX-Impact 开源仓库"
-          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
-        >
-          <GitHubIcon className="size-4" />
-          GitHub
-        </a>
+        <div className="flex items-center gap-4">
+          <a
+            href={OFFICIAL_SITE_URL}
+            target="_blank"
+            rel="noreferrer"
+            title="KOSX 官网"
+            className="inline-flex items-center gap-0.5 text-sm font-semibold text-mist transition-colors hover:text-ink"
+          >
+            官网
+            <ArrowUpRight className="size-3.5" aria-hidden="true" />
+          </a>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            title="KOSX-Impact 开源仓库"
+            className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+          >
+            <GitHubIcon className="size-4" />
+            GitHub
+          </a>
+        </div>
       </div>
     </header>
   );

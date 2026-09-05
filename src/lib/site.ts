@@ -6,6 +6,9 @@ export const SLOGAN = "看见每个人的成长，也看见整个社群正在产
 /** GitHub 开源仓库（站点头部链接） */
 export const GITHUB_URL = "https://github.com/KOSXAI/KOSX-Impact";
 
+/** KOSX 官网（站点头部链接） */
+export const OFFICIAL_SITE_URL = "https://kosx.ai";
+
 /** 成员 X 主页（看板头像/账号链接跳转用） */
 export function xProfileUrl(handle: string): string {
   return `https://x.com/${handle}`;
