@@ -141,7 +141,7 @@ function DashboardPage() {
 
       <main key={tab} className="tab-in mt-6">
         {tab === "leaderboard" && <LeaderboardList members={leaderboard} />}
-        {tab === "growth" && <GrowthList members={growth} />}
+        {tab === "growth" && <GrowthSection members={growth} />}
         {tab === "climbs" && <ClimbsList stats={stats} />}
       </main>
 
@@ -298,21 +298,42 @@ function LeaderboardMember({
   );
 }
 
-function GrowthList({ members }: { members: MemberStats[] }) {
-  if (members.length === 0) return <p className="text-mist">还没有成员上榜。</p>;
+/** 成长榜：近 7 天 / 近 30 天口径切换，按所选范围排序，小账号也有机会登顶 */
+function GrowthSection({ members }: { members: MemberStats[] }) {
+  const [range, setRange] = useState<7 | 30>(30);
+  const sorted = [...members].sort((a, b) =>
+    range === 7 ? b.growth7d - a.growth7d : b.growth30d - a.growth30d
+  );
+
   return (
-    <ol className="space-y-3">
-      {members.map((m, i) => (
-        <RevealItem key={m.id} y={16}>
-          <GrowthMember member={m} rank={i + 1} />
-        </RevealItem>
-      ))}
-    </ol>
+    <>
+      <div className="mb-2 flex justify-end gap-1">
+        {([30, 7] as const).map((r) => (
+          <button
+            key={r}
+            onClick={() => setRange(r)}
+            className={cn(
+              "h-7 rounded-full px-3 text-xs font-semibold transition-colors",
+              range === r ? "bg-white text-paper" : "text-mist hover:text-ink"
+            )}
+          >
+            近 {r} 天
+          </button>
+        ))}
+      </div>
+      <ol className="space-y-3">
+        {sorted.map((m, i) => (
+          <RevealItem key={m.id} y={16}>
+            <GrowthMember member={m} rank={i + 1} range={range} />
+          </RevealItem>
+        ))}
+      </ol>
+    </>
   );
 }
 
-/** 成长榜行：按近 30 天增长排序，小账号也有机会登顶 */
-function GrowthMember({ member: m, rank }: { member: MemberStats; rank: number }) {
+/** 成长榜行：选中口径的数字高亮，另一口径弱化 */
+function GrowthMember({ member: m, rank, range }: { member: MemberStats; rank: number; range: 7 | 30 }) {
   const name = m.displayName ?? m.handle;
   return (
     <div className="flex items-center gap-3 py-4 sm:gap-4">
@@ -336,11 +357,15 @@ function GrowthMember({ member: m, rank }: { member: MemberStats; rank: number }
       </div>
       <div className="flex shrink-0 items-center gap-6">
         <div className="text-right">
-          <div className="font-bold tabular-nums text-signal">+{fmt(m.growth7d)}</div>
+          <div className={cn("font-bold tabular-nums", range === 7 ? "text-signal" : "text-mist")}>
+            +{fmt(m.growth7d)}
+          </div>
           <div className="text-xs text-mist">近 7 天</div>
         </div>
         <div className="text-right">
-          <div className="font-bold tabular-nums text-signal">+{fmt(m.growth30d)}</div>
+          <div className={cn("font-bold tabular-nums", range === 30 ? "text-signal" : "text-mist")}>
+            +{fmt(m.growth30d)}
+          </div>
           <div className="text-xs text-mist">近 30 天</div>
         </div>
       </div>

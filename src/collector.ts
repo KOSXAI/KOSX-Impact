@@ -107,7 +107,9 @@ export async function collectWithSource(
   return summary;
 }
 
-/** 写当日快照：同一天重复采集以最新值为准 */
+/** 写当日快照：同一天重复采集以最新值为准。
+ *  昵称策略（与头像同语句更新）：自助成员（self_registered=1）跟随 X 实时昵称，
+ *  名册成员以名册为准、仅在缺失时回填 X 昵称。 */
 async function writeSnapshot(
   env: Env,
   memberId: string,
@@ -121,11 +123,16 @@ async function writeSnapshot(
     env.DB.prepare(
       "INSERT INTO snapshots (member_id, followers, following, posts, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5)"
     ).bind(memberId, stats.followers, stats.following ?? null, stats.posts ?? null, now),
-    // 头像随采随更（不落快照，展示当前头像即可）
-    env.DB.prepare("UPDATE members SET profile_image = ?1, updated_at = datetime('now') WHERE id = ?2").bind(
-      stats.profileImageUrl ?? null,
-      memberId
-    ),
+    env.DB.prepare(
+      `UPDATE members SET
+         display_name = CASE
+           WHEN self_registered = 1 THEN COALESCE(?2, display_name)
+           ELSE COALESCE(display_name, ?2)
+         END,
+         profile_image = ?3,
+         updated_at = datetime('now')
+       WHERE id = ?1`
+    ).bind(memberId, stats.displayName ?? null, stats.profileImageUrl ?? null),
   ]);
 }
 
@@ -234,12 +241,6 @@ async function processRefreshJob(
   try {
     const stats = await source.fetchStats(member.handle);
     await writeSnapshot(env, memberId, stats, nowIso);
-    // 自助注册成员 display_name 为空：用 X 公开昵称回填（名册成员的名册值优先，COALESCE 不覆盖）
-    if (stats.displayName) {
-      await env.DB.prepare(
-        "UPDATE members SET display_name = COALESCE(display_name, ?2), updated_at = datetime('now') WHERE id = ?1"
-      ).bind(memberId, stats.displayName).run();
-    }
     await checkMilestones(env, memberId, stats.followers, nowIso);
     await writeDailyStats(env, memberId, stats.followers, nowIso);
     await env.DB.prepare(

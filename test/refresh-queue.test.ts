@@ -251,6 +251,46 @@ describe("registerMember", () => {
   });
 });
 
+describe("昵称策略（writeSnapshot 管线）", () => {
+  async function displayNameOf(id: string): Promise<string | null> {
+    const row = (await env.DB.prepare("SELECT display_name FROM members WHERE id = ?1").bind(id).first()) as {
+      display_name: string | null;
+    };
+    return row.display_name;
+  }
+
+  it("自助成员（self_registered=1）昵称跟随 X 实时数据", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at, self_registered, display_name) VALUES ('alice', 'alice_x', '2026-08-30', 1, '旧昵称')"
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('alice', 900, '2026-08-30T00:00:00Z')"
+    ).run();
+    await enqueueRefresh(env, "alice", T0);
+    await drainRefreshQueue(env, stubSource({ alice_x: { followers: 1500, displayName: "新昵称" } }));
+    expect(await displayNameOf("alice")).toBe("新昵称");
+  });
+
+  it("名册成员昵称以名册为准，不被采集覆盖", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at, display_name) VALUES ('bob', 'bob_x', '2026-08-30', '名册昵称')"
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('bob', 1200, '2026-08-30T00:00:00Z')"
+    ).run();
+    await enqueueRefresh(env, "bob", T0);
+    await drainRefreshQueue(env, stubSource({ bob_x: { followers: 1300, displayName: "X昵称" } }));
+    expect(await displayNameOf("bob")).toBe("名册昵称");
+  });
+
+  it("名册成员缺显示名时由采集回填", async () => {
+    await seedMember("alice", "alice_x", 900);
+    await enqueueRefresh(env, "alice", T0);
+    await drainRefreshQueue(env, stubSource({ alice_x: { followers: 1500, displayName: "X昵称" } }));
+    expect(await displayNameOf("alice")).toBe("X昵称");
+  });
+});
+
 describe("lookupRefreshMember", () => {
   it("返回预览数据与队列状态", async () => {
     await seedMember("alice", "alice_x", 900);

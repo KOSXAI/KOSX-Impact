@@ -52,6 +52,11 @@ function MemberPage() {
   const name = member.displayName ?? member.handle;
   const [submitOpen, setSubmitOpen] = useState(false);
 
+  // ETA：近 7 天增速优先（更新鲜），为零/为负退 30 天；都停滞则不预估
+  const remaining = Math.max(0, member.nextTier - (member.latestFollowers ?? 0));
+  const dailyRate = member.growth7d > 0 ? member.growth7d / 7 : member.growth30d / 30;
+  const etaDays = dailyRate > 0 ? Math.ceil(remaining / dailyRate) : null;
+
   // 接下来的 4 级台阶路线（下一枚成就起）
   const upcoming: number[] = [];
   let t = member.nextTier;
@@ -119,7 +124,18 @@ function MemberPage() {
                   <div className="text-right">
                     <div className="text-3xl font-bold tabular-nums">{fmt(member.latestFollowers ?? 0)}</div>
                     <div className="text-sm text-mist">
-                      下一台阶 {badge(member.nextTier)} · 还差 {fmt(Math.max(0, member.nextTier - (member.latestFollowers ?? 0)))}
+                      下一台阶 {badge(member.nextTier)} · 还差 {fmt(remaining)}
+                      {etaDays != null ? (
+                        etaDays > 365 ? (
+                          <> · 照目前速度还需一年以上</>
+                        ) : (
+                          <>
+                            {" "}· 照目前速度约 <b className="text-ink tabular-nums">{fmt(etaDays)}</b> 天登上
+                          </>
+                        )
+                      ) : (
+                        <> · 按目前速度暂无法预估</>
+                      )}
                     </div>
                   </div>
                 </div>
