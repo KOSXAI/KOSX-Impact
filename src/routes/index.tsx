@@ -9,6 +9,7 @@ import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } 
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
+import { Flag } from "lucide-react";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -226,11 +227,17 @@ function LeaderboardMember({
           </a>
         </div>
       </div>
-      <div className="flex w-40 shrink-0 flex-col items-end gap-1.5">
+      <div className="flex w-44 shrink-0 flex-col items-end gap-1.5">
         <div className="font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
         <div className="flex w-full items-center gap-2">
           <GrowProgress value={m.progressToNext} className="flex-1" />
-          <span className="text-xs tabular-nums text-mist" title="下一台阶">→ {badge(m.nextTier)}</span>
+          <span
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-mist tabular-nums"
+            title="下一台阶"
+          >
+            <Flag className="size-3 text-signal" aria-hidden="true" />
+            {badge(m.nextTier)}
+          </span>
         </div>
       </div>
     </div>
