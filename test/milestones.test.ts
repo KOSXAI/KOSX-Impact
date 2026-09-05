@@ -8,6 +8,7 @@ import {
   progressToNext,
   tierOf,
   titleOf,
+  TITLE_FILL,
 } from "../src/milestones";
 
 describe("MILESTONES", () => {
@@ -32,7 +33,14 @@ describe("MILESTONES", () => {
     expect(titleOf(10000)).toBe("万人迷");
     expect(titleOf(5000)).toBe("学富五车");
     expect(titleOf(100)).toBe("百里挑一");
-    expect(titleOf(500)).toBe("五福临门");
+    expect(titleOf(500)).toBe("五好青年");
+  });
+
+  it("分布配色：每道大关（含新人村 0）都有 TITLE_FILL", () => {
+    expect(TITLE_FILL[0]).toBeTruthy();
+    for (const { threshold } of MILESTONES) {
+      expect(TITLE_FILL[threshold], `档位 ${threshold} 缺分布配色`).toBeTruthy();
+    }
   });
 });
 

@@ -27,7 +27,7 @@ export interface CachedResponseOptions {
  */
 export const CACHE_KEYS = {
   /** 看板统计（首页 SSR 与 /api/dashboard 共用） */
-  dashboard: "/api/dashboard?v=13",
+  dashboard: "/api/dashboard?v=14",
   /** 成员列表（/api/members） */
   memberList: "/api/members?v=10",
   /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */

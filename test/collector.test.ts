@@ -99,7 +99,7 @@ describe("collectWithSource", () => {
     await env.DB.prepare(
       "INSERT INTO members (id, handle, joined_at) VALUES ('carol', 'carol_x', '2026-08-30')"
     ).run();
-    // 无历史快照：3200 粉加入（注册当场校验走 applyFollowerStats）→ 百里挑一/五福临门/千帆竞发当场补授
+    // 无历史快照：3200 粉加入（注册当场校验走 applyFollowerStats）→ 百里挑一/五好青年/千帆竞发当场补授
     await applyFollowerStats(env, "carol", { followers: 3200 }, "2026-09-05T04:00:00Z");
 
     const { results } = await env.DB.prepare(

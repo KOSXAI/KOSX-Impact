@@ -15,20 +15,20 @@ export interface Milestone {
 
 /**
  * 称号大关：跨过一道大关领一个称号，搞笑但必须是好彩头。
- * 百粉、五百粉起步，千粉、五千粉各一道，之后每 5000 一道直到十万，
- * 再往上按量级放大；「万粉」是本计划同名大关（万人迷），最隆重的一道仪式。
+ * 百粉、五百粉起步，千粉、五千粉各一道，万粉之后每 5000 一道直到三万，
+ * 此后每整万一关到十万，再往上按量级放大；「万粉」是本计划同名大关（万人迷），最隆重的一道仪式。
  * 所有档位都是旧均匀阶梯的子集——库里的登阶历史按 threshold 记录，
  * 换表后 ladderSet 过滤直接命中，无需任何数据迁移。
  */
 export const MILESTONES: Milestone[] = [
   { threshold: 100, title: "百里挑一" },
-  { threshold: 500, title: "五福临门" },
+  { threshold: 500, title: "五好青年" },
   { threshold: 1_000, title: "千帆竞发" },
   { threshold: 5_000, title: "学富五车" },
   { threshold: 10_000, title: "万人迷" },
   { threshold: 15_000, title: "势如破竹" },
   { threshold: 20_000, title: "万众瞩目" },
-  { threshold: 25_000, title: "百尺竿头" },
+  { threshold: 25_000, title: "青云直上" },
   { threshold: 30_000, title: "三阳开泰" },
   { threshold: 40_000, title: "四海扬名" },
   { threshold: 50_000, title: "五谷丰登" },
@@ -52,6 +52,34 @@ export function titleOf(threshold: number): string {
   return TITLE_BY_THRESHOLD.get(threshold) ?? String(threshold);
 }
 
+/**
+ * 称号分布分段条配色（社群全景）：新人村石板灰；万粉前荣誉金由浅入深；
+ * 万人迷信号橙（与徽章层特例一致）；万粉后至十万前共用深金，
+ * 十万往上接段位量级色（紫/金/玫红/浅金），与 TIER_STYLE 同源。
+ */
+export const TITLE_FILL: Record<number, string> = {
+  0: "#94a3b8",
+  100: "#fde68a",
+  500: "#fcd34d",
+  1_000: "#fbbf24",
+  5_000: "#f59e0b",
+  10_000: "#ff6a00",
+  15_000: "#d97706",
+  20_000: "#d97706",
+  25_000: "#d97706",
+  30_000: "#d97706",
+  40_000: "#d97706",
+  50_000: "#d97706",
+  60_000: "#d97706",
+  70_000: "#d97706",
+  80_000: "#d97706",
+  90_000: "#d97706",
+  100_000: "#a78bfa",
+  1_000_000: "#fbbf24",
+  10_000_000: "#fb7185",
+  100_000_000: "#fde68a",
+};
+
 /* ============ 段位（量级身份徽章，与称号大关解耦） ============ */
 
 export interface Tier {
@@ -59,7 +87,7 @@ export interface Tier {
   name: string;
 }
 
-/** 段位定义（从高到低）：首页段位分布与成员页段位徽章共用 */
+/** 段位定义（从高到低）：tierOf 按粉丝量取段位——成员页段位徽章、OG 卡量级色共用 */
 export const TIERS: Array<{ min: number; tier: Tier }> = [
   { min: 100_000_000, tier: { key: "hundredm", name: "亿级传说" } },
   { min: 10_000_000, tier: { key: "tenm", name: "千万粉神话" } },

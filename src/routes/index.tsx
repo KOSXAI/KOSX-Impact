@@ -12,7 +12,7 @@ import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Flag, Clock3 } from "lucide-react";
-import { TEN_K, TIER_STYLE, TIERS, titleOf } from "@/milestones";
+import { MILESTONES, TEN_K, TITLE_FILL, titleOf } from "@/milestones";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -37,25 +37,25 @@ export const Route = createFileRoute("/")({
 
 type TabKey = "leaderboard" | "growth" | "climbs";
 
-/** 总排行 / 成长榜前三的荣誉样式：冠军/亚军/季军（奖牌渐变 + 榜位徽章） */
+/** 总排行 / 成长榜前三的荣誉样式：冠军/亚军/季军（行边框渐晕 + 榜位徽章 + 名次渐变数字） */
 const PODIUM = [
   {
     label: "冠军",
     badge: "from-amber-300 to-amber-500 text-amber-950",
     ring: "border-amber-400/40 bg-gradient-to-r from-amber-400/15 to-transparent",
-    rankNum: "from-amber-300 to-amber-600 text-white",
+    rankNum: "from-amber-300 to-amber-600",
   },
   {
     label: "亚军",
     badge: "from-slate-300 to-slate-400 text-slate-950",
     ring: "border-slate-400/30 bg-gradient-to-r from-slate-400/12 to-transparent",
-    rankNum: "from-slate-300 to-slate-500 text-white",
+    rankNum: "from-slate-300 to-slate-500",
   },
   {
     label: "季军",
     badge: "from-orange-400 to-orange-600 text-white",
     ring: "border-orange-500/30 bg-gradient-to-r from-orange-500/12 to-transparent",
-    rankNum: "from-orange-400 to-orange-700 text-white",
+    rankNum: "from-orange-400 to-orange-700",
   },
 ] as const;
 
@@ -102,11 +102,11 @@ function DashboardPage() {
           </RevealItem>
         </RevealGroup>
   
-        {/* 社群全景：段位分布 + 总量趋势（数据点满 2 天自动出现折线） */}
+        {/* 社群全景：称号分布 + 总量趋势（数据点满 2 天自动出现折线） */}
         <Reveal delay={0.08}>
           <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
             <h2 className="text-xl font-bold">社群全景</h2>
-            <TierDistribution members={stats.members} />
+            <TitleDistribution members={stats.members} />
             {stats.trend.length >= 2 && (
               <div className="mt-6 border-t border-line pt-6">
                 <TrendChart data={stats.trend} />
@@ -177,14 +177,19 @@ function StatCard({ label, value, prefix = "" }: { label: string; value: number;
   );
 }
 
-/** 段位分布：按段位从高到低的分段条 + 计数图例（只在有人的段位出现） */
-function TierDistribution({ members }: { members: MemberStats[] }) {
-  const census = TIERS.map(({ tier }) => ({
-    key: tier.key,
-    name: tier.name,
-    count: members.filter((m) => m.tierKey === tier.key).length,
-    fill: TIER_STYLE[tier.key]?.fill ?? "#94a3b8",
-  })).filter((t) => t.count > 0);
+/** 称号分布：按已持有称号从高到低的分段条 + 计数图例（只在有人的称号出现，新人村垫底） */
+function TitleDistribution({ members }: { members: MemberStats[] }) {
+  const novices = members.filter((m) => m.prevMilestone === 0).length;
+  const census = [...MILESTONES]
+    .reverse()
+    .map(({ threshold, title }) => ({
+      key: threshold,
+      name: title,
+      count: members.filter((m) => m.prevMilestone === threshold).length,
+      fill: TITLE_FILL[threshold] ?? "#fbbf24",
+    }))
+    .filter((t) => t.count > 0);
+  if (novices > 0) census.push({ key: 0, name: "新人村", count: novices, fill: TITLE_FILL[0] ?? "#94a3b8" });
 
   if (census.length === 0) return null;
 
@@ -255,7 +260,7 @@ function SegmentDivider({ threshold }: { threshold: number }) {
   );
 }
 
-/** 总排行行：前三名带奖牌徽章与渐变底色；右侧粉丝量 + 距下一称号进度 */
+/** 总排行行：前三名行带边框渐晕与榜位徽章；右侧粉丝量 + 距下一称号进度 */
 function LeaderboardMember({
   member: m,
   rank,
@@ -270,19 +275,19 @@ function LeaderboardMember({
     <div
       className={
         podium
-          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
+          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border py-4 sm:gap-x-4 ${podium.ring}`
           : "flex flex-wrap items-center gap-x-3 gap-y-3 py-4 sm:gap-x-4"
       }
     >
-      {podium ? (
-        <div
-          className={`bg-gradient-to-br flex size-11 shrink-0 items-center justify-center rounded-full text-lg font-extrabold ${podium.rankNum}`}
-        >
-          {rank}
-        </div>
-      ) : (
-        <div className="w-6 shrink-0 text-mist tabular-nums">{rank}</div>
-      )}
+      <div
+        className={
+          podium
+            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
+            : "w-6 shrink-0 text-mist tabular-nums"
+        }
+      >
+        {rank}
+      </div>
       <Avatar url={m.profileImage} name={name} className="size-10" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -383,7 +388,7 @@ function GrowthSection({ members }: { members: MemberStats[] }) {
   );
 }
 
-/** 成长榜行：前三名与总排行同样的奖牌荣誉；右侧选中口径高亮，另一口径弱化 */
+/** 成长榜行：前三名与总排行同样的荣誉样式（边框渐晕 + 榜位徽章）；右侧选中口径高亮，另一口径弱化 */
 function GrowthMember({
   member: m,
   rank,
@@ -400,19 +405,19 @@ function GrowthMember({
     <div
       className={
         podium
-          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
-          : "flex items-center gap-3 py-4 sm:gap-4"
+          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border py-4 sm:gap-x-4 ${podium.ring}`
+          : "flex flex-wrap items-center gap-x-3 gap-y-3 py-4 sm:gap-x-4"
       }
     >
-      {podium ? (
-        <div
-          className={`bg-gradient-to-br flex size-11 shrink-0 items-center justify-center rounded-full text-lg font-extrabold ${podium.rankNum}`}
-        >
-          {rank}
-        </div>
-      ) : (
-        <div className="w-6 shrink-0 text-mist tabular-nums">{rank}</div>
-      )}
+      <div
+        className={
+          podium
+            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
+            : "w-6 shrink-0 text-mist tabular-nums"
+        }
+      >
+        {rank}
+      </div>
       <Avatar url={m.profileImage} name={name} className="size-10" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
