@@ -7,9 +7,10 @@
 | 方式 | 适合 | 入口 |
 | --- | --- | --- |
 | 代码贡献 | 功能、修复、文档 | Issue / PR |
-| 申请加入追踪 | KOSX 成员 | 「成员申请」Issue |
 | 建议新数据源 | 所有人 | 「数据源建议」Issue |
 | 反馈与讨论 | 所有人 | Issue |
+
+想加入追踪？不需要 GitHub——直接在[看板](https://impact.kosx.ai)点「加入追踪」即可，提交即同意公开展示，没有审批流。
 
 ## 项目架构
 
@@ -121,8 +122,7 @@ git push           # 推送 GitHub
 
 ## 提 Issue
 
-- 使用对应模板：Bug 报告 / 功能建议 / 成员申请 / 数据源建议
-- **成员申请必须勾选「公开追踪同意声明」**，这是数据合规的前提
+- 使用对应模板：Bug 报告 / 功能建议 / 数据源建议
 - 报告数据问题时，请附上时间点和相关成员，便于定位
 
 ## 提 PR
@@ -140,7 +140,7 @@ git push           # 推送 GitHub
 ## 维护者指引
 
 - 开启 `main` 分支保护（本仓库无 GitHub Actions 状态检查，建议要求 review，或以本地 `npm run check` 验证结果为准）
-- **成员加入流程**：审核「成员申请」Issue（确认同意声明已勾选）→ 在 `data/members.json` 中按 id 排序加入该成员（通过 PR 提交，CI 会校验格式）→ 本地跑 `node scripts/sync-new-members.mjs`（新成员会从 SocialData 拉取粉丝数、头像与 **X 显示名**；名下写回 `data/members.json`，随本 PR 一并提交，缺了它会退化成 handle）；执行生成的 `/tmp/onboard.sql` 入库。每次引入新成员时**必须**跑该脚本，避免 `displayName` 缺失。
+- **名册成员加入（维护者批量）**：在 `data/members.json` 中按 id 排序加入该成员（通过 PR 提交，校验脚本会检查格式）→ 本地跑 `node scripts/sync-new-members.mjs`（新成员会从 SocialData 拉取粉丝数、头像与 **X 显示名**；名下写回 `data/members.json`，随本 PR 一并提交，缺了它会退化成 handle）；执行生成的 `/tmp/onboard.sql` 入库。每次引入新成员时**必须**跑该脚本，避免 `displayName` 缺失
 - **成员退出**：从名册中删除该成员（PR），同步后自动停止公开追踪、数据保留；如成员要求移除历史数据，删除其 `snapshots` / `milestones` 记录
 - 数据库变更一律通过 `migrations/` 下的新迁移文件进行，不直接改线上库
 
