@@ -10,6 +10,7 @@ import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { TrendChart } from "@/components/dashboard/TrendChart";
+import { SiteHeader } from "@/components/SiteHeader";
 import { Flag, Clock3 } from "lucide-react";
 import { TIER_STYLE, TIERS } from "@/milestones";
 import { fmt, fmtDate, badge } from "@/lib/format";
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/")({
 
 type TabKey = "leaderboard" | "growth" | "climbs";
 
-/** 总排行前三的荣誉样式：冠军/亚军/季军（奖牌渐变 + 榜位徽章） */
+/** 总排行 / 成长榜前三的荣誉样式：冠军/亚军/季军（奖牌渐变 + 榜位徽章） */
 const PODIUM = [
   {
     label: "冠军",
@@ -78,87 +79,90 @@ function DashboardPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
-      <Reveal y={18}>
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{SITE_NAME}</h1>
-      </Reveal>
-
-      {/* 数据卡与 CTA 全局：Tab 只切换榜单视图，页面长度与成员数量无关 */}
-      <RevealGroup className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4" stagger={0.06}>
-        <RevealItem>
-          <StatCard label="社群粉丝" value={stats.totalFollowers} />
-        </RevealItem>
-        <RevealItem>
-          <StatCard label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" />
-        </RevealItem>
-        <RevealItem>
-          <StatCard label="万粉成员" value={stats.tenKMembers} />
-        </RevealItem>
-        <RevealItem>
-          <StatCard label="追踪成员" value={stats.members.length} />
-        </RevealItem>
-      </RevealGroup>
-
-      {/* 社群全景：段位分布 + 总量趋势（数据点满 2 天自动出现折线） */}
-      <Reveal delay={0.08}>
-        <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
-          <h2 className="text-xl font-bold">社群全景</h2>
-          <TierDistribution members={stats.members} />
-          {stats.trend.length >= 2 && (
-            <div className="mt-6 border-t border-line pt-6">
-              <TrendChart data={stats.trend} />
-            </div>
-          )}
-        </section>
-      </Reveal>
-
-      {justAchieved && (
-        <PopIn className="mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">
-          <span>🎉 恭喜</span>
-          <Link to="/members/$id" params={{ id: latest.memberId }} className="font-semibold underline-offset-4 hover:underline">
-            {latest.displayName ?? latest.handle}
-          </Link>
-          <span>登上 {badge(latest.threshold)} 台阶</span>
-        </PopIn>
-      )}
-
-      {/* Tab 切换：总排行 / 成长榜 / 登阶记录 */}
-      <div className="mt-10 flex w-full items-center gap-1 rounded-full border border-line bg-soft-surface p-1 sm:inline-flex sm:w-auto">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={cn(
-              "h-10 flex-1 rounded-full px-4 text-sm font-semibold transition-colors sm:h-9 sm:flex-none sm:px-5",
-              tab === t.key ? "bg-white text-paper" : "text-mist hover:text-ink"
+    <>
+      <SiteHeader />
+      <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
+        <Reveal y={18}>
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{SITE_NAME}</h1>
+        </Reveal>
+  
+        {/* 数据卡与 CTA 全局：Tab 只切换榜单视图，页面长度与成员数量无关 */}
+        <RevealGroup className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4" stagger={0.06}>
+          <RevealItem>
+            <StatCard label="社群粉丝" value={stats.totalFollowers} />
+          </RevealItem>
+          <RevealItem>
+            <StatCard label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" />
+          </RevealItem>
+          <RevealItem>
+            <StatCard label="万粉成员" value={stats.tenKMembers} />
+          </RevealItem>
+          <RevealItem>
+            <StatCard label="追踪成员" value={stats.members.length} />
+          </RevealItem>
+        </RevealGroup>
+  
+        {/* 社群全景：段位分布 + 总量趋势（数据点满 2 天自动出现折线） */}
+        <Reveal delay={0.08}>
+          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <h2 className="text-xl font-bold">社群全景</h2>
+            <TierDistribution members={stats.members} />
+            {stats.trend.length >= 2 && (
+              <div className="mt-6 border-t border-line pt-6">
+                <TrendChart data={stats.trend} />
+              </div>
             )}
-          >
-            {t.label}
-            <span className="ml-1.5 tabular-nums opacity-70">{t.count}</span>
-          </button>
-        ))}
-      </div>
-
-      <main key={tab} className="tab-in mt-6">
-        {tab === "leaderboard" && <LeaderboardList members={leaderboard} />}
-        {tab === "growth" && <GrowthSection members={growth} />}
-        {tab === "climbs" && <ClimbsList stats={stats} />}
-      </main>
-
-      <Reveal delay={0.1}>
-        <section className="mt-12 rounded-2xl border border-line bg-surface p-6 sm:p-8">
-          <h2 className="text-xl font-bold">加入这场远征</h2>
-          <div className="mt-5 flex flex-wrap items-center gap-4">
-            <Button onClick={() => setApplyOpen(true)}>加入追踪</Button>
-            <Link to="/about" className="text-mist underline-offset-4 hover:text-ink hover:underline">
-              了解流程
+          </section>
+        </Reveal>
+  
+        {justAchieved && (
+          <PopIn className="mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">
+            <span>🎉 恭喜</span>
+            <Link to="/members/$id" params={{ id: latest.memberId }} className="font-semibold underline-offset-4 hover:underline">
+              {latest.displayName ?? latest.handle}
             </Link>
-          </div>
-        </section>
-      </Reveal>
-
-      <SubmitDialog open={applyOpen} onOpenChange={setApplyOpen} />
-    </div>
+            <span>登上 {badge(latest.threshold)} 台阶</span>
+          </PopIn>
+        )}
+  
+        {/* Tab 切换：总排行 / 成长榜 / 登阶记录 */}
+        <div className="mt-10 flex w-full items-center gap-1 rounded-full border border-line bg-soft-surface p-1 sm:inline-flex sm:w-auto">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={cn(
+                "h-10 flex-1 rounded-full px-4 text-sm font-semibold transition-colors sm:h-9 sm:flex-none sm:px-5",
+                tab === t.key ? "bg-white text-paper" : "text-mist hover:text-ink"
+              )}
+            >
+              {t.label}
+              <span className="ml-1.5 tabular-nums opacity-70">{t.count}</span>
+            </button>
+          ))}
+        </div>
+  
+        <main key={tab} className="tab-in mt-6">
+          {tab === "leaderboard" && <LeaderboardList members={leaderboard} />}
+          {tab === "growth" && <GrowthSection members={growth} />}
+          {tab === "climbs" && <ClimbsList stats={stats} />}
+        </main>
+  
+        <Reveal delay={0.1}>
+          <section className="mt-12 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <h2 className="text-xl font-bold">加入这场远征</h2>
+            <div className="mt-5 flex flex-wrap items-center gap-4">
+              <Button onClick={() => setApplyOpen(true)}>加入追踪</Button>
+              <Link to="/about" className="text-mist underline-offset-4 hover:text-ink hover:underline">
+                了解流程
+              </Link>
+            </div>
+          </section>
+        </Reveal>
+  
+        <SubmitDialog open={applyOpen} onOpenChange={setApplyOpen} />
+      </div>
+    </>
   );
 }
 
@@ -336,7 +340,7 @@ function GrowthSection({ members }: { members: MemberStats[] }) {
       <ol className="space-y-3">
         {sorted.map((m, i) => (
           <RevealItem key={m.id} y={16}>
-            <GrowthMember member={m} rank={i + 1} range={range} />
+            <GrowthMember member={m} rank={i + 1} range={range} podium={PODIUM[i]} />
           </RevealItem>
         ))}
       </ol>
@@ -344,18 +348,45 @@ function GrowthSection({ members }: { members: MemberStats[] }) {
   );
 }
 
-/** 成长榜行：选中口径的数字高亮，另一口径弱化 */
-function GrowthMember({ member: m, rank, range }: { member: MemberStats; rank: number; range: 7 | 30 }) {
+/** 成长榜行：前三名与总排行同样的奖牌荣誉；右侧选中口径高亮，另一口径弱化 */
+function GrowthMember({
+  member: m,
+  rank,
+  range,
+  podium,
+}: {
+  member: MemberStats;
+  rank: number;
+  range: 7 | 30;
+  podium?: (typeof PODIUM)[number];
+}) {
   const name = m.displayName ?? m.handle;
   return (
-    <div className="flex items-center gap-3 py-4 sm:gap-4">
-      <div className="w-6 shrink-0 text-mist tabular-nums">{rank}</div>
+    <div
+      className={
+        podium
+          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
+          : "flex items-center gap-3 py-4 sm:gap-4"
+      }
+    >
+      {podium ? (
+        <div
+          className={`bg-gradient-to-br flex size-11 shrink-0 items-center justify-center rounded-full text-lg font-extrabold ${podium.rankNum}`}
+        >
+          {rank}
+        </div>
+      ) : (
+        <div className="w-6 shrink-0 text-mist tabular-nums">{rank}</div>
+      )}
       <Avatar url={m.profileImage} name={name} className="size-10" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
             {name}
           </Link>
+          {podium && (
+            <Badge className={`bg-gradient-to-r ${podium.badge} border-transparent`}>{podium.label}</Badge>
+          )}
           <TierBadge tierKey={m.tierKey} tierName={m.tierName} />
           <a
             href={xProfileUrl(m.handle)}

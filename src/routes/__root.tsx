@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { SiteHeader } from "@/components/SiteHeader";
 import { SITE_URL } from "@/lib/site";
 import "@/styles.css";
 
@@ -36,17 +37,20 @@ function RootComponent() {
 
 function GlobalNotFound() {
   return (
-    <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
-      <h1 className="text-3xl font-bold">
-        页面不存在
+    <>
+      <SiteHeader />
+      <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
+        <h1 className="text-3xl font-bold">
+          页面不存在
 
-      </h1>
-      <p className="mt-4">
-        <Link to="/" className="text-mist underline-offset-4 hover:text-ink hover:underline">
-          ← 返回看板
-        </Link>
-      </p>
-    </div>
+        </h1>
+        <p className="mt-4">
+          <Link to="/" className="text-mist underline-offset-4 hover:text-ink hover:underline">
+            ← 返回看板
+          </Link>
+        </p>
+      </div>
+    </>
   );
 }
 
