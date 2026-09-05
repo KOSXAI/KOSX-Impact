@@ -10,5 +10,7 @@ describe("badge", () => {
     expect(badge(100000)).toBe("10万");
     expect(badge(150000)).toBe("15万");
     expect(badge(1000000)).toBe("100万");
+    expect(badge(100000000)).toBe("1亿");
+    expect(badge(150000000)).toBe("1.5亿");
   });
 });

@@ -8,21 +8,22 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { fmt, badge } from "@/lib/format";
+import { titleOf } from "@/milestones";
 import { useMediaQuery } from "@/lib/use-media-query";
 
 type Snapshot = { followers: number; recordedAt: string };
 
 const chartConfig = {
   followers: { label: "粉丝量", color: "var(--chart-1)" },
-  nextTier: { label: "下一台阶" },
+  nextMilestone: { label: "下一称号" },
 } satisfies ChartConfig;
 
 export default function RechartsGrowthChart({
   snapshots,
-  nextTier,
+  nextMilestone,
 }: {
   snapshots: Snapshot[];
-  nextTier: number;
+  nextMilestone: number;
 }) {
   // 移动端压缩 Y 轴：宽度收窄 + 紧凑刻度，把绘图区让给曲线
   const isDesktop = useMediaQuery("(min-width: 640px)");
@@ -32,19 +33,19 @@ export default function RechartsGrowthChart({
     const dataMin = Math.min(...values);
     const dataMax = Math.max(...values);
     const dataSpan = Math.max(dataMax - dataMin, 1);
-    const includeGoal = nextTier > dataMax && nextTier - dataMax < dataSpan * 2;
+    const includeGoal = nextMilestone > dataMax && nextMilestone - dataMax < dataSpan * 2;
     const min = dataMin - dataSpan * 0.1;
-    const max = includeGoal ? nextTier : dataMax + dataSpan * 0.15;
+    const max = includeGoal ? nextMilestone : dataMax + dataSpan * 0.15;
     const span = Math.max(max - min, 1);
     // 目标线固定在图内上沿 8% 处（超出可视范围时仍在图内可见）
-    const goalY = includeGoal ? nextTier : min + span * 0.92;
-    const goalLabel = `下一台阶 ${fmt(nextTier)}`;
+    const goalY = includeGoal ? nextMilestone : min + span * 0.92;
+    const goalLabel = `下一称号「${titleOf(nextMilestone)}」`;
     return {
       data: snapshots.map((s) => ({ date: s.recordedAt.slice(5, 10), followers: s.followers })),
       goalY,
       goalLabel,
     };
-  }, [snapshots, nextTier]);
+  }, [snapshots, nextMilestone]);
 
   return (
     <ChartContainer config={chartConfig} className="h-full w-full">

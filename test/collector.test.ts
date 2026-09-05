@@ -81,7 +81,7 @@ describe("collectWithSource", () => {
 
   it("跨过阈值时写入登阶事件", async () => {
     await seedBaselines();
-    // alice: 900 → 1500 跨过 1000 与 1500；bob: 1200 → 1300 无跨档
+    // alice: 900 → 1500 跨过 1000（1500 不在新大关表上）；bob: 1200 → 1300 无跨关
     await collectWithSource(env, stubSource({
       alice_x: { followers: 1500 },
       bob_x: { followers: 1300 },
@@ -92,7 +92,6 @@ describe("collectWithSource", () => {
     ).all();
     expect(results).toEqual([
       { member_id: "alice", threshold: 1000 },
-      { member_id: "alice", threshold: 1500 },
     ]);
   });
 

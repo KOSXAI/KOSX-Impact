@@ -6,6 +6,8 @@ import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ArrowLeft } from "lucide-react";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
+import { MILESTONES } from "@/milestones";
+import { badge } from "@/lib/format";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -51,17 +53,31 @@ function AboutPage() {
   
           <Reveal>
             <section>
-              <h2 className="text-2xl font-bold">台阶与段位</h2>
-              <p className="mt-3 max-w-2xl leading-relaxed text-mist">万粉不是终点，只是台阶中的一级。</p>
+              <h2 className="text-2xl font-bold">称号大关与段位</h2>
+              <p className="mt-3 max-w-2xl leading-relaxed text-mist">万粉不是终点，只是大关中的一道。</p>
               <ul className="mt-3 max-w-2xl list-disc space-y-2 pl-6 leading-relaxed text-mist">
                 <li>
-                  <b className="text-ink">均匀阶梯</b>：百粉段每 100 一档、千粉段每 500 一档、万粉段每 5000 一档……每个段位都是 18 级台阶，达成一级自动出现下一级。
+                  <b className="text-ink">称号大关</b>：跨过一道大关领一个称号——百粉「百里挑一」、五千粉「学富五车」、万粉「万人迷」……进度条实时显示距下一称号的进度，每个称号都是好彩头。
+                </li>
+                <li>
+                  <b className="text-ink">总排行按大关分赛段</b>：分割线处标注大关门槛与称号，同一赛段里的人冲的是同一个称号，谁先冲线一目了然。
                 </li>
                 <li>
                   <b className="text-ink">段位徽章</b>只升不降：新芽 → 千粉新秀 → 万粉达人 → 十万粉影响力 → 百万粉传奇 → 千万粉神话。
                 </li>
-                <li>每登上一级台阶得一枚成就徽章，挂在成员页的徽章墙上。</li>
+                <li>每拿下一道大关得一枚成就徽章，挂在成员页的徽章墙上。</li>
               </ul>
+              <div className="mt-4 flex max-w-2xl flex-wrap gap-1.5">
+                {MILESTONES.map((m) => (
+                  <span
+                    key={m.threshold}
+                    className="inline-flex items-center gap-1 rounded-full border border-line bg-soft-surface px-2.5 py-1 text-xs text-mist"
+                  >
+                    <b className="text-ink">「{m.title}」</b>
+                    <span className="tabular-nums">{badge(m.threshold)}</span>
+                  </span>
+                ))}
+              </div>
             </section>
           </Reveal>
   
@@ -73,7 +89,7 @@ function AboutPage() {
                 <li>每日自动更新一次（北京时间上午八点左右），当日重复采集以最新值为准。</li>
                 <li>「加入追踪」弹窗可随时手动刷新——当场去 X 拉取公开数据，与每日采集同一条管线。</li>
                 <li>顶部「近 30 天新增」是社群 30 天滚动窗口的新增粉丝合计，不追溯加入前的历史；「万粉成员」是当前粉丝量已达万粉的成员数。</li>
-                <li>台阶在粉丝量首次越过时记录，加入前已达成的台阶不追溯。</li>
+                <li>大关在粉丝量首次越过时记录，加入前已达成的称号不追溯。</li>
               </ul>
             </section>
           </Reveal>
@@ -82,9 +98,9 @@ function AboutPage() {
             <section>
               <h2 className="text-2xl font-bold">榜单怎么排</h2>
               <ul className="mt-3 max-w-2xl list-disc space-y-2 pl-6 leading-relaxed text-mist">
-                <li><b className="text-ink">总排行</b>：按最新粉丝量从高到低，前三名有奖牌荣誉。</li>
+                <li><b className="text-ink">总排行</b>：按最新粉丝量从高到低，用称号大关分割线分赛段，前三名有奖牌荣誉。</li>
                 <li><b className="text-ink">成长榜</b>：按近 30 天增长排序——和自己比，小账号也有机会登顶。</li>
-                <li><b className="text-ink">登阶记录</b>：按时间展示最近达成的台阶成就。</li>
+                <li><b className="text-ink">登阶记录</b>：按时间展示最近拿下的称号。</li>
               </ul>
             </section>
           </Reveal>

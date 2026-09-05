@@ -18,11 +18,11 @@ const RechartsGrowthChart = lazy(() => import("./RechartsGrowthChart"));
 
 export function GrowthChart({
   snapshots,
-  nextTier,
+  nextMilestone,
   className,
 }: {
   snapshots: Snapshot[];
-  nextTier: number;
+  nextMilestone: number;
   className?: string;
 }) {
   if (snapshots.length === 0) {
@@ -42,7 +42,7 @@ export function GrowthChart({
         }
       >
         <Suspense fallback={null}>
-          <RechartsGrowthChart snapshots={snapshots} nextTier={nextTier} />
+          <RechartsGrowthChart snapshots={snapshots} nextMilestone={nextMilestone} />
         </Suspense>
       </ClientOnly>
     </div>

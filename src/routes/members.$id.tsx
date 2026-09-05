@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { AnimatedNumber, GrowProgress, Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
+import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { SiteHeader } from "@/components/SiteHeader";
 import { GrowthChart } from "@/components/member/GrowthChart";
 import { fmt, fmtDate, badge } from "@/lib/format";
-import { nextThreshold, tierOf, TIER_STYLE } from "@/milestones";
+import { nextThreshold, titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
 import { ArrowLeft } from "lucide-react";
@@ -29,10 +30,10 @@ export const Route = createFileRoute("/members/$id")({
       meta: [
         { title: `${name} · ${SITE_NAME}` },
         ...(loaderData
-          ? [{ name: "description", content: `${name} 的成长档案：粉丝量曲线、台阶与成就徽章。` }]
+          ? [{ name: "description", content: `${name} 的成长档案：粉丝量曲线、称号大关与成就徽章。` }]
           : [{ name: "robots", content: "noindex, follow" }]),
         { property: "og:title", content: `${name} · ${SITE_NAME}` },
-        { property: "og:description", content: "看见每个人的成长——这是 TA 迈向万粉及更高台阶的进度。" },
+        { property: "og:description", content: "看见每个人的成长——这是 TA 迈向万粉「万人迷」及更高称号的进度。" },
         { property: "og:type", content: "profile" },
         ...(loaderData
           ? [
@@ -57,13 +58,13 @@ function MemberPage() {
   const [submitOpen, setSubmitOpen] = useState(false);
 
   // ETA：近 7 天增速优先（更新鲜），为零/为负退 30 天；都停滞则不预估
-  const remaining = Math.max(0, member.nextTier - (member.latestFollowers ?? 0));
+  const remaining = Math.max(0, member.nextMilestone - (member.latestFollowers ?? 0));
   const dailyRate = member.growth7d > 0 ? member.growth7d / 7 : member.growth30d / 30;
   const etaDays = dailyRate > 0 ? Math.ceil(remaining / dailyRate) : null;
 
-  // 接下来的 4 级台阶路线（下一枚成就起）
+  // 接下来 4 道大关的称号路线（下一枚成就起）
   const upcoming: number[] = [];
-  let t = member.nextTier;
+  let t = member.nextMilestone;
   for (let i = 0; i < 4; i++) {
     upcoming.push(t);
     t = nextThreshold(t);
@@ -122,21 +123,24 @@ function MemberPage() {
   
           <Reveal>
             <section>
-              <h2 className="text-2xl font-bold">台阶之路</h2>
+              <h2 className="text-2xl font-bold">称号之路</h2>
               <Card className="card-lift mt-6">
                 <CardContent className="p-6 sm:p-8">
                   <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                    <TierBadge tierKey={member.tierKey} tierName={member.tierName} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <TierBadge tierKey={member.tierKey} tierName={member.tierName} />
+                      <TitleBadge threshold={member.prevMilestone} />
+                    </div>
                     <div className="text-left sm:text-right">
                       <div className="text-3xl font-bold tabular-nums">{fmt(member.latestFollowers ?? 0)}</div>
                       <div className="text-sm text-mist">
-                        下一台阶 {badge(member.nextTier)} · 还差 {fmt(remaining)}
+                        下一称号「{titleOf(member.nextMilestone)}」 · 还差 {fmt(remaining)}
                         {etaDays != null ? (
                           etaDays > 365 ? (
                             <> · 照目前速度还需一年以上</>
                           ) : (
                             <>
-                              {" "}· 照目前速度约 <b className="text-ink tabular-nums">{fmt(etaDays)}</b> 天登上
+                              {" "}· 照目前速度约 <b className="text-ink tabular-nums">{fmt(etaDays)}</b> 天拿下
                             </>
                           )
                         ) : (
@@ -145,16 +149,21 @@ function MemberPage() {
                       </div>
                     </div>
                   </div>
-                  <GrowProgress value={member.progressToNext} className="mt-6 h-2" />
+                  <GrowProgress
+                    value={member.progressToNext}
+                    className="mt-6 h-2"
+                    ariaLabel={`距下一称号「${titleOf(member.nextMilestone)}」进度 ${member.progressToNext}%`}
+                  />
                   <div className="mt-2 flex justify-between text-sm text-mist">
-                    <span>{member.prevTier > 0 ? badge(member.prevTier) : "0"}</span>
-                    <span>{badge(member.nextTier)}</span>
+                    <span>{member.prevMilestone > 0 ? titleOf(member.prevMilestone) : "新人村"}</span>
+                    <span>{titleOf(member.nextMilestone)}</span>
                   </div>
                   <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5">
-                    <span className="text-sm text-mist">接下来的台阶</span>
+                    <span className="text-sm text-mist">接下来的称号</span>
                     {upcoming.map((threshold) => (
-                      <Badge key={threshold} variant="outline" className="text-mist">
-                        {badge(threshold)}
+                      <Badge key={threshold} variant="outline" className="gap-1.5 text-mist">
+                        {titleOf(threshold)}
+                        <span className="text-xs font-normal text-mist/60 tabular-nums">{badge(threshold)}</span>
                       </Badge>
                     ))}
                   </div>
@@ -166,7 +175,7 @@ function MemberPage() {
           <Reveal>
             <section>
               <h2 className="text-2xl font-bold">成长曲线</h2>
-              <GrowthChart snapshots={snapshots} nextTier={member.nextTier} className="mt-6" />
+              <GrowthChart snapshots={snapshots} nextMilestone={member.nextMilestone} className="mt-6" />
             </section>
           </Reveal>
   
@@ -180,22 +189,19 @@ function MemberPage() {
                 <p className="mt-4 text-mist">还没有成就，第一枚徽章正在路上。</p>
               ) : (
                 <div className="mt-4 flex flex-wrap gap-2.5">
-                  {[...milestones].reverse().map((m) => {
-                    const style = TIER_STYLE[tierOf(m.threshold).key] ?? TIER_STYLE.seed;
-                    return (
-                      <div
-                        key={m.threshold}
-                        title={`${fmtDate(m.achievedAt)} 达成`}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold",
-                          style.badge
-                        )}
-                      >
-                        <span aria-hidden="true">🏅</span>
-                        {badge(m.threshold)}
-                      </div>
-                    );
-                  })}
+                  {[...milestones].reverse().map((m) => (
+                    <div
+                      key={m.threshold}
+                      title={`${fmtDate(m.achievedAt)} 达成 · ${badge(m.threshold)}`}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold",
+                        titleBadgeClass(m.threshold)
+                      )}
+                    >
+                      <span aria-hidden="true">🏅</span>
+                      {titleOf(m.threshold)}
+                    </div>
+                  ))}
                 </div>
               )}
             </section>

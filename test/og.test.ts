@@ -17,9 +17,9 @@ const base: MemberStats = {
   daysSinceUpdate: 1,
   tierKey: "thousand",
   tierName: "千粉新秀",
-  prevTier: 8000,
-  nextTier: 10000,
-  progressToNext: 30,
+  prevMilestone: 5000,
+  nextMilestone: 10000,
+  progressToNext: 72,
   climbs: 3,
 };
 
@@ -33,8 +33,9 @@ describe("memberOgSvg", () => {
     expect(svg).toContain("@alice_x");
     expect(svg).toContain("千粉新秀");
     expect(svg).toContain("8,600");
-    expect(svg).toContain("距下一台阶还差");
-    expect(svg).toContain("已登 3 阶");
+    expect(svg).toContain("称号 学富五车 → 万人迷");
+    expect(svg).toContain("距「万人迷」还差");
+    expect(svg).toContain("已获 3 枚称号");
     expect(svg).toContain("近7天 +123");
     expect(svg).toContain("近30天 +456");
   });

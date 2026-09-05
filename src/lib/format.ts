@@ -9,6 +9,10 @@ export function fmtDate(iso: string): string {
 }
 
 export function badge(threshold: number): string {
+  if (threshold >= 100_000_000) {
+    const y = threshold / 100_000_000;
+    return `${Number.isInteger(y) ? y : y.toFixed(1)}亿`;
+  }
   if (threshold >= 10000) {
     const w = threshold / 10000;
     return `${Number.isInteger(w) ? w : w.toFixed(1)}万`;

@@ -181,11 +181,20 @@ export function AnimatedNumber({
 
 /* ============ GrowProgress：进度条生长（复用 Radix 自带 transition） ============ */
 
-export function GrowProgress({ value, className }: { value: number; className?: string }) {
+export function GrowProgress({
+  value,
+  className,
+  ariaLabel,
+}: {
+  value: number;
+  className?: string;
+  /** 读屏可访问名称（进度条本身无可见文字，语义靠它传达） */
+  ariaLabel?: string;
+}) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
     const raf = requestAnimationFrame(() => setDisplay(value));
     return () => cancelAnimationFrame(raf);
   }, [value]);
-  return <Progress value={display} className={className} />;
+  return <Progress value={display} className={className} aria-label={ariaLabel} />;
 }

@@ -1,6 +1,6 @@
 import type { MemberStats } from "./stats";
-import { badge, fmt, fmtDate } from "./lib/format";
-import { TIER_STYLE } from "./milestones";
+import { fmt, fmtDate } from "./lib/format";
+import { TIER_STYLE, titleOf } from "./milestones";
 import { SITE_URL } from "./lib/site";
 
 /**
@@ -29,13 +29,15 @@ function fmtN(n: number): string {
 const W = 600;
 const H = 200;
 
-/** 单成员进度卡片（SVG）：段位徽章 + 距下一台阶的进度，永远有下一站 */
+/** 单成员进度卡片（SVG）：段位徽章 + 距下一称号的进度，永远有下一站 */
 export function renderMemberCard(member: MemberStats): string {
   const name = member.displayName ?? member.handle;
   const current = member.latestFollowers ?? 0;
   const progress = member.progressToNext;
   const barWidth = Math.max(2, Math.min(100, progress)) * 3.2; // 内宽 ~320px
-  const toNext = Math.max(0, member.nextTier - current);
+  const toNext = Math.max(0, member.nextMilestone - current);
+  const prevTitle = member.prevMilestone > 0 ? titleOf(member.prevMilestone) : "新人村";
+  const nextTitle = titleOf(member.nextMilestone);
   const tierFill = (TIER_STYLE[member.tierKey] ?? TIER_STYLE.seed).fill;
 
   const gradientId = `g${member.id.replace(/[^a-z0-9]/gi, "")}`;
@@ -71,9 +73,9 @@ export function renderMemberCard(member: MemberStats): string {
   <text x="${W - 32}" y="104" text-anchor="end" class="numsub">粉丝</text>
   <rect class="track" x="32" y="88" width="320" height="8" rx="4"/>
   <rect x="32" y="88" width="${barWidth}" height="8" rx="4" fill="url(#${gradientId})"/>
-  <text x="32" y="112" class="muted">台阶 ${badge(member.prevTier)} → ${badge(member.nextTier)}</text>
-  <text x="32" y="128" class="muted">距 ${badge(member.nextTier)} 还差 <tspan class="signal">${fmtN(toNext)}</tspan></text>
-  <text x="32" y="172" class="trophy">迈向 ${badge(member.nextTier)} · KOSX 万粉影响力计划</text>
+  <text x="32" y="112" class="muted">称号 ${esc(prevTitle)} → ${esc(nextTitle)}</text>
+  <text x="32" y="128" class="muted">距「${esc(nextTitle)}」还差 <tspan class="signal">${fmtN(toNext)}</tspan></text>
+  <text x="32" y="172" class="trophy">迈向「${esc(nextTitle)}」 · KOSX 万粉影响力计划</text>
   <text x="${W - 32}" y="172" text-anchor="end" class="handle">${SITE_URL.replace("https://", "")} · 加入于 ${fmtDate(member.joinedAt)}</text>
 </svg>`;
 }

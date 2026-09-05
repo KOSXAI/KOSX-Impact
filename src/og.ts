@@ -8,7 +8,7 @@
 import type { MemberStats } from "./stats";
 import { esc } from "./card";
 import { badge, fmt } from "./lib/format";
-import { TIER_STYLE } from "./milestones";
+import { TIER_STYLE, titleOf } from "./milestones";
 
 export const OG_W = 1200;
 export const OG_H = 630;
@@ -91,7 +91,7 @@ function footer(left: string): string {
 
 /**
  * 成员 OG 卡：左列是身份（段位 pill / 昵称 / @handle），右列是数据（粉丝大数 + 近 7/30 天增长），
- * 下方一条台阶进度带。无快照时大数位显示「—」并注明首次采集排队中。
+ * 下方一条称号进度带。无快照时大数位显示「—」并注明首次采集排队中。
  */
 export function memberOgSvg(
   stats: MemberStats,
@@ -112,7 +112,7 @@ export function memberOgSvg(
   const tierName = stats.tierName;
   const pillW = textW(tierName, 24) + 52;
 
-  const nextGap = Math.max(0, stats.nextTier - followers);
+  const nextGap = Math.max(0, stats.nextMilestone - followers);
 
   // 增长行颜色：近 7 天为正时用信号橙加粗，其余墨灰
   const g7 = stats.growth7d;
@@ -131,11 +131,11 @@ ${frame(tierFill, opts.logo)}
 <text x="${OG_W - PAD}" y="306" font-size="28" fill="${MIST}" text-anchor="end">${hasSnapshot ? "粉丝" : "首次采集排队中"}</text>
 <text x="${OG_W - PAD}" y="364" font-size="28"${g7Weight} fill="${g7Color}" text-anchor="end">近7天 ${esc(growthText(g7))}</text>
 <text x="${OG_W - PAD}" y="408" font-size="26" fill="${MIST}" text-anchor="end">近30天 ${esc(growthText(stats.growth30d))}</text>
-<text x="${PAD}" y="476" font-size="26" fill="${MIST}">台阶 ${esc(badge(stats.prevTier))} → ${esc(badge(stats.nextTier))}</text>
-<text x="${OG_W - PAD}" y="476" font-size="26" fill="${MIST}" text-anchor="end">已登 ${fmt(opts.climbs)} 阶</text>
+<text x="${PAD}" y="476" font-size="26" fill="${MIST}">称号 ${esc(stats.prevMilestone > 0 ? titleOf(stats.prevMilestone) : "新人村")} → ${esc(titleOf(stats.nextMilestone))}</text>
+<text x="${OG_W - PAD}" y="476" font-size="26" fill="${MIST}" text-anchor="end">已获 ${fmt(opts.climbs)} 枚称号</text>
 <rect x="${PAD}" y="496" width="${CONTENT_W}" height="12" rx="6" fill="${LINE}"/>
 <rect x="${PAD}" y="496" width="${(progressFillW(stats.progressToNext)).toFixed(1)}" height="12" rx="6" fill="url(#ogacc)"/>
-<text x="${PAD}" y="556" font-size="26" fill="${MIST}">距下一台阶还差 <tspan font-weight="700" fill="${SIGNAL}">${esc(fmt(nextGap))}</tspan></text>
+<text x="${PAD}" y="556" font-size="26" fill="${MIST}">距「${esc(titleOf(stats.nextMilestone))}」还差 <tspan font-weight="700" fill="${SIGNAL}">${esc(fmt(nextGap))}</tspan></text>
 ${footer("迈向万粉，看见成长")}
 </g>
 </svg>`;

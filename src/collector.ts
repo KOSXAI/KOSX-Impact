@@ -1,4 +1,4 @@
-import { detectMilestones, UNIFORM_THRESHOLDS } from "./milestones";
+import { detectMilestones, MILESTONE_THRESHOLDS } from "./milestones";
 import type { RosterFile } from "./roster";
 import { roster, syncRoster } from "./roster";
 import { getSource } from "./sources";
@@ -36,7 +36,7 @@ export function shardMembersForHour<T extends { id: string }>(members: T[], hour
  * 采集入口，由 Cron Trigger（wrangler.jsonc 中的 crons）调用：
  * 1. 同步成员名册（data/members.json 是追踪名单的事实来源）
  * 2. 取当前 UTC 小时的成员分片，逐个拉取粉丝量写快照
- * 3. 检测登阶（均匀成就阶梯）、写 daily_stats 预聚合
+ * 3. 检测登阶（称号大关）、写 daily_stats 预聚合
  * 4. 记录同步结果、清读缓存
  */
 export async function collect(env: Env, ctx?: ExecutionContext): Promise<CollectSummary> {
@@ -132,7 +132,7 @@ async function writeSnapshot(
   ]);
 }
 
-/** 与本次采集之前的最新快照对比，写入新跨过的台阶（均匀成就阶梯） */
+/** 与本次采集之前的最新快照对比，写入新跨过的大关（称号大关表） */
 async function checkMilestones(
   env: Env,
   memberId: string,
@@ -143,7 +143,7 @@ async function checkMilestones(
     "SELECT followers FROM snapshots WHERE member_id = ?1 AND recorded_at < ?2 ORDER BY recorded_at DESC LIMIT 1"
   ).bind(memberId, now).first()) as { followers: number } | null;
 
-  const events = detectMilestones(prev?.followers, followers, UNIFORM_THRESHOLDS, now);
+  const events = detectMilestones(prev?.followers, followers, MILESTONE_THRESHOLDS, now);
   for (const event of events) {
     await env.DB.prepare(
       "INSERT OR IGNORE INTO milestones (member_id, threshold, achieved_at, announced) VALUES (?1, ?2, ?3, 1)"

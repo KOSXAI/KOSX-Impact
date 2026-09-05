@@ -67,9 +67,9 @@ describe("computeMemberStats", () => {
     const stats = computeMemberStats(member, snapshots, NOW);
     expect(stats.tierKey).toBe("thousand");
     expect(stats.tierName).toBe("千粉新秀");
-    expect(stats.prevTier).toBe(1500);
-    expect(stats.nextTier).toBe(2000);
-    expect(stats.progressToNext).toBe(0);
+    expect(stats.prevMilestone).toBe(1000);
+    expect(stats.nextMilestone).toBe(5000);
+    expect(stats.progressToNext).toBe(13); // (1500-1000)/(5000-1000)
     expect(stats.climbs).toBe(0);
   });
 
@@ -79,7 +79,7 @@ describe("computeMemberStats", () => {
     expect(stats.growth).toBe(0);
     expect(stats.daysSinceUpdate).toBeNull();
     expect(stats.tierKey).toBe("seed");
-    expect(stats.nextTier).toBe(100);
+    expect(stats.nextMilestone).toBe(100);
     expect(stats.progressToNext).toBe(0);
   });
 });
@@ -128,7 +128,7 @@ describe("computeDashboardStats", () => {
 
   it("最近登阶按时间倒序且最多 10 条，旧阶梯档位被过滤", () => {
     const rows = [] as never;
-    const ladder = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000];
+    const ladder = [100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000, 40000, 50000, 60000];
     const milestones = [
       ...ladder.map((threshold, i) => ({
         memberId: "m1",
@@ -137,7 +137,7 @@ describe("computeDashboardStats", () => {
         threshold,
         achievedAt: `2026-09-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
       })),
-      // 非阶梯档位不再展示（旧阶梯 2500/7500 恰好也是 500 的倍数，仍在新阶梯上）
+      // 非阶梯档位不再展示（旧阶梯档位）
       { memberId: "m2", handle: "bob", displayName: null, threshold: 1250, achievedAt: "2026-09-20T00:00:00Z" },
       { memberId: "m2", handle: "bob", displayName: null, threshold: 3300, achievedAt: "2026-09-21T00:00:00Z" },
     ];

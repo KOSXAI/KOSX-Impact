@@ -118,11 +118,11 @@ describe("drainRefreshQueue", () => {
     ).first()) as { followers: number };
     expect(aliceSnapshot.followers).toBe(1500);
 
-    // 900 → 1500 跨过 1000 与 1500
+    // 900 → 1500 跨过 1000（1500 不在新大关表上）
     const { results: milestones } = await env.DB.prepare(
       "SELECT threshold FROM milestones WHERE member_id = 'alice' ORDER BY threshold"
     ).all();
-    expect(milestones).toEqual([{ threshold: 1000 }, { threshold: 1500 }]);
+    expect(milestones).toEqual([{ threshold: 1000 }]);
 
     const aliceDaily = (await env.DB.prepare(
       "SELECT followers, growth FROM daily_stats WHERE member_id = 'alice'"

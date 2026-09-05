@@ -6,7 +6,7 @@
  */
 import type { DashboardStats, MemberDetail } from "./stats";
 import { computeDashboardStats, computeMemberStats } from "./stats";
-import { UNIFORM_THRESHOLDS } from "./milestones";
+import { MILESTONE_THRESHOLDS } from "./milestones";
 import { roster } from "./roster";
 import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
 import { SITE_URL } from "./lib/site";
@@ -84,8 +84,8 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     const { results: milestones } = await env.DB.prepare(
       "SELECT threshold, achieved_at AS achievedAt FROM milestones WHERE member_id = ? ORDER BY threshold"
     ).bind(id).all();
-    // 只展示均匀成就阶梯上的档位（旧阶梯档位不再展示）
-    const ladderSet = new Set(UNIFORM_THRESHOLDS);
+    // 只展示称号大关上的档位（旧阶梯档位不再展示）
+    const ladderSet = new Set(MILESTONE_THRESHOLDS);
     const ladderMilestones = (milestones as never as Array<{ threshold: number; achievedAt: string }>).filter(
       (r) => ladderSet.has(r.threshold)
     );

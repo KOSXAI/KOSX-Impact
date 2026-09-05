@@ -67,14 +67,14 @@ describe("API", () => {
       totalFollowers: number;
       totalGrowth30d: number;
       tenKMembers: number;
-      members: Array<{ handle: string; tierKey: string; nextTier: number; climbs: number }>;
+      members: Array<{ handle: string; tierKey: string; nextMilestone: number; climbs: number }>;
       recentMilestones: unknown[];
     };
     expect(body.totalFollowers).toBe(1234);
     expect(body.totalGrowth30d).toBe(0);
     expect(body.tenKMembers).toBe(0);
     expect(body.members).toHaveLength(1);
-    expect(body.members[0]).toMatchObject({ handle: "alice_x", tierKey: "thousand", nextTier: 1500, climbs: 0 });
+    expect(body.members[0]).toMatchObject({ handle: "alice_x", tierKey: "thousand", nextMilestone: 5000, climbs: 0 });
   });
 
   it("POST /api/refresh 未在册 handle 且无注册意图时返回 404", async () => {

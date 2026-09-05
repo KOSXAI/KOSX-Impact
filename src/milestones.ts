@@ -6,22 +6,53 @@ export interface MilestoneEvent {
 /** 「万粉」达成线：看板「万粉成员」统计的判定阈值（段位 万粉达人 的起点） */
 export const TEN_K = 10_000;
 
-/**
- * 均匀成就阶梯：每个数量级内固定 18 级台阶，步长随量级放大 10 倍——
- * 百粉段每 100 一档、千粉段每 500 一档、万粉段每 5000 一档、十万粉段每 5 万……
- * 每个段位要登的台阶数完全相同（均匀感），跨度随量级自然增长（每级都可达成）。
- * 「万粉」只是其中一级：一万、十万、百万、千万都被覆盖，台阶不封顶。
- */
-export const UNIFORM_THRESHOLDS: number[] = (() => {
-  const out: number[] = [];
-  for (let f = 100; f < 1000; f += 100) out.push(f); // 百粉段：每 100 一档
-  for (let base = 1000; base <= 1_000_000_000; base *= 10) {
-    for (let t = base; t < base * 10; t += base / 2) out.push(t); // 每段 18 档
-  }
-  return out;
-})();
+/* ============ 称号大关（里程碑） ============ */
 
-/* ============ 段位（量级身份徽章，与台阶解耦） ============ */
+export interface Milestone {
+  threshold: number;
+  title: string;
+}
+
+/**
+ * 称号大关：跨过一道大关领一个称号，搞笑但必须是好彩头。
+ * 百粉、五百粉起步，千粉、五千粉各一道，之后每 5000 一道直到十万，
+ * 再往上按量级放大；「万粉」是本计划同名大关（万人迷），最隆重的一道仪式。
+ * 所有档位都是旧均匀阶梯的子集——库里的登阶历史按 threshold 记录，
+ * 换表后 ladderSet 过滤直接命中，无需任何数据迁移。
+ */
+export const MILESTONES: Milestone[] = [
+  { threshold: 100, title: "百里挑一" },
+  { threshold: 500, title: "五福临门" },
+  { threshold: 1_000, title: "千帆竞发" },
+  { threshold: 5_000, title: "学富五车" },
+  { threshold: 10_000, title: "万人迷" },
+  { threshold: 15_000, title: "势如破竹" },
+  { threshold: 20_000, title: "万众瞩目" },
+  { threshold: 25_000, title: "百尺竿头" },
+  { threshold: 30_000, title: "三阳开泰" },
+  { threshold: 40_000, title: "四海扬名" },
+  { threshold: 50_000, title: "五谷丰登" },
+  { threshold: 60_000, title: "六六大顺" },
+  { threshold: 70_000, title: "七星高照" },
+  { threshold: 80_000, title: "八面威风" },
+  { threshold: 90_000, title: "九天揽月" },
+  { threshold: 100_000, title: "十全十美" },
+  { threshold: 1_000_000, title: "百万雄师" },
+  { threshold: 10_000_000, title: "名满天下" },
+  { threshold: 100_000_000, title: "亿鸣惊人" },
+];
+
+/** 大关门槛列表：登阶检测与历史档位过滤共用 */
+export const MILESTONE_THRESHOLDS: number[] = MILESTONES.map((m) => m.threshold);
+
+const TITLE_BY_THRESHOLD = new Map(MILESTONES.map((m) => [m.threshold, m.title]));
+
+/** 称号名：只对大关档位有效（prev/next 恒来自表内），未知档位回退数字 */
+export function titleOf(threshold: number): string {
+  return TITLE_BY_THRESHOLD.get(threshold) ?? String(threshold);
+}
+
+/* ============ 段位（量级身份徽章，与称号大关解耦） ============ */
 
 export interface Tier {
   key: string;
@@ -55,28 +86,29 @@ export function tierOf(followers: number): Tier {
   return TIERS.find((t) => followers >= t.min)!.tier;
 }
 
-/* ============ 台阶（均匀成就阶梯的当前档与下一档） ============ */
+/* ============ 大关定位（当前所在赛段与下一道关） ============ */
 
-/** 当前台阶的起点（粉丝量低于首档时从 0 起） */
+/** 上一道大关的门槛（粉丝量低于首关时为 0，赛段从新人村起步） */
 export function prevThreshold(followers: number): number {
   let prev = 0;
-  for (const t of UNIFORM_THRESHOLDS) {
+  for (const t of MILESTONE_THRESHOLDS) {
     if (t > followers) return prev;
     prev = t;
   }
-  return prev; // 超过最高档（现实中不会发生）：以最后一档为起点
+  return prev; // 超过最高关（现实中不会发生）：以最后一关为起点
 }
 
-/** 下一级台阶：第一个严格大于当前粉丝量的档位 */
+/** 下一道大关：第一个严格大于当前粉丝量的档位 */
 export function nextThreshold(followers: number): number {
-  for (const t of UNIFORM_THRESHOLDS) {
+  for (const t of MILESTONE_THRESHOLDS) {
     if (t > followers) return t;
   }
-  const last = UNIFORM_THRESHOLDS[UNIFORM_THRESHOLDS.length - 1];
-  return last + last / 2; // 超出最高档：按最后一段的步长继续
+  let next = MILESTONE_THRESHOLDS[MILESTONE_THRESHOLDS.length - 1] * 2; // 超出最高关：翻倍继续
+  while (next <= followers) next *= 2;
+  return next;
 }
 
-/** 距下一级台阶的完成度（0-100，整数） */
+/** 距下一道大关的完成度（0-100，整数） */
 export function progressToNext(followers: number): number {
   const prev = prevThreshold(followers);
   const next = nextThreshold(followers);
@@ -85,8 +117,8 @@ export function progressToNext(followers: number): number {
 }
 
 /**
- * 检测一次新快照跨过了哪些台阶。
- * 没有历史快照时不产生事件——台阶只在观察到的增长中触发。
+ * 检测一次新快照跨过了哪些大关。
+ * 没有历史快照时不产生事件——大关只在观察到的增长中触发。
  */
 export function detectMilestones(
   prevFollowers: number | undefined,

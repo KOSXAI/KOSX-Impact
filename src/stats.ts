@@ -1,5 +1,5 @@
 import type { RosterFile } from "./roster";
-import { nextThreshold, prevThreshold, progressToNext, tierOf, TEN_K, UNIFORM_THRESHOLDS } from "./milestones";
+import { nextThreshold, prevThreshold, progressToNext, tierOf, TEN_K, MILESTONE_THRESHOLDS } from "./milestones";
 
 export interface MemberStats {
   id: string;
@@ -22,13 +22,13 @@ export interface MemberStats {
   /** 段位（量级身份徽章） */
   tierKey: string;
   tierName: string;
-  /** 当前台阶起点（低于首档时为 0） */
-  prevTier: number;
-  /** 下一级台阶（下一枚成就） */
-  nextTier: number;
-  /** 距下一级台阶的完成度（0-100） */
+  /** 上一道大关的门槛（已持有其称号；新人村为 0） */
+  prevMilestone: number;
+  /** 下一道大关的门槛（下一个称号） */
+  nextMilestone: number;
+  /** 距下一道大关的完成度（0-100） */
   progressToNext: number;
-  /** 已登台阶数（成就徽章数，看板聚合时按登阶事件计） */
+  /** 已拿下的大关数（成就徽章数，看板聚合时按登阶事件计） */
   climbs: number;
 }
 
@@ -121,8 +121,8 @@ export function computeMemberStats(
     daysSinceUpdate: latest ? daysBetween(latest.recordedAt, now) : null,
     tierKey: tier.key,
     tierName: tier.name,
-    prevTier: prevThreshold(followers),
-    nextTier: nextThreshold(followers),
+    prevMilestone: prevThreshold(followers),
+    nextMilestone: nextThreshold(followers),
     progressToNext: progressToNext(followers),
     climbs: 0,
   };
@@ -176,8 +176,8 @@ export function computeDashboardStats(
       : computed;
   });
 
-  // 登阶记录只认均匀成就阶梯上的档位（旧阶梯档位不再展示）
-  const ladderSet = new Set(UNIFORM_THRESHOLDS);
+  // 登阶记录只认证号大关上的档位（旧阶梯档位不再展示）
+  const ladderSet = new Set(MILESTONE_THRESHOLDS);
   const ladderMilestones = milestones.filter((m) => ladderSet.has(m.threshold));
 
   // 成就数按登阶事件计数，挂到每个成员上
