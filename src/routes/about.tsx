@@ -87,7 +87,7 @@ function AboutPage() {
             <h2 className="text-2xl font-bold">如何加入</h2>
             <ol className="mt-3 max-w-2xl list-decimal space-y-3 leading-relaxed text-mist">
               <li><b className="text-ink">点「加入追踪」</b>：看板首页或本页下方按钮，打开弹窗。</li>
-              <li><b className="text-ink">输入你的 X 主页</b>：主页链接或用户名都行，提交即加入——不需要 GitHub，没有审批。</li>
+              <li><b className="text-ink">输入你的 X 主页</b>：主页链接或 @ID 都行，提交即加入——不需要 GitHub，没有审批。</li>
               <li><b className="text-ink">看板见</b>：站点拉取你的公开数据，立即生成成长曲线，从当天起每天更新。</li>
             </ol>
             <div className="mt-6">

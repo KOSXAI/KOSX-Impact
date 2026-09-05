@@ -41,7 +41,7 @@ type Phase =
   | { kind: "error"; message: string };
 
 /**
- * 「加入追踪」弹窗：输入 X 主页链接或用户名。
+ * 「加入追踪」弹窗：输入 X 主页链接或 @ID。
  * 在册成员 → 预览并立即更新数据；未在册 → 一键直接加入追踪（无审批流，提交即加入）。
  */
 export function SubmitDialog({
@@ -76,7 +76,7 @@ export function SubmitDialog({
       } else if (res.status === 404) {
         setPhase({ kind: "join", handle: raw.trim() });
       } else if (res.status === 400) {
-        setPhase({ kind: "error", message: "这个输入不像有效的 X 用户名或主页链接。" });
+        setPhase({ kind: "error", message: "这个输入不像有效的 @ID 或 X 主页链接。" });
       } else {
         setPhase({ kind: "error", message: "查询出了点问题，稍后再试。" });
       }
@@ -149,8 +149,8 @@ export function SubmitDialog({
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="你的 X 主页链接或用户名"
-                aria-label="X 主页链接或用户名"
+                placeholder="例如 @yourname 或 x.com/yourname"
+                aria-label="X 主页链接或 @ID"
                 autoFocus
                 className="h-11 min-w-0 flex-1 rounded-full border border-line bg-soft-surface px-5 text-sm text-ink placeholder:text-fog focus:border-signal/50 focus:outline-none"
               />
