@@ -204,6 +204,21 @@ async function writeDailyStats(
 
 /* ============ 自助更新队列消费（即时通道 + 兜底通道共用） ============ */
 
+/**
+ * 把一次已拉取的真实数据完整写入管线：快照（含昵称/头像 + cache_bust）+ 登阶检测 + 日聚合。
+ * cron 采集、队列消费、注册当场校验三条路径复用同一写入逻辑，保证数据口径一致。
+ */
+export async function applyFollowerStats(
+  env: Env,
+  memberId: string,
+  stats: FollowerStats,
+  nowIso: string
+): Promise<void> {
+  await writeSnapshot(env, memberId, stats, nowIso);
+  await checkMilestones(env, memberId, stats.followers, nowIso);
+  await writeDailyStats(env, memberId, stats.followers, nowIso);
+}
+
 /** 单条失败重试上限：超过转 failed，等待成员重新提交 */
 const REFRESH_MAX_ATTEMPTS = 3;
 /** cron 每次兜底清空的最大条数：每条 ≈ 8 个子请求，给分片采集留出免费版 50 子请求的余量 */
@@ -236,9 +251,7 @@ async function processRefreshJob(
   const nowIso = new Date().toISOString();
   try {
     const stats = await source.fetchStats(member.handle);
-    await writeSnapshot(env, memberId, stats, nowIso);
-    await checkMilestones(env, memberId, stats.followers, nowIso);
-    await writeDailyStats(env, memberId, stats.followers, nowIso);
+    await applyFollowerStats(env, memberId, stats, nowIso);
     await env.DB.prepare(
       "UPDATE refresh_queue SET status = 'done', processed_at = ?2, followers_after = ?3, error = NULL WHERE id = ?1"
     ).bind(jobId, nowIso, stats.followers).run();

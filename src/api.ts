@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { DashboardStats } from "./stats";
-import { collect, drainRefreshQueue, processOldestPending } from "./collector";
+import { applyFollowerStats, collect, drainRefreshQueue, processOldestPending } from "./collector";
 import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { computeMemberStats, computeDashboardStats } from "./stats";
@@ -8,6 +8,7 @@ import { getDashboardStats, getMemberDetail } from "./queries";
 import { roster } from "./roster";
 import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
 import { getSource } from "./sources";
+import { SocialDataError } from "./sources/socialdata";
 import { SITE_URL } from "./lib/site";
 
 export const api = new Hono<{ Bindings: Env }>();
@@ -60,7 +61,9 @@ api.get("/api/refresh/lookup", async (c) => {
 
 // 提交更新 / 自助加入：入队（去重 + 防抖）→ 抢到全局节流槽则当场处理最旧一条 pending
 // （即时通道，队列空时即本条）；抢不到留在队列由 cron 兜底清空。
-// 未在册的 handle 带显式 register 意图时直接加入追踪（无审批流）。
+// 自助注册（register:true）且抢到槽时当场拉一次 SocialData——存在即校验、数据即入库：
+// 账号不存在（404）直接拒绝，脏 handle 进不了名单；数据源抖动等非确定性错误降级为
+// 注册 + 入队，由兜底通道补采（宁可稍慢，不让一次网络抖动挡掉正常加入）。
 api.post("/api/refresh", async (c) => {
   const body = (await c.req.json().catch(() => null)) as
     | { input?: string; register?: boolean }
@@ -70,8 +73,32 @@ api.post("/api/refresh", async (c) => {
 
   const nowIso = new Date().toISOString();
   let member = await lookupRefreshMember(c.env, handle);
+  const isNewRegistration = !member;
+  if (isNewRegistration && !body?.register) return c.json({ error: "not_member" }, 404);
+
+  const source = getSource(c.env);
+
+  if (isNewRegistration && (await tryGrabRefreshSlot(c.env, nowIso))) {
+    try {
+      const stats = await source.fetchStats(handle);
+      await registerMember(c.env, handle, nowIso);
+      member = await lookupRefreshMember(c.env, handle);
+      if (!member) return c.json({ error: "register_failed" }, 500);
+      await applyFollowerStats(c.env, member.id, stats, nowIso);
+      return c.json({ status: "done", followersAfter: stats.followers, memberId: member.id });
+    } catch (error) {
+      if (error instanceof SocialDataError && error.status === 404) {
+        // 账号确实不存在：拒绝注册，不建任何行（脏 handle 进不了名单）
+        return c.json(
+          { error: "account_not_found", message: "在 X 上查无此账号，请检查 @ID 是否拼写正确。" },
+          422
+        );
+      }
+      // 其他错误（限流/网络等）：落到下方照常注册 + 入队，由兜底通道补采
+    }
+  }
+
   if (!member) {
-    if (!body?.register) return c.json({ error: "not_member" }, 404);
     await registerMember(c.env, handle, nowIso);
     member = await lookupRefreshMember(c.env, handle);
     if (!member) return c.json({ error: "register_failed" }, 500);

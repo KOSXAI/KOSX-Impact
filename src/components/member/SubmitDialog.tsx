@@ -29,6 +29,11 @@ type SubmitResponse = {
   memberId: string;
 };
 
+/** 提交失败时的后端错误（error 为机器码，message 可直接展示） */
+type SubmitError = { error: string; message?: string };
+
+type PostResult = SubmitResponse | SubmitError;
+
 type Phase =
   | { kind: "idle" }
   | { kind: "looking" }
@@ -118,14 +123,23 @@ export function SubmitDialog({
     refreshBoard();
   }
 
-  async function post(body: Record<string, unknown>): Promise<SubmitResponse | null> {
+  async function post(body: Record<string, unknown>): Promise<PostResult | null> {
     const res = await fetch("/api/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // 服务端错误带可直接展示的文案（如「查无此账号」）；解析失败回落通用错误
+      const payload = (await res.json().catch(() => null)) as { error?: string; message?: string } | null;
+      return payload?.error ? { error: payload.error, message: payload.message } : null;
+    }
     return (await res.json()) as SubmitResponse;
+  }
+
+  /** 提交未被接受：展示后端错误文案（其余情况统一回落通用提示） */
+  function applySubmitError(result: SubmitError) {
+    setPhase({ kind: "error", message: result.message ?? "提交出了点问题，稍后再试。" });
   }
 
   async function submit(member: LookupPreview) {
@@ -134,6 +148,10 @@ export function SubmitDialog({
       const result = await post({ input: member.handle });
       if (!result) {
         setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
+        return;
+      }
+      if ("error" in result) {
+        applySubmitError(result);
         return;
       }
       applySubmitResponse(result, false, member.handle);
@@ -148,6 +166,10 @@ export function SubmitDialog({
       const result = await post({ input: rawHandle, register: true });
       if (!result) {
         setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
+        return;
+      }
+      if ("error" in result) {
+        applySubmitError(result);
         return;
       }
       applySubmitResponse(result, true, rawHandle);

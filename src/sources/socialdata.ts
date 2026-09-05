@@ -8,7 +8,15 @@ const MIN_INTERVAL_MS = 61_000 / FREE_REQUESTS_PER_MINUTE;
 
 type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-export class SocialDataError extends Error {}
+export class SocialDataError extends Error {
+  /** HTTP 状态码；网络/解析类错误为 0 */
+  readonly status: number;
+  constructor(message: string, status = 0) {
+    super(message);
+    this.name = "SocialDataError";
+    this.status = status;
+  }
+}
 
 /**
  * SocialData 数据源：按 username 查询用户公开资料。
@@ -34,7 +42,8 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
       });
       if (!response.ok) {
         throw new SocialDataError(
-          `SocialData 请求失败（HTTP ${response.status}）：${await response.text()}`
+          `SocialData 请求失败（HTTP ${response.status}）：${await response.text()}`,
+          response.status
         );
       }
       const data = (await response.json()) as {

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { collectWithSource } from "../src/collector";
+import { applyFollowerStats, collectWithSource } from "../src/collector";
 import type { RosterFile } from "../src/roster";
 import type { FollowerSource, FollowerStats } from "../src/sources/types";
 
@@ -139,5 +139,41 @@ describe("collectWithSource", () => {
       "SELECT COUNT(*) AS n FROM milestones WHERE member_id = 'alice' AND threshold = 1000"
     ).first()) as { n: number };
     expect(milestones.n).toBe(1);
+  });
+
+  it("applyFollowerStats：一次数据完整写管线（快照/登阶/日聚合 + cache_bust 递增）", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('alice', 'alice_x', '2026-08-30', 1)"
+    ).run();
+    await env.DB.prepare("DELETE FROM site_meta WHERE key = 'cache_bust'").run();
+
+    await applyFollowerStats(env, "alice", { followers: 1500, displayName: "爱丽丝" }, "2026-09-05T04:00:00Z");
+
+    const snapshot = (await env.DB.prepare(
+      "SELECT followers FROM snapshots WHERE member_id = 'alice'"
+    ).first()) as { followers: number };
+    expect(snapshot.followers).toBe(1500);
+
+    const daily = (await env.DB.prepare(
+      "SELECT followers FROM daily_stats WHERE member_id = 'alice'"
+    ).first()) as { followers: number };
+    expect(daily.followers).toBe(1500);
+
+    const member = (await env.DB.prepare(
+      "SELECT display_name FROM members WHERE id = 'alice'"
+    ).first()) as { display_name: string };
+    expect(member.display_name).toBe("爱丽丝");
+
+    const bust = (await env.DB.prepare(
+      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
+    ).first()) as { bust: number };
+    expect(bust.bust).toBe(1);
+
+    // 再次写库：cache_bust 递增（缓存键换新）
+    await applyFollowerStats(env, "alice", { followers: 1600 }, "2026-09-05T04:05:00Z");
+    const bust2 = (await env.DB.prepare(
+      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
+    ).first()) as { bust: number };
+    expect(bust2.bust).toBe(2);
   });
 });
