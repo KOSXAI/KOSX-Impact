@@ -4,6 +4,7 @@ import {
   enqueueRefresh,
   lookupRefreshMember,
   normalizeHandle,
+  registerMember,
   tryGrabRefreshSlot,
 } from "../src/refresh-queue";
 import { drainRefreshQueue, processOldestPending } from "../src/collector";
@@ -216,6 +217,37 @@ describe("processOldestPending", () => {
 
   it("队列为空时不做任何事", async () => {
     expect(await processOldestPending(env, stubSource({}))).toBe(false);
+  });
+});
+
+describe("registerMember", () => {
+  it("新 handle 直接建自助成员（id=handle，self_registered=1）", async () => {
+    await registerMember(env, "newbie_x", T0);
+    const member = (await env.DB.prepare(
+      "SELECT id, handle, status, self_registered, joined_at FROM members WHERE handle = 'newbie_x'"
+    ).first()) as { id: string; handle: string; status: string; self_registered: number; joined_at: string };
+    expect(member).toMatchObject({
+      id: "newbie_x",
+      handle: "newbie_x",
+      status: "active",
+      self_registered: 1,
+      joined_at: "2026-09-05",
+    });
+  });
+
+  it("已存在（含 removed）的成员重新提交则恢复 active 并标记自助", async () => {
+    await seedMember("bob", "bob_x", 1200, "removed");
+    await registerMember(env, "bob_x", T0);
+    const member = (await env.DB.prepare(
+      "SELECT status, self_registered FROM members WHERE id = 'bob'"
+    ).first()) as { status: string; self_registered: number };
+    expect(member).toMatchObject({ status: "active", self_registered: 1 });
+
+    // 历史快照保留（未新增行）
+    const snapshots = (await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'bob'"
+    ).first()) as { n: number };
+    expect(snapshots.n).toBe(1);
   });
 });
 

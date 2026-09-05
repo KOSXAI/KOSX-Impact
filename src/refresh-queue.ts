@@ -134,3 +134,27 @@ export async function tryGrabRefreshSlot(env: Env, nowIso: string): Promise<bool
     .run();
   return (result.meta.changes ?? 0) > 0;
 }
+
+/**
+ * 自助注册：把提交的 handle 直接加入追踪（无审批流，提交即加入并同意公开展示）。
+ * - 新 handle：建 members 行（id=handle，与既有命名约定一致），display_name 留空、
+ *   由首次采集从 X 公开数据回填；基线快照由队列消费写入（首个快照即成长曲线起点）
+ * - 已存在行（含 removed）：恢复 active 并标记 self_registered=1
+ * - self_registered=1 使 syncRoster 的 removed 清扫跳过该成员
+ */
+export async function registerMember(env: Env, handle: string, nowIso: string): Promise<void> {
+  const existing = (await env.DB.prepare(
+    "SELECT id FROM members WHERE lower(handle) = ?1"
+  ).bind(handle).first()) as { id: string } | null;
+
+  if (existing) {
+    await env.DB.prepare(
+      "UPDATE members SET status = 'active', self_registered = 1, updated_at = datetime('now') WHERE id = ?1"
+    ).bind(existing.id).run();
+    return;
+  }
+
+  await env.DB.prepare(
+    "INSERT INTO members (id, handle, joined_at, self_registered, status) VALUES (?1, ?1, ?2, 1, 'active')"
+  ).bind(handle, nowIso.slice(0, 10)).run();
+}

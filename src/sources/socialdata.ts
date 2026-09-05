@@ -38,6 +38,7 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
         );
       }
       const data = (await response.json()) as {
+        name?: string;
         followers_count?: number;
         friends_count?: number;
         statuses_count?: number;
@@ -50,6 +51,7 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
         followers: data.followers_count,
         following: data.friends_count,
         posts: data.statuses_count,
+        displayName: data.name ?? null,
         profileImageUrl: data.profile_image_url_https,
       };
     },

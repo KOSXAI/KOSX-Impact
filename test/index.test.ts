@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import "../src/api-entry";
 
 beforeEach(async () => {
-  await env.DB.prepare("DELETE FROM snapshots").run();
+  await env.DB.prepare("DELETE FROM refresh_queue").run();
+  await env.DB.prepare("DELETE FROM daily_stats").run();
   await env.DB.prepare("DELETE FROM milestones").run();
+  await env.DB.prepare("DELETE FROM snapshots").run();
   await env.DB.prepare("DELETE FROM members").run();
+  await env.DB.prepare("DELETE FROM site_meta").run();
 });
 
 async function seedMember() {
@@ -70,5 +73,39 @@ describe("API", () => {
     expect(body.totalFollowers).toBe(1234);
     expect(body.members).toHaveLength(1);
     expect(body.members[0]).toMatchObject({ handle: "alice_x", tierKey: "thousand", nextTier: 1500, climbs: 0 });
+  });
+
+  it("POST /api/refresh 未在册 handle 且无注册意图时返回 404", async () => {
+    const res = await exports.default.fetch("https://example.com/api/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input: "newbie_x" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("POST /api/refresh 带 register 意图直接建自助成员并入队", async () => {
+    // 预占节流槽：CAS 抢不到 → 不触发真实采集，稳定返回 queued
+    await env.DB.prepare("INSERT INTO site_meta (key, value) VALUES ('self_refresh_slot_at', ?)").bind(new Date().toISOString()).run();
+
+    const res = await exports.default.fetch("https://example.com/api/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input: "x.com/Newbie_X", register: true }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; memberId: string };
+    expect(body.memberId).toBe("newbie_x");
+    expect(["done", "queued"]).toContain(body.status);
+
+    const member = (await env.DB.prepare(
+      "SELECT status, self_registered FROM members WHERE id = 'newbie_x'"
+    ).first()) as { status: string; self_registered: number };
+    expect(member).toMatchObject({ status: "active", self_registered: 1 });
+
+    const job = (await env.DB.prepare(
+      "SELECT status FROM refresh_queue WHERE member_id = 'newbie_x'"
+    ).first()) as { status: string } | null;
+    expect(job?.status).toBe("pending");
   });
 });

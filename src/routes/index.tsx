@@ -133,7 +133,7 @@ function DashboardPage() {
         <section className="mt-12 rounded-2xl border border-line bg-surface p-6 sm:p-8">
           <h2 className="text-xl font-bold">加入这场远征</h2>
           <div className="mt-5 flex flex-wrap items-center gap-4">
-            <Button onClick={() => setApplyOpen(true)}>提交申请</Button>
+            <Button onClick={() => setApplyOpen(true)}>加入追踪</Button>
             <Link to="/about" className="text-mist underline-offset-4 hover:text-ink hover:underline">
               了解流程
             </Link>

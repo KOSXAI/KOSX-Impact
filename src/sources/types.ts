@@ -3,6 +3,8 @@ export interface FollowerStats {
   followers: number;
   following?: number;
   posts?: number;
+  /** X 公开昵称（自助注册成员的显示名来源；名册成员 display_name 以名册为准） */
+  displayName?: string | null;
   /** X 公开头像 URL（pbs.twimg.com），无头像时缺省 */
   profileImageUrl?: string;
 }

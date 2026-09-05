@@ -85,4 +85,25 @@ describe("syncRoster", () => {
     ).first()) as { handle: string };
     expect(member.handle).toBe("alice_new");
   });
+
+  it("自助注册成员（self_registered=1）不被名册同步清扫，名册外普通成员仍被移除", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('zoe', 'zoe_x', '2026-09-05', 1)"
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('ghost', 'ghost_x', '2026-09-05', 0)"
+    ).run();
+
+    await syncRoster(env, rosterOf(alice));
+
+    const zoe = (await env.DB.prepare(
+      "SELECT status FROM members WHERE id = 'zoe'"
+    ).first()) as { status: string };
+    expect(zoe.status).toBe("active");
+
+    const ghost = (await env.DB.prepare(
+      "SELECT status FROM members WHERE id = 'ghost'"
+    ).first()) as { status: string };
+    expect(ghost.status).toBe("removed");
+  });
 });

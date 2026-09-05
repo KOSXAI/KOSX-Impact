@@ -10,6 +10,7 @@ describe("socialDataSource", () => {
       Object.assign(headers, init?.headers ?? {});
       return new Response(JSON.stringify({
         screen_name: "alice_x",
+        name: "Alice",
         followers_count: 1500,
         friends_count: 120,
         statuses_count: 42,
@@ -20,7 +21,7 @@ describe("socialDataSource", () => {
 
     expect(calls).toEqual(["https://api.socialdata.tools/twitter/user/alice_x"]);
     expect(headers.Authorization).toBe("Bearer test-key");
-    expect(stats).toEqual({ followers: 1500, following: 120, posts: 42 });
+    expect(stats).toEqual({ followers: 1500, following: 120, posts: 42, displayName: "Alice" });
   });
 
   it("非 200 响应抛出错误", async () => {

@@ -234,6 +234,12 @@ async function processRefreshJob(
   try {
     const stats = await source.fetchStats(member.handle);
     await writeSnapshot(env, memberId, stats, nowIso);
+    // 自助注册成员 display_name 为空：用 X 公开昵称回填（名册成员的名册值优先，COALESCE 不覆盖）
+    if (stats.displayName) {
+      await env.DB.prepare(
+        "UPDATE members SET display_name = COALESCE(display_name, ?2), updated_at = datetime('now') WHERE id = ?1"
+      ).bind(memberId, stats.displayName).run();
+    }
     await checkMilestones(env, memberId, stats.followers, nowIso);
     await writeDailyStats(env, memberId, stats.followers, nowIso);
     await env.DB.prepare(

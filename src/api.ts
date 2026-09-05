@@ -6,7 +6,7 @@ import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { computeMemberStats, computeDashboardStats } from "./stats";
 import { getDashboardStats, getMemberDetail } from "./queries";
 import { roster } from "./roster";
-import { enqueueRefresh, lookupRefreshMember, normalizeHandle, tryGrabRefreshSlot } from "./refresh-queue";
+import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
 import { getSource } from "./sources";
 import { SITE_URL } from "./lib/site";
 
@@ -57,17 +57,25 @@ api.get("/api/refresh/lookup", async (c) => {
   return c.json(preview);
 });
 
-// 提交更新：入队（去重 + 防抖）→ 抢到全局节流槽则当场处理最旧一条 pending
-// （即时通道，队列空时即本条）；抢不到留在队列由 cron 兜底清空
+// 提交更新 / 自助加入：入队（去重 + 防抖）→ 抢到全局节流槽则当场处理最旧一条 pending
+// （即时通道，队列空时即本条）；抢不到留在队列由 cron 兜底清空。
+// 未在册的 handle 带显式 register 意图时直接加入追踪（无审批流）。
 api.post("/api/refresh", async (c) => {
-  const body = (await c.req.json().catch(() => null)) as { input?: string } | null;
+  const body = (await c.req.json().catch(() => null)) as
+    | { input?: string; register?: boolean }
+    | null;
   const handle = normalizeHandle(body?.input ?? "");
   if (!handle) return c.json({ error: "invalid_handle" }, 400);
 
-  const member = await lookupRefreshMember(c.env, handle);
-  if (!member) return c.json({ error: "not_member" }, 404);
-
   const nowIso = new Date().toISOString();
+  let member = await lookupRefreshMember(c.env, handle);
+  if (!member) {
+    if (!body?.register) return c.json({ error: "not_member" }, 404);
+    await registerMember(c.env, handle, nowIso);
+    member = await lookupRefreshMember(c.env, handle);
+    if (!member) return c.json({ error: "register_failed" }, 500);
+  }
+
   const enqueued = await enqueueRefresh(c.env, member.id, nowIso);
   if (enqueued === "already_pending" || enqueued === "throttled") {
     return c.json({ status: enqueued === "already_pending" ? "queued" : "throttled" });
@@ -93,6 +101,7 @@ api.post("/api/refresh", async (c) => {
   return c.json({
     status: job?.status === "done" ? "done" : "queued",
     followersAfter: job?.followersAfter ?? null,
+    memberId: member.id,
   });
 });
 

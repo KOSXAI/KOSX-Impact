@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
 import { fmt } from "@/lib/format";
-import { GITHUB_APPLY_URL, xProfileUrl } from "@/lib/site";
-import { ArrowUpRight, CircleCheck, Clock3, RefreshCw, SearchCheck } from "lucide-react";
+import { xProfileUrl } from "@/lib/site";
+import { CircleCheck, Clock3, RefreshCw, SearchCheck } from "lucide-react";
 
 type LookupPreview = {
   id: string;
@@ -23,20 +23,26 @@ type LookupPreview = {
   lastProcessedAt: string | null;
 };
 
+type SubmitResponse = {
+  status: string;
+  followersAfter: number | null;
+  memberId: string;
+};
+
 type Phase =
   | { kind: "idle" }
   | { kind: "looking" }
   | { kind: "preview"; member: LookupPreview }
   | { kind: "submitting"; member: LookupPreview }
-  | { kind: "done"; member: LookupPreview; followersAfter: number | null }
-  | { kind: "queued"; member: LookupPreview; throttled: boolean }
-  | { kind: "not_member" }
+  | { kind: "join"; handle: string }
+  | { kind: "joining"; handle: string }
+  | { kind: "done"; memberId: string; followersAfter: number | null; joined: boolean }
+  | { kind: "queued"; memberId: string; throttled: boolean }
   | { kind: "error"; message: string };
 
 /**
- * 「提交申请」弹窗：输入 X 主页链接或用户名后的自助流程。
- * 成员 → 预览并立即更新数据；非成员 → 引导去 GitHub 申请。
- * 同一弹窗覆盖两种身份，替代独立页面。
+ * 「加入追踪」弹窗：输入 X 主页链接或用户名。
+ * 在册成员 → 预览并立即更新数据；未在册 → 一键直接加入追踪（无审批流，提交即加入）。
  */
 export function SubmitDialog({
   open,
@@ -68,7 +74,7 @@ export function SubmitDialog({
       if (res.ok) {
         setPhase({ kind: "preview", member: (await res.json()) as LookupPreview });
       } else if (res.status === 404) {
-        setPhase({ kind: "not_member" });
+        setPhase({ kind: "join", handle: raw.trim() });
       } else if (res.status === 400) {
         setPhase({ kind: "error", message: "这个输入不像有效的 X 用户名或主页链接。" });
       } else {
@@ -79,24 +85,47 @@ export function SubmitDialog({
     }
   }
 
+  function applySubmitResponse(result: SubmitResponse, joined: boolean) {
+    if (result.status === "done") {
+      setPhase({ kind: "done", memberId: result.memberId, followersAfter: result.followersAfter, joined });
+    } else {
+      setPhase({ kind: "queued", memberId: result.memberId, throttled: result.status === "throttled" });
+    }
+  }
+
+  async function post(body: Record<string, unknown>): Promise<SubmitResponse | null> {
+    const res = await fetch("/api/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as SubmitResponse;
+  }
+
   async function submit(member: LookupPreview) {
     setPhase({ kind: "submitting", member });
     try {
-      const res = await fetch("/api/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: member.handle }),
-      });
-      if (!res.ok) {
+      const result = await post({ input: member.handle });
+      if (!result) {
         setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
         return;
       }
-      const result = (await res.json()) as { status: string; followersAfter?: number | null };
-      if (result.status === "done") {
-        setPhase({ kind: "done", member, followersAfter: result.followersAfter ?? null });
-      } else {
-        setPhase({ kind: "queued", member, throttled: result.status === "throttled" });
+      applySubmitResponse(result, false);
+    } catch {
+      setPhase({ kind: "error", message: "网络不通，稍后再试。" });
+    }
+  }
+
+  async function submitJoin(rawHandle: string) {
+    setPhase({ kind: "joining", handle: rawHandle });
+    try {
+      const result = await post({ input: rawHandle, register: true });
+      if (!result) {
+        setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
+        return;
       }
+      applySubmitResponse(result, true);
     } catch {
       setPhase({ kind: "error", message: "网络不通，稍后再试。" });
     }
@@ -109,7 +138,7 @@ export function SubmitDialog({
 
         {(phase.kind === "idle" || phase.kind === "looking") && (
           <>
-            <DialogTitle>提交申请</DialogTitle>
+            <DialogTitle>加入追踪</DialogTitle>
             <form
               className="flex gap-2"
               onSubmit={(e) => {
@@ -141,9 +170,14 @@ export function SubmitDialog({
           />
         )}
 
-        {phase.kind === "done" && <DoneBody member={phase.member} followersAfter={phase.followersAfter} />}
-        {phase.kind === "queued" && <QueuedBody member={phase.member} throttled={phase.throttled} />}
-        {phase.kind === "not_member" && <NotMemberBody />}
+        {(phase.kind === "join" || phase.kind === "joining") && (
+          <JoinBody joining={phase.kind === "joining"} onJoin={() => void submitJoin(phase.handle)} />
+        )}
+
+        {phase.kind === "done" && (
+          <DoneBody memberId={phase.memberId} followersAfter={phase.followersAfter} joined={phase.joined} />
+        )}
+        {phase.kind === "queued" && <QueuedBody memberId={phase.memberId} throttled={phase.throttled} />}
         {phase.kind === "error" && <ErrorBody message={phase.message} onBack={() => setPhase({ kind: "idle" })} />}
       </DialogContent>
     </Dialog>
@@ -198,19 +232,34 @@ function PreviewBody({ member, submitting, onSubmit }: { member: LookupPreview; 
   );
 }
 
-function DoneBody({ member, followersAfter }: { member: LookupPreview; followersAfter: number | null }) {
+/** 未在册：一键直接加入追踪 */
+function JoinBody({ joining, onJoin }: { joining: boolean; onJoin: () => void }) {
+  return (
+    <>
+      <DialogTitle>还没有加入追踪</DialogTitle>
+      <div>
+        <Button onClick={onJoin} disabled={joining}>
+          <RefreshCw className={joining ? "size-4 animate-spin" : "size-4"} />
+          {joining ? "正在加入" : "加入追踪"}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function DoneBody({ memberId, followersAfter, joined }: { memberId: string; followersAfter: number | null; joined: boolean }) {
   return (
     <>
       <DialogTitle className="flex items-center gap-2.5">
         <CircleCheck className="size-5 text-signal" />
-        已更新
+        {joined ? "已加入追踪" : "已更新"}
       </DialogTitle>
       {followersAfter != null && (
         <div className="tabular-nums text-3xl font-bold">{fmt(followersAfter)}</div>
       )}
       <div className="flex flex-wrap items-center gap-3">
         <Button asChild>
-          <Link to="/members/$id" params={{ id: member.id }}>
+          <Link to="/members/$id" params={{ id: memberId }}>
             查看成长档案
           </Link>
         </Button>
@@ -219,7 +268,7 @@ function DoneBody({ member, followersAfter }: { member: LookupPreview; followers
   );
 }
 
-function QueuedBody({ member, throttled }: { member: LookupPreview; throttled: boolean }) {
+function QueuedBody({ memberId, throttled }: { memberId: string; throttled: boolean }) {
   return (
     <>
       <DialogTitle className="flex items-center gap-2.5">
@@ -228,24 +277,9 @@ function QueuedBody({ member, throttled }: { member: LookupPreview; throttled: b
       </DialogTitle>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" asChild>
-          <Link to="/members/$id" params={{ id: member.id }}>
+          <Link to="/members/$id" params={{ id: memberId }}>
             查看成长档案
           </Link>
-        </Button>
-      </div>
-    </>
-  );
-}
-
-function NotMemberBody() {
-  return (
-    <>
-      <DialogTitle>还没有加入追踪</DialogTitle>
-      <div>
-        <Button asChild>
-          <a href={GITHUB_APPLY_URL} target="_blank" rel="noreferrer">
-            去 GitHub 提交申请 <ArrowUpRight className="size-4" />
-          </a>
         </Button>
       </div>
     </>

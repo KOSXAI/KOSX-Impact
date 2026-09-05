@@ -24,11 +24,12 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 - 数据一天更新一次，页面为服务端渲染（SEO 友好），读接口走边缘缓存，不做每次访问实时计算
 - 全链路在 Cloudflare 免费额度内即可支撑当前量级，无服务器运维
 - 数据源通过抽象层接入（当前：SocialData），未来可切换官方 API / 成员 OAuth 而不改业务逻辑
-- 成员自助更新（首页「提交申请」弹窗）：提交 handle 入队 → 抢到全局节流槽（CAS，≥21 秒间隔，守住
+- 成员自助更新与自助加入（首页「加入追踪」弹窗）：提交 handle → 在册成员入队即时刷新，
+  未在册直接注册加入。入队后抢到全局节流槽（CAS，≥21 秒间隔，守住
   SocialData 每分钟 3 次免费额度）当场处理，抢不到由 cron 兜底清空。消费复用与每日采集
   完全相同的写入管线（快照/登阶/日统计），管线里永远只有真实 API 数据。
-  核心代码：`src/refresh-queue.ts`（入队/查询/节流槽）+ `src/collector.ts`（队列消费）
-  + `src/components/member/SubmitDialog.tsx`（弹窗 UI，首页与成员页共用）
+  核心代码：`src/refresh-queue.ts`（查询/入队/注册/节流槽）+ `src/collector.ts`（队列消费）
+  + `src/components/member/SubmitDialog.tsx`（弹窗 UI，首页/成员页/关于页共用）
 
 ## 仓库结构
 
@@ -59,13 +60,16 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 
 ## 成员名册
 
-`data/members.json` 是追踪名单的**事实来源**，格式由同目录的 JSON Schema 定义，CI 会校验每次修改。每日采集任务把名册同步进 D1：
+`data/members.json` 是名册体系成员的**事实来源**，格式由同目录的 JSON Schema 定义，校验脚本会检查每次修改。每日采集任务把名册同步进 D1：
 
 - 新成员在名册中加一行 → 下次同步自动开始追踪
 - 成员退出 → 从名册中删除对应条目，自动停止公开追踪、历史数据保留
 - `baselineFollowers` 是加入时的粉丝量，用于回填成长曲线的起点（冷启动）
 
-加入方式：在「成员申请」Issue 中确认同意声明后，通过 PR 把成员加进名册。初始名单可以一次性批量加入。
+加入方式有两条：
+
+- **自助注册（主路径）**：看板「加入追踪」弹窗提交 handle 直接加入（`members.self_registered=1`），提交即同意公开展示，无审批流。syncRoster 的 removed 清扫只作用于名册体系成员，自助成员不受影响；维护者置 `status='removed'` 即可移除，本人重新提交会自行恢复。
+- **名册 PR（维护者批量）**：维护者改 `data/members.json` 后部署生效。名册成员的 `display_name` 以名册为准（自助成员为空时才回填 X 公开昵称）。
 
 ## 本地开发
 

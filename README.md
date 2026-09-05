@@ -2,7 +2,7 @@
 
 > 记录每一位成员迈向万粉及更高台阶的过程——看见每个人的成长，也看见整个社群正在产生多大的影响。
 
-🌐 **看板：[impact.kosx.ai](https://impact.kosx.ai)** · [数据口径说明](https://impact.kosx.ai/about) · [成员申请](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=member-application.yml)
+🌐 **看板：[impact.kosx.ai](https://impact.kosx.ai)** · [数据口径说明](https://impact.kosx.ai/about)
 
 🚧 **万粉影响力计划进行中**——每一位成员从当前粉丝量迈向万粉及更高台阶的过程，都被记录在这里。
 
@@ -29,11 +29,11 @@ KOSX 万粉影响力计划持续追踪和展示 KOSX 成员在 X 等公开平台
 
 ## 如何加入
 
-1. 提交[成员申请](https://github.com/KOSXAI/KOSX-Impact/issues/new?template=member-application.yml)——写上你的 X 用户名，勾选公开追踪同意声明即可，全程约 2 分钟
-2. **剩下的交给维护者**：收到申请后，维护者会把你的账号加入追踪名册——不需要 PR，不需要操作代码
-3. 从当天起，你的成长曲线开始每天更新
+1. 打开 [impact.kosx.ai](https://impact.kosx.ai)，点「加入追踪」
+2. 输入你的 X 主页链接（或用户名），确认加入——不需要 GitHub 账号、不需要 PR、没有审批
+3. 从当天起，你的成长曲线开始每天更新；弹窗里也可以随时手动刷新
 
-操作过程中遇到任何问题，直接在申请里评论，维护者会协助你完成。
+想退出或删除数据？联系维护者即可，你的数据你做主。
 
 ## 数据与隐私
 

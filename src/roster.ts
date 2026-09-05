@@ -19,6 +19,7 @@ export const roster = membersFile as RosterFile;
  * 将成员名册同步到 D1。名册是追踪名单的事实来源：
  * - 名册中的成员 upsert 进 members 表并恢复为 active
  * - 名册中已不存在的成员标记为 removed（保留历史数据，不删除）
+ * - self_registered=1 的自助注册成员不受清扫（他们不在名册里，退出由维护者置 removed）
  * - 新成员有 baselineFollowers 且尚无快照时，以 joinedAt 为起点回填首条快照
  */
 export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
@@ -26,7 +27,7 @@ export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
   // 不用 IN 列表比对，避免成员数超过 D1 绑定参数上限。
   await env.DB.prepare(
     `UPDATE members SET status = 'removed', updated_at = datetime('now')
-     WHERE status != 'removed'`
+     WHERE status != 'removed' AND self_registered = 0`
   ).run();
 
   for (const member of roster.members) {

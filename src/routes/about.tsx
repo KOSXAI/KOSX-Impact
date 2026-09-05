@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/motion";
-import { ArrowUpRight } from "lucide-react";
-import { GITHUB_APPLY_URL, SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
+import { SubmitDialog } from "@/components/member/SubmitDialog";
+import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/about")({
 });
 
 function AboutPage() {
+  const [joinOpen, setJoinOpen] = useState(false);
   return (
     <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <Reveal y={18}>
@@ -83,22 +85,14 @@ function AboutPage() {
         <Reveal>
           <section>
             <h2 className="text-2xl font-bold">如何加入</h2>
-            <p className="mt-3 max-w-2xl leading-relaxed text-mist">
-              全程约两分钟，不需要会代码，也不需要提合并请求：
-            </p>
-            <ol className="mt-3 max-w-2xl list-decimal space-y-3 pl-6 leading-relaxed text-mist">
-              <li><b className="text-ink">填一份申请</b>：写上你的 X 用户名，勾选公开追踪同意声明。</li>
-              <li><b className="text-ink">剩下的交给维护者</b>：收到申请后，维护者把你的账号加入追踪名册。</li>
-              <li><b className="text-ink">看板见</b>：从当天起，看板上出现你的成长曲线，每天更新一次。</li>
+            <ol className="mt-3 max-w-2xl list-decimal space-y-3 leading-relaxed text-mist">
+              <li><b className="text-ink">点「加入追踪」</b>：看板首页或本页下方按钮，打开弹窗。</li>
+              <li><b className="text-ink">输入你的 X 主页</b>：主页链接或用户名都行，提交即加入——不需要 GitHub，没有审批。</li>
+              <li><b className="text-ink">看板见</b>：站点拉取你的公开数据，立即生成成长曲线，从当天起每天更新。</li>
             </ol>
             <div className="mt-6">
-              <Button asChild>
-                <a href={GITHUB_APPLY_URL} target="_blank" rel="noreferrer">
-                  提交申请 <ArrowUpRight className="size-4" />
-                </a>
-              </Button>
+              <Button onClick={() => setJoinOpen(true)}>加入追踪</Button>
             </div>
-            <p className="mt-4 text-mist">操作中遇到问题，直接在申请里评论，维护者会协助你。</p>
           </section>
         </Reveal>
 
@@ -106,7 +100,7 @@ function AboutPage() {
           <section>
             <h2 className="text-2xl font-bold">随时退出</h2>
             <p className="mt-3 max-w-2xl leading-relaxed text-mist">
-              你的数据你做主。任何成员可以随时退出：从名册移除后立即停止公开追踪；如需删除历史数据，联系维护者处理即可。
+              你的数据你做主。想退出的成员联系维护者即可：立即停止公开追踪，如需删除历史数据也一并处理。
             </p>
           </section>
         </Reveal>
@@ -123,6 +117,8 @@ function AboutPage() {
           </section>
         </Reveal>
       </main>
+
+      <SubmitDialog open={joinOpen} onOpenChange={setJoinOpen} />
     </div>
   );
 }
