@@ -1,11 +1,13 @@
 import { Hono } from "hono";
 import type { DashboardStats } from "./stats";
-import { collect } from "./collector";
-import { cachedResponse } from "./cache";
+import { collect, processOldestPending } from "./collector";
+import { cachedResponse, purgeReadCaches } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { computeMemberStats, computeDashboardStats } from "./stats";
 import { getDashboardStats, getMemberDetail } from "./queries";
 import { roster } from "./roster";
+import { enqueueRefresh, lookupRefreshMember, normalizeHandle, tryGrabRefreshSlot } from "./refresh-queue";
+import { getSource } from "./sources";
 import { SITE_URL } from "./lib/site";
 
 export const api = new Hono<{ Bindings: Env }>();
@@ -43,6 +45,55 @@ api.get("/api/members/:id", async (c) => {
   const detail = await getMemberDetail(c.env, c.req.param("id") ?? "");
   if (!detail) return c.json({ error: "member not found" }, 404);
   return c.json(detail);
+});
+
+// ============ 成员自助更新 ============
+// 查询预览：读本地库展示成员当前看板数据（不触发采集、不耗 SocialData 额度）
+api.get("/api/refresh/lookup", async (c) => {
+  const handle = normalizeHandle(c.req.query("handle") ?? "");
+  if (!handle) return c.json({ error: "invalid_handle" }, 400);
+  const preview = await lookupRefreshMember(c.env, handle);
+  if (!preview) return c.json({ error: "not_member" }, 404);
+  return c.json(preview);
+});
+
+// 提交更新：入队（去重 + 防抖）→ 抢到全局节流槽则当场处理最旧一条 pending
+// （即时通道，队列空时即本条）；抢不到留在队列由 cron 兜底清空
+api.post("/api/refresh", async (c) => {
+  const body = (await c.req.json().catch(() => null)) as { input?: string } | null;
+  const handle = normalizeHandle(body?.input ?? "");
+  if (!handle) return c.json({ error: "invalid_handle" }, 400);
+
+  const member = await lookupRefreshMember(c.env, handle);
+  if (!member) return c.json({ error: "not_member" }, 404);
+
+  const nowIso = new Date().toISOString();
+  const enqueued = await enqueueRefresh(c.env, member.id, nowIso);
+  if (enqueued === "already_pending" || enqueued === "throttled") {
+    return c.json({ status: enqueued === "already_pending" ? "queued" : "throttled" });
+  }
+
+  // 抢到节流槽才即时采集：CAS 保证并发下同一时刻只有一条请求真正拉 SocialData，
+  // 其余自动留在队列（成员页展示的 pending 状态会说明正在排队）
+  if (await tryGrabRefreshSlot(c.env, nowIso)) {
+    await processOldestPending(c.env, getSource(c.env));
+  }
+
+  const job = (await c.env.DB.prepare(
+    "SELECT status, followers_after AS followersAfter FROM refresh_queue WHERE member_id = ?1 ORDER BY id DESC LIMIT 1"
+  ).bind(member.id).first()) as { status: string; followersAfter: number | null } | null;
+
+  // 尽力清读缓存：即时通道处理完立即生效；排队时也先清一次，cron 兜底后还会再清
+  try {
+    c.executionCtx.waitUntil(purgeReadCaches([SITE_URL], [member.id]).catch(() => undefined));
+  } catch {
+    purgeReadCaches([SITE_URL], [member.id]).catch(() => undefined);
+  }
+
+  return c.json({
+    status: job?.status === "done" ? "done" : "queued",
+    followersAfter: job?.followersAfter ?? null,
+  });
 });
 
 // 成员进度卡片：可嵌入 GitHub README / 个人主页（<img src="https://impact.kosx.ai/card/{id}.svg">）

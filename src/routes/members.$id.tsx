@@ -175,6 +175,20 @@ function MemberPage() {
             )}
           </section>
         </Reveal>
+
+        <Reveal>
+          <div className="border-t border-line pt-6 text-sm text-mist">
+            这是你的账号？数据每天自动更新一次；刚跨过新台阶等不及明天，可以
+            <Link
+              to="/submit"
+              search={{ handle: member.handle }}
+              className="mx-1 font-semibold text-ink underline underline-offset-4 hover:text-mist"
+            >
+              立即自助更新
+            </Link>
+            。
+          </div>
+        </Reveal>
       </main>
     </div>
   );
