@@ -119,6 +119,11 @@ describe("computeDashboardStats", () => {
     expect(stats.members[0].climbs).toBe(1);
     expect(stats.members[1].climbs).toBe(0);
     expect(stats.recentMilestones[0].handle).toBe("alice");
+    // 社群趋势：每个快照日取各成员「截至该日最新粉丝量」求和；未追踪成员不贡献
+    expect(stats.trend).toEqual([
+      { date: "2026-08-21", total: 1000 },
+      { date: "2026-09-03", total: 1500 },
+    ]);
   });
 
   it("最近登阶按时间倒序且最多 10 条，旧阶梯档位被过滤", () => {

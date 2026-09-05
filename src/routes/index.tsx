@@ -9,7 +9,9 @@ import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } 
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
+import { TrendChart } from "@/components/dashboard/TrendChart";
 import { Flag } from "lucide-react";
+import { TIER_STYLE, TIERS } from "@/milestones";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -97,6 +99,19 @@ function DashboardPage() {
         </RevealItem>
       </RevealGroup>
 
+      {/* 社群全景：段位分布 + 总量趋势（数据点满 2 天自动出现折线） */}
+      <Reveal delay={0.08}>
+        <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <h2 className="text-xl font-bold">社群全景</h2>
+          <TierDistribution members={stats.members} />
+          {stats.trend.length >= 2 && (
+            <div className="mt-6 border-t border-line pt-6">
+              <TrendChart data={stats.trend} />
+            </div>
+          )}
+        </section>
+      </Reveal>
+
       {justAchieved && (
         <PopIn className="mt-8 flex items-center gap-2 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">
           <span>🎉 恭喜</span>
@@ -155,6 +170,45 @@ function StatCard({ label, value, prefix = "" }: { label: string; value: number;
         <AnimatedNumber value={value} prefix={prefix} className="mt-1.5 block text-3xl font-bold tabular-nums" />
       </CardContent>
     </Card>
+  );
+}
+
+/** 段位分布：按段位从高到低的分段条 + 计数图例（只在有人的段位出现） */
+function TierDistribution({ members }: { members: MemberStats[] }) {
+  const census = TIERS.map(({ tier }) => ({
+    key: tier.key,
+    name: tier.name,
+    count: members.filter((m) => m.tierKey === tier.key).length,
+    fill: TIER_STYLE[tier.key]?.fill ?? "#94a3b8",
+  })).filter((t) => t.count > 0);
+
+  if (census.length === 0) return null;
+
+  return (
+    <>
+      <div className="mt-5 flex h-2.5 gap-0.5">
+        {census.map((t) => (
+          <div
+            key={t.key}
+            title={`${t.name} ${t.count} 人`}
+            className="h-full min-w-1.5 rounded-full"
+            style={{ flexGrow: t.count, flexBasis: 0, background: t.fill }}
+          />
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {census.map((t) => (
+          <span
+            key={t.key}
+            className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist"
+          >
+            <span className="size-2 rounded-full" style={{ background: t.fill }} aria-hidden="true" />
+            {t.name}
+            <b className="text-ink tabular-nums">{t.count}</b>
+          </span>
+        ))}
+      </div>
+    </>
   );
 }
 

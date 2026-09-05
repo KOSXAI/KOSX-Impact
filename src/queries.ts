@@ -26,7 +26,7 @@ type SnapshotRow = { memberId: string; followers: number; recordedAt: string };
 
 /** 看板统计（/api/dashboard 与首页 SSR 共用，缓存键 ${SITE_URL}/api/dashboard） */
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
-  const res = await cachedResponse(new Request(`${SITE_URL}/api/dashboard?v=11`), 3600, async () => {
+  const res = await cachedResponse(new Request(`${SITE_URL}/api/dashboard?v=13`), 3600, async () => {
     const now = new Date().toISOString();
     const { results: memberRows } = await env.DB.prepare(
       `SELECT ${MEMBER_FIELDS} FROM members WHERE status = 'active' ORDER BY joined_at`
@@ -52,7 +52,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       return { ...m, snapshots };
     });
 
-    // 与 API JSON 响应同构：computeDashboardStats 输出即 DashboardStats
+    // 与 API JSON 响应同构：computeDashboardStats 输出即 DashboardStats（trend 由快照窗口推导）
     const stats = computeDashboardStats(roster, memberStats, milestoneRows as never, now);
     return new Response(JSON.stringify(stats), {
       headers: { "Content-Type": "application/json" },

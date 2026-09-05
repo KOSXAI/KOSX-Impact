@@ -28,7 +28,8 @@ export interface Tier {
   name: string;
 }
 
-const TIERS: Array<{ min: number; tier: Tier }> = [
+/** 段位定义（从高到低）：首页段位分布与成员页段位徽章共用 */
+export const TIERS: Array<{ min: number; tier: Tier }> = [
   { min: 100_000_000, tier: { key: "hundredm", name: "亿级传说" } },
   { min: 10_000_000, tier: { key: "tenm", name: "千万粉神话" } },
   { min: 1_000_000, tier: { key: "million", name: "百万粉传奇" } },

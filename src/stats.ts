@@ -39,6 +39,13 @@ export interface PresetStats {
   growth30d: number;
 }
 
+export interface TrendPoint {
+  /** 统计日 YYYY-MM-DD */
+  date: string;
+  /** 当日全体成员粉丝量合计（daily_stats 按日聚合） */
+  total: number;
+}
+
 export interface DashboardStats {
   totalFollowers: number;
   /** 近 30 天社群新增粉丝（各成员 growth30d 之和）：滚动窗口内统计，与账号加入时间无关 */
@@ -53,6 +60,8 @@ export interface DashboardStats {
     threshold: number;
     achievedAt: string;
   }>;
+  /** 社群总粉丝量按日趋势（daily_stats 聚合；纯函数层返回空数组，queries 层填充） */
+  trend: TrendPoint[];
 }
 
 export interface MemberDetail {
@@ -182,6 +191,25 @@ export function computeDashboardStats(
   // 近 30 天新增按成员窗口增长求和；万粉成员按当前粉丝量判定，都不是自加入起的历史累计
   const totalGrowth30d = members.reduce((sum, m) => sum + m.growth30d, 0);
   const tenKMembers = members.filter((m) => (m.latestFollowers ?? 0) >= TEN_K).length;
+
+  // 社群总粉丝趋势：每个快照日期取各成员「截至该日的最新粉丝量」求和。
+  // 不用 daily_stats 按日合计——分片采集下当天的合计只含已采集成员，白天会出现假跌；
+  // 本口径全天平滑、历史稳定。窗口受调用方快照窗口限制（当前 31 天）。
+  // 注意从原始输入行取快照（members 映射后的 MemberStats 不携带 snapshots）。
+  const trendDates = new Set<string>();
+  for (const row of rows) for (const s of row.snapshots) trendDates.add(s.recordedAt.slice(0, 10));
+  const trend: TrendPoint[] = [...trendDates].sort().map((date) => ({
+    date,
+    total: rows.reduce((sum, row) => {
+      let latest = 0;
+      for (const s of row.snapshots) {
+        if (s.recordedAt.slice(0, 10) > date) break;
+        latest = s.followers;
+      }
+      return sum + latest;
+    }, 0),
+  }));
+
   const recentMilestones = [...ladderMilestones]
     .sort((a, b) => b.achievedAt.localeCompare(a.achievedAt))
     .slice(0, 10);
@@ -195,5 +223,6 @@ export function computeDashboardStats(
     tenKMembers,
     members,
     recentMilestones,
+    trend,
   };
 }
