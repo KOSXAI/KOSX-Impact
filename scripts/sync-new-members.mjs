@@ -59,7 +59,7 @@ for (let i = 0; i < pending.length; i++) {
   const nameSql = name ? `'${String(name).replace(/'/g, "''")}'` : "NULL";
   console.log(`✓ @${m.handle} -> ${followers} 粉${name ? ` · ${name}` : "（无显示名，请人工补充 displayName）"}`);
   sql.push(
-    `INSERT INTO members (id, handle, display_name, status, goal, joined_at, profile_image) VALUES ('${m.id}', '${m.handle}', ${nameSql}, 'active', ${m.goal ?? 10000}, '${m.joinedAt}', ${img ? `'${img}'` : "NULL"})\n  ON CONFLICT(id) DO UPDATE SET handle = excluded.handle, display_name = excluded.display_name, profile_image = excluded.profile_image;`,
+    `INSERT INTO members (id, handle, display_name, status, joined_at, profile_image) VALUES ('${m.id}', '${m.handle}', ${nameSql}, 'active', '${m.joinedAt}', ${img ? `'${img}'` : "NULL"})\n  ON CONFLICT(id) DO UPDATE SET handle = excluded.handle, display_name = excluded.display_name, profile_image = excluded.profile_image;`,
     `INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('${m.id}', ${followers}, '${now}');`
   );
 }
