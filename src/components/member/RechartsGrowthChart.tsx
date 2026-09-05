@@ -7,7 +7,8 @@ import { useMemo } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
-import { fmt } from "@/lib/format";
+import { fmt, badge } from "@/lib/format";
+import { useMediaQuery } from "@/lib/use-media-query";
 
 type Snapshot = { followers: number; recordedAt: string };
 
@@ -23,6 +24,8 @@ export default function RechartsGrowthChart({
   snapshots: Snapshot[];
   nextTier: number;
 }) {
+  // 移动端压缩 Y 轴：宽度收窄 + 紧凑刻度，把绘图区让给曲线
+  const isDesktop = useMediaQuery("(min-width: 640px)");
   const { data, goalY, goalLabel } = useMemo(() => {
     if (snapshots.length === 0) return { data: [], goalY: null as number | null, goalLabel: "" };
     const values = snapshots.map((s) => s.followers);
@@ -53,8 +56,8 @@ export default function RechartsGrowthChart({
             domain={["dataMin - 10%", "dataMax + 15%"]}
             tickLine={false}
             axisLine={false}
-            width={56}
-            tickFormatter={(v: number) => fmt(Math.round(v))}
+            width={isDesktop ? 56 : 40}
+            tickFormatter={(v: number) => (isDesktop ? fmt(Math.round(v)) : badge(Math.round(v)))}
           />
           <Tooltip
             content={<ChartTooltipContent hideLabel indicator="line" />}

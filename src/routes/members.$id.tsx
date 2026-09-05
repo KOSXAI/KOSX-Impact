@@ -119,9 +119,9 @@ function MemberPage() {
             <h2 className="text-2xl font-bold">台阶之路</h2>
             <Card className="card-lift mt-6">
               <CardContent className="p-6 sm:p-8">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <TierBadge tierKey={member.tierKey} tierName={member.tierName} />
-                  <div className="text-right">
+                  <div className="text-left sm:text-right">
                     <div className="text-3xl font-bold tabular-nums">{fmt(member.latestFollowers ?? 0)}</div>
                     <div className="text-sm text-mist">
                       下一台阶 {badge(member.nextTier)} · 还差 {fmt(remaining)}

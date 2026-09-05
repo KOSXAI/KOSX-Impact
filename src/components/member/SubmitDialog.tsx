@@ -218,11 +218,11 @@ function PreviewBody({ member, submitting, onSubmit }: { member: LookupPreview; 
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={onSubmit} disabled={submitting || member.pending}>
+        <Button onClick={onSubmit} disabled={submitting || member.pending} className="w-full sm:w-auto">
           <RefreshCw className={submitting ? "size-4 animate-spin" : "size-4"} />
           {submitting ? "正在更新" : member.pending ? "排队处理中" : "立即更新我的数据"}
         </Button>
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild className="w-full sm:w-auto">
           <Link to="/members/$id" params={{ id: member.id }}>
             查看成长档案
           </Link>
@@ -238,7 +238,7 @@ function JoinBody({ joining, onJoin }: { joining: boolean; onJoin: () => void })
     <>
       <DialogTitle>还没有加入追踪</DialogTitle>
       <div>
-        <Button onClick={onJoin} disabled={joining}>
+        <Button onClick={onJoin} disabled={joining} className="w-full sm:w-auto">
           <RefreshCw className={joining ? "size-4 animate-spin" : "size-4"} />
           {joining ? "正在加入" : "加入追踪"}
         </Button>
@@ -258,7 +258,7 @@ function DoneBody({ memberId, followersAfter, joined }: { memberId: string; foll
         <div className="tabular-nums text-3xl font-bold">{fmt(followersAfter)}</div>
       )}
       <div className="flex flex-wrap items-center gap-3">
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link to="/members/$id" params={{ id: memberId }}>
             查看成长档案
           </Link>
@@ -276,7 +276,7 @@ function QueuedBody({ memberId, throttled }: { memberId: string; throttled: bool
         {throttled ? "刚刚提交过" : "已加入更新队列"}
       </DialogTitle>
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild className="w-full sm:w-auto">
           <Link to="/members/$id" params={{ id: memberId }}>
             查看成长档案
           </Link>
@@ -292,7 +292,7 @@ function ErrorBody({ message, onBack }: { message: string; onBack: () => void })
       <DialogTitle>查询遇到问题</DialogTitle>
       <p className="text-sm text-mist">{message}</p>
       <div>
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
           重新输入
         </Button>
       </div>

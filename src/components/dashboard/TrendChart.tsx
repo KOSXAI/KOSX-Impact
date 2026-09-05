@@ -31,7 +31,7 @@ export function TrendChart({ data, className }: { data: TrendPoint[]; className?
             key={m.key}
             onClick={() => setMode(m.key)}
             className={cn(
-              "h-7 rounded-full px-3 text-xs font-semibold transition-colors",
+              "h-8 rounded-full px-3 text-xs font-semibold transition-colors",
               mode === m.key ? "bg-white text-paper" : "text-mist hover:text-ink"
             )}
           >
@@ -39,7 +39,8 @@ export function TrendChart({ data, className }: { data: TrendPoint[]; className?
           </button>
         ))}
       </div>
-      <div style={{ aspectRatio: "800 / 200" }}>
+      {/* 移动端加高（2:1），桌面恢复宽扁（4:1）：窄屏下曲线才有可读的纵向空间 */}
+      <div className={cn("aspect-[2/1] sm:aspect-[4/1]", className)}>
         <ClientOnly
           fallback={
             <div className="bg-muted/50 h-full w-full rounded-lg border" aria-label="社群趋势加载中" />

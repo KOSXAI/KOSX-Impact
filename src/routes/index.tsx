@@ -113,7 +113,7 @@ function DashboardPage() {
       </Reveal>
 
       {justAchieved && (
-        <PopIn className="mt-8 flex items-center gap-2 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">
+        <PopIn className="mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">
           <span>🎉 恭喜</span>
           <Link to="/members/$id" params={{ id: latest.memberId }} className="font-semibold underline-offset-4 hover:underline">
             {latest.displayName ?? latest.handle}
@@ -123,13 +123,13 @@ function DashboardPage() {
       )}
 
       {/* Tab 切换：总排行 / 成长榜 / 登阶记录 */}
-      <div className="mt-10 inline-flex items-center gap-1 rounded-full border border-line bg-soft-surface p-1">
+      <div className="mt-10 flex w-full items-center gap-1 rounded-full border border-line bg-soft-surface p-1 sm:inline-flex sm:w-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={cn(
-              "h-9 rounded-full px-4 text-sm font-semibold transition-colors sm:px-5",
+              "h-10 flex-1 rounded-full px-4 text-sm font-semibold transition-colors sm:h-9 sm:flex-none sm:px-5",
               tab === t.key ? "bg-white text-paper" : "text-mist hover:text-ink"
             )}
           >
@@ -167,7 +167,7 @@ function StatCard({ label, value, prefix = "" }: { label: string; value: number;
     <Card className="card-lift h-full">
       <CardContent className="px-5 py-4">
         <div className="text-sm text-mist">{label}</div>
-        <AnimatedNumber value={value} prefix={prefix} className="mt-1.5 block text-3xl font-bold tabular-nums" />
+        <AnimatedNumber value={value} prefix={prefix} className="mt-1.5 block text-2xl font-bold tabular-nums sm:text-3xl" />
       </CardContent>
     </Card>
   );
@@ -240,8 +240,8 @@ function LeaderboardMember({
     <div
       className={
         podium
-          ? `card-lift flex items-center gap-3 rounded-2xl border p-4 sm:gap-4 sm:p-5 ${podium.ring}`
-          : "flex items-center gap-3 py-4 sm:gap-4"
+          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
+          : "flex flex-wrap items-center gap-x-3 gap-y-3 py-4 sm:gap-x-4"
       }
     >
       {podium ? (
@@ -281,9 +281,9 @@ function LeaderboardMember({
           </a>
         </div>
       </div>
-      <div className="flex w-44 shrink-0 flex-col items-end gap-1.5">
+      <div className="flex w-full shrink-0 items-center gap-3 sm:w-44 sm:flex-col sm:items-end sm:gap-1.5">
         <div className="font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
-        <div className="flex w-full items-center gap-2">
+        <div className="flex flex-1 items-center gap-2 sm:w-full sm:flex-none">
           <GrowProgress value={m.progressToNext} className="flex-1" />
           <span
             className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-mist tabular-nums"
@@ -313,7 +313,7 @@ function GrowthSection({ members }: { members: MemberStats[] }) {
             key={r}
             onClick={() => setRange(r)}
             className={cn(
-              "h-7 rounded-full px-3 text-xs font-semibold transition-colors",
+              "h-8 rounded-full px-3 text-xs font-semibold transition-colors",
               range === r ? "bg-white text-paper" : "text-mist hover:text-ink"
             )}
           >
@@ -356,13 +356,13 @@ function GrowthMember({ member: m, rank, range }: { member: MemberStats; rank: n
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-6">
-        <div className="text-right">
+        <div className={cn("text-right", range !== 7 && "hidden sm:block")}>
           <div className={cn("font-bold tabular-nums", range === 7 ? "text-signal" : "text-mist")}>
             +{fmt(m.growth7d)}
           </div>
           <div className="text-xs text-mist">近 7 天</div>
         </div>
-        <div className="text-right">
+        <div className={cn("text-right", range !== 30 && "hidden sm:block")}>
           <div className={cn("font-bold tabular-nums", range === 30 ? "text-signal" : "text-mist")}>
             +{fmt(m.growth30d)}
           </div>
@@ -384,10 +384,10 @@ function ClimbsList({ stats }: { stats: DashboardStats }) {
           className="flex items-center gap-3 py-3"
         >
           <Badge variant="secondary">{badge(m.threshold)}</Badge>
-          <Link to="/members/$id" params={{ id: m.memberId }} className="font-medium underline-offset-4 hover:underline">
+          <Link to="/members/$id" params={{ id: m.memberId }} className="min-w-0 flex-1 truncate font-medium underline-offset-4 hover:underline">
             {m.displayName ?? m.handle}
           </Link>
-          <span className="text-mist ml-auto">{fmtDate(m.achievedAt)}</span>
+          <span className="shrink-0 text-mist">{fmtDate(m.achievedAt)}</span>
         </RevealItem>
       ))}
     </div>

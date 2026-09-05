@@ -35,7 +35,7 @@ function DialogContent(props: React.ComponentProps<typeof DialogPrimitive.Conten
         data-slot="dialog-content"
         aria-describedby={undefined}
         className={cn(
-          "fixed top-[50%] left-[50%] z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-[50%] -translate-y-[50%] gap-5 rounded-2xl border border-line bg-surface p-6 shadow-2xl",
+          "fixed left-[50%] top-20 z-50 grid max-h-[85dvh] w-[calc(100%-2rem)] max-w-md -translate-x-[50%] gap-5 overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-2xl sm:top-[50%] sm:-translate-y-[50%] sm:p-6",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
           "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           props.className

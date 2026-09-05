@@ -8,6 +8,7 @@
  */
 import { Suspense, lazy } from "react";
 import { ClientOnly } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 import { fmt } from "@/lib/format";
 
 type Snapshot = { followers: number; recordedAt: string };
@@ -29,7 +30,7 @@ export function GrowthChart({
   }
 
   return (
-    <div className={className} style={{ aspectRatio: "800 / 240" }}>
+    <div className={cn("aspect-[3/2] sm:aspect-[10/3]", className)}>
       <ClientOnly
         fallback={
           <div

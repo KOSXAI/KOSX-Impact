@@ -7,7 +7,8 @@ import { useMemo } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
-import { fmt } from "@/lib/format";
+import { fmt, badge } from "@/lib/format";
+import { useMediaQuery } from "@/lib/use-media-query";
 import type { TrendPoint } from "@/stats";
 import type { TrendMode } from "./TrendChart";
 
@@ -17,6 +18,8 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[]; mode: TrendMode }) {
+  // 移动端压缩 Y 轴：宽度收窄 + 紧凑刻度（badge 的「1.5万」缩写），把绘图区让给曲线
+  const isDesktop = useMediaQuery("(min-width: 640px)");
   const daily = useMemo(() => {
     const points = data.slice(1).map((d, i) => ({
       label: d.date.slice(5),
@@ -44,8 +47,8 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
               domain={daily.domain}
               tickLine={false}
               axisLine={false}
-              width={56}
-              tickFormatter={(v: number) => fmt(Math.round(v))}
+              width={isDesktop ? 56 : 40}
+              tickFormatter={(v: number) => (isDesktop ? fmt(Math.round(v)) : badge(Math.round(v)))}
             />
             <Tooltip
               content={<ChartTooltipContent hideLabel />}
@@ -75,8 +78,8 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
             domain={["dataMin - 10%", "dataMax + 12%"]}
             tickLine={false}
             axisLine={false}
-            width={56}
-            tickFormatter={(v: number) => fmt(Math.round(v))}
+            width={isDesktop ? 56 : 40}
+            tickFormatter={(v: number) => (isDesktop ? fmt(Math.round(v)) : badge(Math.round(v)))}
           />
           <Tooltip content={<ChartTooltipContent hideLabel />} formatter={(v) => fmt(Number(v))} />
           <Area
