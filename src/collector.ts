@@ -3,9 +3,7 @@ import type { RosterFile } from "./roster";
 import { roster, syncRoster } from "./roster";
 import { getSource } from "./sources";
 import type { FollowerSource, FollowerStats } from "./sources/types";
-import { purgeReadCaches } from "./cache";
 import { computeMemberStats } from "./stats";
-import { SITE_URL } from "./lib/site";
 
 export interface CollectSummary {
   ok: number;
@@ -95,21 +93,15 @@ export async function collectWithSource(
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`
   ).bind(nowIso, JSON.stringify(summary)).run();
 
-  // 采集完成后尽力清读缓存：看板/成员页/卡片立刻反映新数据（清不到的边缘节点等 TTL 过期）
-  // 队列清空处理的成员一并纳入，提交即时通道的同批请求也能看到
-  ctx?.waitUntil(
-    purgeReadCaches(
-      [SITE_URL],
-      [...sampled.map((m) => m.id), ...refreshDrain.memberIds]
-    ).catch(() => undefined)
-  );
-
+  // 新数据可见性由 cache_bust 版本号保证（writeSnapshot 已 +1）：
+  // 读端点缓存键换新后各数据中心新请求必然回源重建，无需（也无法）跨区 purge
   return summary;
 }
 
 /** 写当日快照：同一天重复采集以最新值为准。
  *  昵称策略（与头像同语句更新）：自助成员（self_registered=1）跟随 X 实时昵称，
- *  名册成员以名册为准、仅在缺失时回填 X 昵称。 */
+ *  名册成员以名册为准、仅在缺失时回填 X 昵称。
+ *  同批内递增 cache_bust：读端点缓存键随之换新，数据变化在各区数据中心立即可见。 */
 async function writeSnapshot(
   env: Env,
   memberId: string,
@@ -133,6 +125,10 @@ async function writeSnapshot(
          updated_at = datetime('now')
        WHERE id = ?1`
     ).bind(memberId, stats.displayName ?? null, stats.profileImageUrl ?? null),
+    env.DB.prepare(
+      `INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
+       ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`
+    ),
   ]);
 }
 

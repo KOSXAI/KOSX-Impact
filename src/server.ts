@@ -2,7 +2,7 @@
  * Worker 入口（wrangler main）：
  * - fetch：API / SVG 卡 / OG 图 / SEO 文件走 Hono（handleWorkerRoutes），
  *   其余路径交给 TanStack Start 的 Nitro handler 做 SSR。
- * - scheduled：每日 cron 采集，逻辑不变。
+ * - scheduled：整点 cron 滚动采集、错峰 cron 清提交队列（runScheduled 按 event.cron 分发）。
  */
 import handler from "@tanstack/react-start/server-entry";
 import { handleWorkerRoutes, runScheduled } from "./api";
@@ -18,6 +18,6 @@ export default {
     return ssrFetch(request, env, ctx);
   },
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
-    await runScheduled(env, ctx);
+    await runScheduled(env, ctx, event.cron);
   },
 } satisfies ExportedHandler<Env>;

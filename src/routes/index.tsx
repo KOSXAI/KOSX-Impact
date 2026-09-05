@@ -10,7 +10,7 @@ import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { TrendChart } from "@/components/dashboard/TrendChart";
-import { Flag } from "lucide-react";
+import { Flag, Clock3 } from "lucide-react";
 import { TIER_STYLE, TIERS } from "@/milestones";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
@@ -282,17 +282,29 @@ function LeaderboardMember({
         </div>
       </div>
       <div className="flex w-full shrink-0 items-center gap-3 sm:w-44 sm:flex-col sm:items-end sm:gap-1.5">
-        <div className="font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
-        <div className="flex flex-1 items-center gap-2 sm:w-full sm:flex-none">
-          <GrowProgress value={m.progressToNext} className="flex-1" />
+        {m.latestFollowers == null ? (
           <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-mist tabular-nums"
-            title="下一台阶"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-line bg-soft-surface px-2.5 py-1 text-xs font-semibold text-mist"
+            title="首次采集完成后自动上榜"
           >
-            <Flag className="size-3 text-signal" aria-hidden="true" />
-            {badge(m.nextTier)}
+            <Clock3 className="size-3.5" aria-hidden="true" />
+            首次采集排队中
           </span>
-        </div>
+        ) : (
+          <>
+            <div className="font-bold tabular-nums">{fmt(m.latestFollowers)}</div>
+            <div className="flex flex-1 items-center gap-2 sm:w-full sm:flex-none">
+              <GrowProgress value={m.progressToNext} className="flex-1" />
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-mist tabular-nums"
+                title="下一台阶"
+              >
+                <Flag className="size-3 text-signal" aria-hidden="true" />
+                {badge(m.nextTier)}
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

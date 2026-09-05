@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { Dialog, DialogClose, DialogCloseX, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,12 +37,17 @@ type Phase =
   | { kind: "join"; handle: string }
   | { kind: "joining"; handle: string }
   | { kind: "done"; memberId: string; followersAfter: number | null; joined: boolean }
-  | { kind: "queued"; memberId: string; throttled: boolean }
+  | { kind: "queued"; memberId: string; throttled: boolean; handle: string; submittedAt: string; joined: boolean }
   | { kind: "error"; message: string };
+
+/** 排队轮询：每 10 秒查一次预览接口（读本地库，不耗采集额度），最长等 2 分钟 */
+const POLL_INTERVAL_MS = 10_000;
+const POLL_LIMIT = 12;
 
 /**
  * 「加入追踪」弹窗：输入 X 主页链接或 @ID。
  * 在册成员 → 预览并立即更新数据；未在册 → 一键直接加入追踪（无审批流，提交即加入）。
+ * 提交后若在队列等待（节流/拥堵），自动轮询直到生效并刷新看板数据。
  */
 export function SubmitDialog({
   open,
@@ -56,6 +61,7 @@ export function SubmitDialog({
 }) {
   const [input, setInput] = useState("");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const router = useRouter();
 
   // 每次打开重置；带 defaultHandle 时直接自动查询
   useEffect(() => {
@@ -85,12 +91,31 @@ export function SubmitDialog({
     }
   }
 
-  function applySubmitResponse(result: SubmitResponse, joined: boolean) {
+  /** 提交成功即刷新看板：数据已写库（cache_bust 换键），loader 重跑拿最新榜 */
+  function refreshBoard() {
+    void router.invalidate();
+  }
+
+  function applySubmitResponse(result: SubmitResponse, joined: boolean, handle: string) {
     if (result.status === "done") {
       setPhase({ kind: "done", memberId: result.memberId, followersAfter: result.followersAfter, joined });
+      refreshBoard();
     } else {
-      setPhase({ kind: "queued", memberId: result.memberId, throttled: result.status === "throttled" });
+      setPhase({
+        kind: "queued",
+        memberId: result.memberId,
+        throttled: result.status === "throttled",
+        handle,
+        submittedAt: new Date().toISOString(),
+        joined,
+      });
     }
+  }
+
+  /** 队列被消费、新快照落地：转成功态并刷新看板 */
+  function onQueuedResolved(memberId: string, followers: number | null, joined: boolean) {
+    setPhase({ kind: "done", memberId, followersAfter: followers, joined });
+    refreshBoard();
   }
 
   async function post(body: Record<string, unknown>): Promise<SubmitResponse | null> {
@@ -111,7 +136,7 @@ export function SubmitDialog({
         setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
         return;
       }
-      applySubmitResponse(result, false);
+      applySubmitResponse(result, false, member.handle);
     } catch {
       setPhase({ kind: "error", message: "网络不通，稍后再试。" });
     }
@@ -125,7 +150,7 @@ export function SubmitDialog({
         setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
         return;
       }
-      applySubmitResponse(result, true);
+      applySubmitResponse(result, true, rawHandle);
     } catch {
       setPhase({ kind: "error", message: "网络不通，稍后再试。" });
     }
@@ -177,7 +202,16 @@ export function SubmitDialog({
         {phase.kind === "done" && (
           <DoneBody memberId={phase.memberId} followersAfter={phase.followersAfter} joined={phase.joined} />
         )}
-        {phase.kind === "queued" && <QueuedBody memberId={phase.memberId} throttled={phase.throttled} />}
+        {phase.kind === "queued" && (
+          <QueuedBody
+            memberId={phase.memberId}
+            throttled={phase.throttled}
+            handle={phase.handle}
+            submittedAt={phase.submittedAt}
+            joined={phase.joined}
+            onResolved={(followers) => onQueuedResolved(phase.memberId, followers, phase.joined)}
+          />
+        )}
         {phase.kind === "error" && <ErrorBody message={phase.message} onBack={() => setPhase({ kind: "idle" })} />}
       </DialogContent>
     </Dialog>
@@ -268,13 +302,72 @@ function DoneBody({ memberId, followersAfter, joined }: { memberId: string; foll
   );
 }
 
-function QueuedBody({ memberId, throttled }: { memberId: string; throttled: boolean }) {
+/** 排队确认：自动轮询预览接口，任务完成即转成功态并刷新页面数据 */
+function QueuedBody({
+  memberId,
+  throttled,
+  handle,
+  submittedAt,
+  joined,
+  onResolved,
+}: {
+  memberId: string;
+  throttled: boolean;
+  handle: string;
+  submittedAt: string;
+  joined: boolean;
+  /** 队列已消费且新快照落地时回调（参数为最新粉丝数，可能为 null） */
+  onResolved: (followers: number | null) => void;
+}) {
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    // 防抖命中（60 秒内重复提交）：任务已在处理中，无需轮询，稍后刷新即可
+    if (throttled) return;
+    let count = 0;
+    const timer = setInterval(() => {
+      count++;
+      void (async () => {
+        try {
+          const res = await fetch(`/api/refresh/lookup?handle=${encodeURIComponent(handle)}`);
+          if (!res.ok) return;
+          const p = (await res.json()) as LookupPreview;
+          // 队列已消费 && 快照晚于本次提交 → 生效
+          if (!p.pending && p.latestRecordedAt && p.latestRecordedAt >= submittedAt) {
+            clearInterval(timer);
+            onResolved(p.latestFollowers);
+          }
+        } catch {
+          // 单次轮询失败忽略，下一轮重试
+        }
+      })();
+      if (count >= POLL_LIMIT) {
+        clearInterval(timer);
+        setTimedOut(true);
+      }
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const waiting = !throttled && !timedOut;
   return (
     <>
       <DialogTitle className="flex items-center gap-2.5">
-        <Clock3 className="size-5 text-mist" />
-        {throttled ? "刚刚提交过" : "已加入更新队列"}
+        {waiting ? (
+          <RefreshCw className="size-5 animate-spin text-signal" />
+        ) : (
+          <Clock3 className="size-5 text-mist" />
+        )}
+        {throttled ? "刚刚提交过" : timedOut ? "仍在排队" : "正在采集你的最新数据"}
       </DialogTitle>
+      <p className="text-sm text-mist">
+        {throttled
+          ? "你刚刚提交过更新，它已经在处理中。无需重复点击，稍后刷新即可看到最新数据。"
+          : timedOut
+            ? "高峰期排队较长（或数据源限流）。任务会自动完成：最长 10 分钟内生效，稍后刷新即可看到你的排名。"
+            : "已加入更新队列，完成后本窗口会自动回到成功状态（高峰期最长约 10 分钟）。"}
+      </p>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" asChild className="w-full sm:w-auto">
           <Link to="/members/$id" params={{ id: memberId }}>

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { DashboardStats } from "./stats";
-import { collect, processOldestPending } from "./collector";
-import { CACHE_KEYS, cachedResponse, purgeReadCaches } from "./cache";
+import { collect, drainRefreshQueue, processOldestPending } from "./collector";
+import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { computeMemberStats, computeDashboardStats } from "./stats";
 import { getDashboardStats, getMemberDetail } from "./queries";
@@ -23,7 +23,8 @@ api.get("/api/dashboard", async (c) => {
 
 // 成员列表，附带每人最新一次快照的粉丝量
 api.get("/api/members", async (c) => {
-  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.memberList}`), 3600, async () => {
+  const bust = await readCacheBust(c.env);
+  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.memberList}&cb=${bust}`), 3600, async () => {
     const { results } = await c.env.DB.prepare(
       `SELECT
          m.id, m.handle, m.display_name, m.joined_at,
@@ -91,13 +92,8 @@ api.post("/api/refresh", async (c) => {
     "SELECT status, followers_after AS followersAfter FROM refresh_queue WHERE member_id = ?1 ORDER BY id DESC LIMIT 1"
   ).bind(member.id).first()) as { status: string; followersAfter: number | null } | null;
 
-  // 尽力清读缓存：即时通道处理完立即生效；排队时也先清一次，cron 兜底后还会再清
-  try {
-    c.executionCtx.waitUntil(purgeReadCaches([SITE_URL], [member.id]).catch(() => undefined));
-  } catch {
-    purgeReadCaches([SITE_URL], [member.id]).catch(() => undefined);
-  }
-
+  // 写库时 cache_bust 已 +1：读端点缓存键自动换新，新请求回源即见新数据，
+  // 无需手动清缓存（跨数据中心 purge 本就只能清触发方所在区域）
   return c.json({
     status: job?.status === "done" ? "done" : "queued",
     followersAfter: job?.followersAfter ?? null,
@@ -108,6 +104,7 @@ api.post("/api/refresh", async (c) => {
 // 成员进度卡片：可嵌入 GitHub README / 个人主页（<img src="https://impact.kosx.ai/card/{id}.svg">）
 // 注：路由用 :id 而非 :id.svg——Hono 不支持参数名里带点，.svg 后缀在 handler 内剔除
 // 卡片是嵌入在成员个人主页里的高频图，边缘缓存挡掉绝大部分回源
+// 高频图：浏览器也按 ttl 长缓存（browserTtl），不做 60 秒短缓存
 export async function renderMemberCardSvg(id: string, env: Env): Promise<Response> {
   return cachedResponse(new Request(`${SITE_URL}/card/${id}`), 3600, async () => {
     const member = await env.DB.prepare("SELECT * FROM members WHERE id = ? AND status = 'active'").bind(id).first();
@@ -136,11 +133,12 @@ export async function renderMemberCardSvg(id: string, env: Env): Promise<Respons
     return new Response(renderMemberCard(stats), {
       headers: { "Content-Type": "image/svg+xml" },
     });
-  });
+  }, { browserTtl: 3600 });
 }
 
 // 站点 OG 图：分享到社媒时的动态预览（社群总量）
 // 只需每成员最新一条快照（窗口 LIMIT 1），缓存 6 小时挡爬虫高频预览
+// 高频图：浏览器也按 ttl 长缓存（browserTtl）
 export async function renderOgSvg(env: Env): Promise<Response> {
   return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.og}`), 21600, async () => {
     const now = new Date().toISOString();
@@ -168,7 +166,7 @@ export async function renderOgSvg(env: Env): Promise<Response> {
     return new Response(renderSiteOgCard(stats.totalFollowers, stats.members.length), {
       headers: { "Content-Type": "image/svg+xml" },
     });
-  });
+  }, { browserTtl: 21600 });
 }
 
 export const honoApp = new Hono<{ Bindings: Env }>().route("/", api);
@@ -211,7 +209,21 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
   return null;
 }
 
-export async function runScheduled(env: Env, ctx: ExecutionContext): Promise<void> {
+/**
+ * Cron 分发（wrangler.jsonc triggers.crons）：
+ * - `0 * * * *`（整点）：滚动分片采集 + 自助队列兜底（collect）
+ * - `5-59/10 * * * *`（错峰每 10 分钟）：只清自助更新队列——提交后数据最长 10 分钟落地，
+ *   不必等下一个整点；错峰避开整点避免与采集撞车
+ */
+export async function runScheduled(env: Env, ctx: ExecutionContext, cron: string): Promise<void> {
+  if (cron !== "0 * * * *") {
+    ctx.waitUntil(
+      drainRefreshQueue(env, getSource(env)).then((s) =>
+        console.log(`[refresh-queue] 兜底清空：成功 ${s.ok}，失败 ${s.failed}`)
+      )
+    );
+    return;
+  }
   ctx.waitUntil(
     collect(env, ctx).then((summary) =>
       console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`)

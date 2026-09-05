@@ -1,13 +1,14 @@
 /**
  * 共享查询层：Hono API 路由与 TanStack Start SSR（server functions）都从这里取数。
  * 复用同一批 Cache API 缓存键（按绝对 URL），SSR 与 API 端点共享边缘缓存，
- * 不因前端迁移增加 D1 行读取；cron 采集后 purgeReadCaches 对两者同时生效。
+ * 不因前端迁移增加 D1 行读取。缓存键带 cache_bust 数据版本：
+ * 采集/提交写库后版本 +1，新键在各区必然 miss → 数据变化后刷新立即可见。
  */
 import type { DashboardStats, MemberDetail } from "./stats";
 import { computeDashboardStats, computeMemberStats } from "./stats";
 import { UNIFORM_THRESHOLDS } from "./milestones";
 import { roster } from "./roster";
-import { CACHE_KEYS, cachedResponse } from "./cache";
+import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
 import { SITE_URL } from "./lib/site";
 
 // Env 由 worker-configuration.d.ts / env.d.ts 全局声明（无单独模块）
@@ -24,9 +25,13 @@ type MemberRow = {
 };
 type SnapshotRow = { memberId: string; followers: number; recordedAt: string };
 
-/** 看板统计（/api/dashboard 与首页 SSR 共用，缓存键 ${SITE_URL}/api/dashboard） */
+/** 看板统计（/api/dashboard 与首页 SSR 共用，缓存键 ${SITE_URL}/api/dashboard&cb=数据版本） */
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
-  const res = await cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.dashboard}`), 3600, async () => {
+  const bust = await readCacheBust(env);
+  const res = await cachedResponse(
+    new Request(`${SITE_URL}${CACHE_KEYS.dashboard}&cb=${bust}`),
+    3600,
+    async () => {
     const now = new Date().toISOString();
     const { results: memberRows } = await env.DB.prepare(
       `SELECT ${MEMBER_FIELDS} FROM members WHERE status = 'active' ORDER BY joined_at`
@@ -61,9 +66,13 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
   return (await res.json()) as DashboardStats;
 }
 
-/** 成员详情（/api/members/:id 与成员页 SSR 共用，缓存键 ${SITE_URL}/api/members/:id） */
+/** 成员详情（/api/members/:id 与成员页 SSR 共用，缓存键 ${SITE_URL}/api/members/:id&cb=数据版本） */
 export async function getMemberDetail(env: Env, id: string): Promise<MemberDetail | null> {
-  const res = await cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.memberDetail(id)}`), 3600, async () => {
+  const bust = await readCacheBust(env);
+  const res = await cachedResponse(
+    new Request(`${SITE_URL}${CACHE_KEYS.memberDetail(id)}&cb=${bust}`),
+    3600,
+    async () => {
     const member = await env.DB.prepare(
       `SELECT ${MEMBER_FIELDS} FROM members WHERE id = ? AND status = 'active'`
     ).bind(id).first();

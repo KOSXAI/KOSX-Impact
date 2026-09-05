@@ -7,6 +7,6 @@ import { honoApp, runScheduled } from "./api";
 export default {
   fetch: honoApp.fetch,
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
-    await runScheduled(env, ctx);
+    await runScheduled(env, ctx, _event.cron);
   },
 } satisfies ExportedHandler<Env>;
