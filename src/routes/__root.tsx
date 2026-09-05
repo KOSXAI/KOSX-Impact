@@ -12,7 +12,8 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#0a0a0a" },
     ],
     links: [
-      { rel: "icon", href: "/og.svg", type: "image/svg+xml" },
+      // 官网 kosx.ai 同款 KOSX logo（白色 X 标，assets 与官网主题同一文件）
+      { rel: "icon", href: "/kosx-icon.png", type: "image/png" },
     ],
   }),
   component: RootComponent,

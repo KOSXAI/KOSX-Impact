@@ -39,10 +39,11 @@ export const Route = createFileRoute("/members/$id")({
           ? [
               { property: "og:url", content: `${SITE_URL}/members/${loaderData.member.id}` },
               // 分享预览卡（PNG）：X/微信不渲染 SVG 的 og:image
-              { property: "og:image", content: `${SITE_URL}/og/members/${loaderData.member.id}.png` },
+              // ?v= 换代让 X/微信重抓预览图（平台按完整 URL 缓存，同 URL 不再回源）
+              { property: "og:image", content: `${SITE_URL}/og/members/${loaderData.member.id}.png?v=2` },
               { property: "og:image:alt", content: `${name} 的 KOSX 影响力卡片` },
               { name: "twitter:card", content: "summary_large_image" },
-              { name: "twitter:image", content: `${SITE_URL}/og/members/${loaderData.member.id}.png` },
+              { name: "twitter:image", content: `${SITE_URL}/og/members/${loaderData.member.id}.png?v=2` },
             ]
           : []),
       ],
