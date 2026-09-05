@@ -65,12 +65,14 @@ describe("API", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       totalFollowers: number;
-      totalGrowth: number;
-      totalMilestones: number;
+      totalGrowth30d: number;
+      tenKMembers: number;
       members: Array<{ handle: string; tierKey: string; nextTier: number; climbs: number }>;
       recentMilestones: unknown[];
     };
     expect(body.totalFollowers).toBe(1234);
+    expect(body.totalGrowth30d).toBe(0);
+    expect(body.tenKMembers).toBe(0);
     expect(body.members).toHaveLength(1);
     expect(body.members[0]).toMatchObject({ handle: "alice_x", tierKey: "thousand", nextTier: 1500, climbs: 0 });
   });

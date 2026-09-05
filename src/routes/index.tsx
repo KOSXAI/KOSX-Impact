@@ -59,7 +59,7 @@ function DashboardPage() {
   const stats = Route.useLoaderData();
   // 总排行：最新粉丝量从高到低（stats.members 已按此排序）
   const leaderboard = stats.members;
-  // 成长榜：近 30 天增长优先，其次近 7 天、累计增长——小账号也有机会登顶
+  // 成长榜：近 30 天增长优先，其次近 7 天、加入以来增长——小账号也有机会登顶
   const growth = [...stats.members].sort(
     (a, b) => b.growth30d - a.growth30d || b.growth7d - a.growth7d || b.growth - a.growth
   );
@@ -86,10 +86,10 @@ function DashboardPage() {
           <StatCard label="社群粉丝" value={stats.totalFollowers} />
         </RevealItem>
         <RevealItem>
-          <StatCard label="累计增长" value={stats.totalGrowth} prefix="+" />
+          <StatCard label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" />
         </RevealItem>
         <RevealItem>
-          <StatCard label="登阶成就" value={stats.totalMilestones} />
+          <StatCard label="万粉成员" value={stats.tenKMembers} />
         </RevealItem>
         <RevealItem>
           <StatCard label="追踪成员" value={stats.members.length} />

@@ -111,8 +111,8 @@ describe("computeDashboardStats", () => {
     ];
     const stats = computeDashboardStats(roster, rows as never, milestones, NOW);
     expect(stats.totalFollowers).toBe(1500);
-    expect(stats.totalGrowth).toBe(500);
-    expect(stats.totalMilestones).toBe(1);
+    expect(stats.totalGrowth30d).toBe(500);
+    expect(stats.tenKMembers).toBe(0);
     expect(stats.members).toHaveLength(2);
     expect(stats.members[0].latestFollowers).toBe(1500);
     expect(stats.members[1].latestFollowers).toBeNull();
@@ -139,7 +139,35 @@ describe("computeDashboardStats", () => {
     const stats = computeDashboardStats(roster, rows, milestones, NOW);
     expect(stats.recentMilestones).toHaveLength(10);
     expect(stats.recentMilestones[0].achievedAt).toBe("2026-09-12T00:00:00Z");
-    expect(stats.totalMilestones).toBe(12);
     expect(stats.recentMilestones.every((m) => m.threshold !== 1250 && m.threshold !== 3300)).toBe(true);
+  });
+
+  it("统计近 30 天社群新增与万粉成员数", () => {
+    const rows = [
+      {
+        id: "m1",
+        handle: "alice",
+        displayName: null,
+        joinedAt: "2026-08-01",
+        snapshots: [
+          { followers: 1000, recordedAt: "2026-08-10T00:00:00Z" },
+          { followers: 10500, recordedAt: "2026-09-03T00:00:00Z" },
+        ],
+      },
+      {
+        id: "m2",
+        handle: "bob",
+        displayName: null,
+        joinedAt: "2026-08-02",
+        snapshots: [
+          { followers: 50, recordedAt: "2026-08-20T00:00:00Z" },
+          { followers: 60, recordedAt: "2026-09-03T00:00:00Z" },
+        ],
+      },
+    ];
+    const stats = computeDashboardStats(roster, rows as never, [], NOW);
+    expect(stats.totalGrowth30d).toBe(9510);
+    expect(stats.tenKMembers).toBe(1);
+    expect(stats.totalFollowers).toBe(10560);
   });
 });

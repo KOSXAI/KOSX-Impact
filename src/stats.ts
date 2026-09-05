@@ -1,5 +1,5 @@
 import type { RosterFile } from "./roster";
-import { nextThreshold, prevThreshold, progressToNext, tierOf, UNIFORM_THRESHOLDS } from "./milestones";
+import { nextThreshold, prevThreshold, progressToNext, tierOf, TEN_K, UNIFORM_THRESHOLDS } from "./milestones";
 
 export interface MemberStats {
   id: string;
@@ -41,8 +41,10 @@ export interface PresetStats {
 
 export interface DashboardStats {
   totalFollowers: number;
-  totalGrowth: number;
-  totalMilestones: number;
+  /** 近 30 天社群新增粉丝（各成员 growth30d 之和）：滚动窗口内统计，与账号加入时间无关 */
+  totalGrowth30d: number;
+  /** 已达成万粉的成员数（粉丝量 ≥ 10000 的当前状态快照） */
+  tenKMembers: number;
   members: MemberStats[];
   recentMilestones: Array<{
     memberId: string;
@@ -177,7 +179,9 @@ export function computeDashboardStats(
   for (const m of members) m.climbs = climbCounts.get(m.id) ?? 0;
 
   const totalFollowers = members.reduce((sum, m) => sum + (m.latestFollowers ?? 0), 0);
-  const totalGrowth = members.reduce((sum, m) => sum + m.growth, 0);
+  // 近 30 天新增按成员窗口增长求和；万粉成员按当前粉丝量判定，都不是自加入起的历史累计
+  const totalGrowth30d = members.reduce((sum, m) => sum + m.growth30d, 0);
+  const tenKMembers = members.filter((m) => (m.latestFollowers ?? 0) >= TEN_K).length;
   const recentMilestones = [...ladderMilestones]
     .sort((a, b) => b.achievedAt.localeCompare(a.achievedAt))
     .slice(0, 10);
@@ -187,8 +191,8 @@ export function computeDashboardStats(
 
   return {
     totalFollowers,
-    totalGrowth,
-    totalMilestones: ladderMilestones.length,
+    totalGrowth30d,
+    tenKMembers,
     members,
     recentMilestones,
   };

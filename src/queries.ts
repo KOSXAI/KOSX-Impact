@@ -26,7 +26,7 @@ type SnapshotRow = { memberId: string; followers: number; recordedAt: string };
 
 /** 看板统计（/api/dashboard 与首页 SSR 共用，缓存键 ${SITE_URL}/api/dashboard） */
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
-  const res = await cachedResponse(new Request(`${SITE_URL}/api/dashboard?v=10`), 3600, async () => {
+  const res = await cachedResponse(new Request(`${SITE_URL}/api/dashboard?v=11`), 3600, async () => {
     const now = new Date().toISOString();
     const { results: memberRows } = await env.DB.prepare(
       `SELECT ${MEMBER_FIELDS} FROM members WHERE status = 'active' ORDER BY joined_at`
