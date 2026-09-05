@@ -24,10 +24,11 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 - 数据一天更新一次，页面为服务端渲染（SEO 友好），读接口走边缘缓存，不做每次访问实时计算
 - 全链路在 Cloudflare 免费额度内即可支撑当前量级，无服务器运维
 - 数据源通过抽象层接入（当前：SocialData），未来可切换官方 API / 成员 OAuth 而不改业务逻辑
-- 成员自助更新（/submit 页面）：提交 handle 入队 → 抢到全局节流槽（CAS，≥21 秒间隔，守住
+- 成员自助更新（首页「提交申请」弹窗）：提交 handle 入队 → 抢到全局节流槽（CAS，≥21 秒间隔，守住
   SocialData 每分钟 3 次免费额度）当场处理，抢不到由 cron 兜底清空。消费复用与每日采集
   完全相同的写入管线（快照/登阶/日统计），管线里永远只有真实 API 数据。
   核心代码：`src/refresh-queue.ts`（入队/查询/节流槽）+ `src/collector.ts`（队列消费）
+  + `src/components/member/SubmitDialog.tsx`（弹窗 UI，首页与成员页共用）
 
 ## 仓库结构
 

@@ -55,7 +55,7 @@ KOSX 万粉影响力计划持续追踪和展示 KOSX 成员在 X 等公开平台
 - [x] 数据底座：成员名册、每日快照与登阶事件
 - [x] X 数据采集管线（SocialData 已接入，每日自动采集）
 - [x] 可视化看板：总排行 / 成长榜 / 登阶记录 / 段位徽章 / 社群总量 → **[impact.kosx.ai](https://impact.kosx.ai)**
-- [x] 成员自助更新：提交 X 主页即可触发即时刷新（[/submit](https://impact.kosx.ai/submit)，队列化 + 与每日采集同管线）
+- [x] 成员自助更新：看板「提交申请」弹窗里提交 X 主页即可触发即时刷新（队列化 + 与每日采集同管线）
 - [x] 成员进度卡片（可嵌入个人主页）：`https://impact.kosx.ai/card/{成员id}.svg`
 - [ ] Creator Influence Graph
 

@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
-import { ArrowUpRight } from "lucide-react";
+import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { fmt, fmtDate, badge } from "@/lib/format";
-import { GITHUB_APPLY_URL, SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
+import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -65,6 +65,7 @@ function DashboardPage() {
   );
   const latest = stats.recentMilestones[0];
   const justAchieved = latest && latest.achievedAt.slice(0, 10) >= new Date().toISOString().slice(0, 10);
+  const [applyOpen, setApplyOpen] = useState(false);
 
   const [tab, setTab] = useState<TabKey>("leaderboard");
   const tabs: Array<{ key: TabKey; label: string; count: number }> = [
@@ -131,21 +132,16 @@ function DashboardPage() {
       <Reveal delay={0.1}>
         <section className="mt-12 rounded-2xl border border-line bg-surface p-6 sm:p-8">
           <h2 className="text-xl font-bold">加入这场远征</h2>
-          <p className="mt-2 max-w-xl text-mist">
-            把你的 X 账号加入追踪，从加入当天起每天记录你的成长。不需要会代码，填一份申请就好。
-          </p>
           <div className="mt-5 flex flex-wrap items-center gap-4">
-            <Button asChild>
-              <a href={GITHUB_APPLY_URL} target="_blank" rel="noreferrer">
-                提交申请 <ArrowUpRight className="size-4" />
-              </a>
-            </Button>
+            <Button onClick={() => setApplyOpen(true)}>提交申请</Button>
             <Link to="/about" className="text-mist underline-offset-4 hover:text-ink hover:underline">
               了解流程
             </Link>
           </div>
         </section>
       </Reveal>
+
+      <SubmitDialog open={applyOpen} onOpenChange={setApplyOpen} />
     </div>
   );
 }

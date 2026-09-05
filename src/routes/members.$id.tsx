@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchMemberDetail } from "@/data.functions";
 import { Card, CardContent } from "@/components/ui/card";
@@ -5,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AnimatedNumber, GrowProgress, Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
+import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { GrowthChart } from "@/components/member/GrowthChart";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { nextThreshold, tierOf, TIER_STYLE } from "@/milestones";
@@ -48,6 +50,7 @@ export const Route = createFileRoute("/members/$id")({
 function MemberPage() {
   const { member, snapshots, milestones } = Route.useLoaderData();
   const name = member.displayName ?? member.handle;
+  const [submitOpen, setSubmitOpen] = useState(false);
 
   // 接下来的 4 级台阶路线（下一枚成就起）
   const upcoming: number[] = [];
@@ -178,18 +181,18 @@ function MemberPage() {
 
         <Reveal>
           <div className="border-t border-line pt-6 text-sm text-mist">
-            这是你的账号？数据每天自动更新一次；刚跨过新台阶等不及明天，可以
-            <Link
-              to="/submit"
-              search={{ handle: member.handle }}
-              className="mx-1 font-semibold text-ink underline underline-offset-4 hover:text-mist"
+            这是你的账号？
+            <button
+              onClick={() => setSubmitOpen(true)}
+              className="ml-1 font-semibold text-ink underline underline-offset-4 hover:text-mist"
             >
               立即自助更新
-            </Link>
-            。
+            </button>
           </div>
         </Reveal>
       </main>
+
+      <SubmitDialog open={submitOpen} onOpenChange={setSubmitOpen} defaultHandle={member.handle} />
     </div>
   );
 }
