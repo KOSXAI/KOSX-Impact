@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/motion";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
+import { ArrowLeft } from "lucide-react";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
 export const Route = createFileRoute("/about")({
@@ -24,10 +25,14 @@ function AboutPage() {
   return (
     <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <Reveal y={18}>
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">关于 {SITE_NAME}</h1>
-        <Link to="/" className="text-mist underline-offset-4 hover:text-ink hover:underline">
-          ← 返回看板
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+        >
+          <ArrowLeft className="size-4" />
+          返回看板
         </Link>
+        <h1 className="mt-8 text-4xl font-bold tracking-tight sm:text-5xl">关于 {SITE_NAME}</h1>
       </Reveal>
 
       <main className="mt-10 space-y-12 sm:mt-14">
@@ -35,8 +40,8 @@ function AboutPage() {
           <section>
             <h2 className="text-2xl font-bold">这是什么</h2>
             <p className="mt-3 max-w-2xl leading-relaxed text-mist">
-              一块追踪 KOSX 成员在 X 上公开成长数据（粉丝量与登阶记录）的看板。
-              它记录每位成员从当前粉丝出发、一阶一阶往上登的过程，也让整个社群的影响力被看见。
+              一块追踪 KOSX 成员在 X 上公开成长数据的看板：粉丝量、登阶记录、社群总影响力。
+              每位成员从当前粉丝量出发一阶一阶往上登，整个社群正在产生多大的影响，这里看得见。
             </p>
           </section>
         </Reveal>
@@ -44,14 +49,15 @@ function AboutPage() {
         <Reveal>
           <section>
             <h2 className="text-2xl font-bold">台阶与段位</h2>
-            <p className="mt-3 max-w-2xl leading-relaxed text-mist">
-              万粉不是终点，只是台阶中的一级。整个阶梯在每个数量级内均匀分布，每个段位要登的台阶数完全相同：
-            </p>
+            <p className="mt-3 max-w-2xl leading-relaxed text-mist">万粉不是终点，只是台阶中的一级。</p>
             <ul className="mt-3 max-w-2xl list-disc space-y-2 pl-6 leading-relaxed text-mist">
-              <li>百粉段每 100 一档，千粉段每 500 一档，万粉段每 5000 一档，十万粉段每 5 万一档，以此类推——成就多多，达成一级自动出现下一级。</li>
-              <li>每位成员的目标就是自己的下一级台阶，进度永远有下一个 0→100%，没有终点线。</li>
-              <li>段位徽章按量级颁发：新芽 → 千粉新秀 → 万粉达人 → 十万粉影响力 → 百万粉传奇 → 千万粉神话，只升不降。</li>
-              <li>每登上一级台阶获得一枚成就徽章，展示在成员页的徽章墙与排行榜上。</li>
+              <li>
+                <b className="text-ink">均匀阶梯</b>：百粉段每 100 一档、千粉段每 500 一档、万粉段每 5000 一档……每个段位都是 18 级台阶，达成一级自动出现下一级。
+              </li>
+              <li>
+                <b className="text-ink">段位徽章</b>只升不降：新芽 → 千粉新秀 → 万粉达人 → 十万粉影响力 → 百万粉传奇 → 千万粉神话。
+              </li>
+              <li>每登上一级台阶得一枚成就徽章，挂在成员页的徽章墙上。</li>
             </ul>
           </section>
         </Reveal>
@@ -60,13 +66,11 @@ function AboutPage() {
           <section>
             <h2 className="text-2xl font-bold">数据来源</h2>
             <ul className="mt-3 max-w-2xl space-y-3 leading-relaxed text-mist">
-              <li>数据全部来自成员 X 账号的公开信息（粉丝量等），不含任何私密数据。</li>
-              <li>每日更新一次（北京时间上午八点左右），当日重复采集以最新值为准。</li>
-              <li>
-                成员可以在看板首页「提交申请」弹窗里自助触发即时刷新——站点当场去 X 拉取公开数据，与每日采集走同一条管线，口径完全一致。
-              </li>
-              <li>看板顶部的「近 30 天新增」是社群最近 30 天的新增粉丝合计——按滚动窗口统计，不追溯账号加入前的历史；「万粉成员」是当前粉丝量已达万粉的成员数。</li>
-              <li>「台阶进度」是当前台阶内的完成度；台阶在粉丝量首次越过时记录，加入前已达成的台阶不追溯。</li>
+              <li>全部来自成员 X 账号的公开信息（粉丝量等），不含任何私密数据。</li>
+              <li>每日自动更新一次（北京时间上午八点左右），当日重复采集以最新值为准。</li>
+              <li>「加入追踪」弹窗可随时手动刷新——当场去 X 拉取公开数据，与每日采集同一条管线。</li>
+              <li>顶部「近 30 天新增」是社群 30 天滚动窗口的新增粉丝合计，不追溯加入前的历史；「万粉成员」是当前粉丝量已达万粉的成员数。</li>
+              <li>台阶在粉丝量首次越过时记录，加入前已达成的台阶不追溯。</li>
             </ul>
           </section>
         </Reveal>
@@ -102,18 +106,6 @@ function AboutPage() {
             <p className="mt-3 max-w-2xl leading-relaxed text-mist">
               你的数据你做主。想退出的成员联系维护者即可：立即停止公开追踪，如需删除历史数据也一并处理。
             </p>
-          </section>
-        </Reveal>
-
-        <Reveal>
-          <section>
-            <h2 className="text-2xl font-bold">成员卡片</h2>
-            <p className="mt-3 max-w-2xl leading-relaxed text-mist">
-              每位成员都有一张可嵌入个人主页或仓库的进度卡片：
-            </p>
-            <pre className="mt-4 overflow-x-auto rounded-2xl border border-line bg-soft-surface p-4 font-mono text-sm text-mist">
-              &lt;img src=&quot;{`${SITE_URL}/card/成员id.svg`}&quot; width=&quot;480&quot;&gt;
-            </pre>
           </section>
         </Reveal>
       </main>
