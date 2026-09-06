@@ -36,8 +36,8 @@ export const CACHE_KEYS = {
   ogMember: (id: string) => `/og/members/${id}?v=1`,
   /** 站点 OG 分享卡（PNG） */
   ogSite: "/og/site.png?v=1",
-  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v12：横幅返回/分享圆钮 + 头像高清变体 */
-  memberDetail: (id: string) => `/api/members/${id}?v=12`,
+  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v13：称号之路卡结构化重排 */
+  memberDetail: (id: string) => `/api/members/${id}?v=13`,
 } as const;
 
 export async function cachedResponse(

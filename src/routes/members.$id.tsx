@@ -11,7 +11,7 @@ import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { SiteHeader } from "@/components/SiteHeader";
 import { GrowthChart } from "@/components/member/GrowthChart";
 import { fmt, fmtDate, badge } from "@/lib/format";
-import { nextThreshold, titleOf } from "@/milestones";
+import { TEN_K, nextThreshold, titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
 import { ArrowLeft, BadgeCheck, Check, ExternalLink, MapPin, Share2 } from "lucide-react";
@@ -320,21 +320,8 @@ function MemberPage() {
                       <TitleBadge threshold={member.prevMilestone} />
                     </div>
                     <div className="text-left sm:text-right">
-                      <div className="text-3xl font-bold tabular-nums">{fmt(member.latestFollowers ?? 0)}</div>
-                      <div className="text-sm text-mist">
-                        下一称号「{titleOf(member.nextMilestone)}」 · 还差 {fmt(remaining)}
-                        {etaDays != null ? (
-                          etaDays > 365 ? (
-                            <> · 照目前速度还需一年以上</>
-                          ) : (
-                            <>
-                              {" "}· 照目前速度约 <b className="text-ink tabular-nums">{fmt(etaDays)}</b> 天拿下
-                            </>
-                          )
-                        ) : (
-                          <> · 按目前速度暂无法预估</>
-                        )}
-                      </div>
+                      <div className="text-sm text-mist">当前粉丝</div>
+                      <div className="mt-1 text-3xl font-bold tabular-nums">{fmt(member.latestFollowers ?? 0)}</div>
                     </div>
                   </div>
                   <GrowProgress
@@ -342,9 +329,37 @@ function MemberPage() {
                     className="mt-6 h-2"
                     ariaLabel={`距下一称号「${titleOf(member.nextMilestone)}」进度 ${member.progressToNext}%`}
                   />
-                  <div className="mt-2 flex justify-between text-sm text-mist">
-                    <span>{member.prevMilestone > 0 ? titleOf(member.prevMilestone) : "新人村"}</span>
-                    <span>{titleOf(member.nextMilestone)}</span>
+                  <div className="mt-2 flex items-center justify-between text-sm">
+                    <span className="text-mist">{member.prevMilestone > 0 ? titleOf(member.prevMilestone) : "新人村"}</span>
+                    <span className={cn("font-semibold", member.nextMilestone === TEN_K ? "text-signal" : "text-amber-300")}>
+                      {titleOf(member.nextMilestone)}
+                    </span>
+                  </div>
+                  {/* 量化区：标签+数值的数据块，取代旧的一行「·」连排文案 */}
+                  <div className="mt-5 grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm text-mist">还差</div>
+                      <div className="mt-1 text-2xl font-bold tabular-nums">
+                        {fmt(remaining)}
+                        <span className="ml-1 text-sm font-semibold text-mist">粉</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-mist">照目前速度</div>
+                      <div className="mt-1 text-2xl font-bold tabular-nums">
+                        {etaDays == null ? (
+                          <span className="text-mist">—</span>
+                        ) : etaDays > 365 ? (
+                          <>一年以上</>
+                        ) : (
+                          <>
+                            <span className="text-base font-semibold text-mist">约 </span>
+                            {fmt(etaDays)}
+                            <span className="text-base font-semibold text-mist"> 天</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5">
                     <span className="text-sm text-mist">接下来的称号</span>
