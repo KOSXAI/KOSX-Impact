@@ -153,7 +153,8 @@ function MemberPage() {
               />
             </div>
             <div className="px-6 pb-6 sm:px-8">
-              <div className="-mt-12 sm:-mt-14">
+              {/* z-10：横幅容器是定位元素会盖住静态兄弟，头像压边必须抬高一层 */}
+              <div className="relative z-10 -mt-12 sm:-mt-14">
                 <div className="flex items-end gap-4">
                   <Avatar url={member.profileImage} name={name} className="ring-surface size-20 ring-4 sm:size-24" />
                   <div className="min-w-0 pb-1">
