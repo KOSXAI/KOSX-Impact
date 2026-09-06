@@ -27,7 +27,10 @@ function DialogOverlay(props: React.ComponentProps<typeof DialogPrimitive.Overla
   )
 }
 
-function DialogContent(props: React.ComponentProps<typeof DialogPrimitive.Content>) {
+function DialogContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
       <DialogOverlay />
@@ -38,7 +41,7 @@ function DialogContent(props: React.ComponentProps<typeof DialogPrimitive.Conten
           "fixed left-[50%] top-20 z-50 grid max-h-[85dvh] w-[calc(100%-2rem)] max-w-md -translate-x-[50%] gap-5 overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-2xl sm:top-[50%] sm:-translate-y-[50%] sm:p-6",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
           "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
-          props.className
+          className
         )}
         {...props}
       />
@@ -46,8 +49,8 @@ function DialogContent(props: React.ComponentProps<typeof DialogPrimitive.Conten
   )
 }
 
-function DialogTitle(props: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title data-slot="dialog-title" className={cn("text-xl font-bold tracking-tight", props.className)} {...props} />
+function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+  return <DialogPrimitive.Title data-slot="dialog-title" className={cn("text-xl font-bold tracking-tight", className)} {...props} />
 }
 
 function DialogClose(props: React.ComponentProps<typeof DialogPrimitive.Close>) {

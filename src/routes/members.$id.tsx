@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchMemberDetail } from "@/data.functions";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,13 +8,14 @@ import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
 import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
+import { ShareDialog } from "@/components/member/ShareDialog";
 import { SiteHeader } from "@/components/SiteHeader";
 import { GrowthChart } from "@/components/member/GrowthChart";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { TEN_K, nextThreshold, titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
-import { ArrowLeft, BadgeCheck, Check, ExternalLink, MapPin, Share2 } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ExternalLink, MapPin, Share2 } from "lucide-react";
 
 export const Route = createFileRoute("/members/$id")({
   loader: async ({ params }) => {
@@ -98,55 +99,17 @@ function BannerImage({ src }: { src: string }) {
 const frostedBtn =
   "inline-flex size-9 items-center justify-center rounded-full border border-white/15 bg-black/30 text-ink shadow-lg shadow-black/20 backdrop-blur-md transition-colors hover:bg-black/45 focus-visible:bg-black/45";
 
-/**
- * 分享按钮：优先把分享卡 PNG 作为图片文件交系统分享盘（X/微信发图带链接），
- * 系统分享盘不支持文件时退纯链接分享；桌面无分享盘则复制链接（图标短暂变勾）。
- */
-function ShareButton({ memberId, title }: { memberId: string; title: string }) {
-  const [copied, setCopied] = useState(false);
-  const [pending, setPending] = useState(false);
-  const busy = useRef(false);
-
-  const share = async () => {
-    if (busy.current) return;
-    busy.current = true;
-    setPending(true);
-    try {
-      if (typeof navigator.share === "function") {
-        let file: File | null = null;
-        try {
-          const blob = await fetch(`/og/members/${memberId}.png?v=2`).then((r) => r.blob());
-          file = new File([blob], "kosx-impact.png", { type: "image/png" });
-        } catch {
-          // 拉卡失败：退纯链接分享
-        }
-        if (file && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title });
-        } else {
-          await navigator.share({ title, url: location.href });
-        }
-        return;
-      }
-      await navigator.clipboard.writeText(location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // 用户在系统分享盘取消：静默
-    } finally {
-      busy.current = false;
-      setPending(false);
-    }
-  };
-
+/** 横幅上的分享钮：打开分享弹窗（X 分享/文案/链接/OG 卡预览复制下载） */
+function ShareButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
-      onClick={share}
-      aria-label={copied ? "链接已复制" : "分享"}
-      title={copied ? "链接已复制" : "分享"}
-      className={cn(frostedBtn, pending && "opacity-60")}
+      onClick={onClick}
+      aria-label="分享"
+      title="分享"
+      className={frostedBtn}
     >
-      {copied ? <Check className="size-4 text-signal" /> : <Share2 className="size-4" />}
+      <Share2 className="size-4" />
     </button>
   );
 }
@@ -155,6 +118,7 @@ function MemberPage() {
   const { member, profile, counters, snapshots, milestones } = Route.useLoaderData();
   const name = member.displayName ?? member.handle;
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // ETA：近 7 天增速优先（更新鲜），为零/为负退 30 天；都停滞则不预估
   const remaining = Math.max(0, member.nextMilestone - (member.latestFollowers ?? 0));
@@ -210,7 +174,7 @@ function MemberPage() {
                 >
                   <ArrowLeft className="size-4" />
                 </Link>
-                <ShareButton memberId={member.id} title={`${name} · ${SITE_NAME}`} />
+                <ShareButton onClick={() => setShareOpen(true)} />
               </div>
             </div>
             <div className="px-6 pb-6 sm:px-8">
@@ -424,6 +388,7 @@ function MemberPage() {
         </main>
 
         <SubmitDialog open={submitOpen} onOpenChange={setSubmitOpen} defaultHandle={member.handle} />
+        <ShareDialog open={shareOpen} onOpenChange={setShareOpen} member={member} />
       </div>
     </>
   );
