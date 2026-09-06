@@ -75,7 +75,8 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
         url: data.url ?? null,
         bannerUrl: data.profile_banner_url,
         xCreatedAt: data.created_at,
-        verified: data.verified === true,
+        // 缺字段时保持 undefined（写成 false 会把库里的已认证覆盖掉，COALESCE 保护失效）
+        verified: typeof data.verified === "boolean" ? data.verified : undefined,
         listedCount: typeof data.listed_count === "number" ? data.listed_count : undefined,
         favouritesCount: typeof data.favourites_count === "number" ? data.favourites_count : undefined,
       };

@@ -32,7 +32,8 @@ describe("socialDataSource", () => {
       url: null,
       bannerUrl: undefined,
       xCreatedAt: undefined,
-      verified: false,
+      // 缺字段保持 undefined（不写 false），COALESCE 才能保住库里的旧值
+      verified: undefined,
       listedCount: undefined,
       favouritesCount: undefined,
     });

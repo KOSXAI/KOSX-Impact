@@ -3,11 +3,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard } from "@/data.functions";
 import type { DashboardStats, MemberStats } from "@/stats";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
-import { TitleBadge } from "@/components/member/TitleBadge";
+import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -37,23 +36,17 @@ export const Route = createFileRoute("/")({
 
 type TabKey = "leaderboard" | "growth" | "climbs";
 
-/** 总排行 / 成长榜前三的荣誉样式：冠军/亚军/季军（行边框渐晕 + 榜位徽章 + 名次渐变数字） */
+/** 总排行 / 成长榜前三的荣誉样式：只保留行卡外壳（边框渐晕 + 名次渐变数字），不加榜位徽章抢内容的戏 */
 const PODIUM = [
   {
-    label: "冠军",
-    badge: "from-amber-300 to-amber-500 text-amber-950",
     ring: "border-amber-400/40 bg-gradient-to-r from-amber-400/15 to-transparent",
     rankNum: "from-amber-300 to-amber-600",
   },
   {
-    label: "亚军",
-    badge: "from-slate-300 to-slate-400 text-slate-950",
     ring: "border-slate-400/30 bg-gradient-to-r from-slate-400/12 to-transparent",
     rankNum: "from-slate-300 to-slate-500",
   },
   {
-    label: "季军",
-    badge: "from-orange-400 to-orange-600 text-white",
     ring: "border-orange-500/30 bg-gradient-to-r from-orange-500/12 to-transparent",
     rankNum: "from-orange-400 to-orange-700",
   },
@@ -404,9 +397,6 @@ function LeaderboardMember({
           <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
             {name}
           </Link>
-          {podium && (
-            <Badge className={`bg-gradient-to-r ${podium.badge} border-transparent`}>{podium.label}</Badge>
-          )}
           <TitleBadge threshold={m.prevMilestone} />
           {m.climbs > 0 && (
             <span
@@ -534,9 +524,6 @@ function GrowthMember({
           <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
             {name}
           </Link>
-          {podium && (
-            <Badge className={`bg-gradient-to-r ${podium.badge} border-transparent`}>{podium.label}</Badge>
-          )}
           <TitleBadge threshold={m.prevMilestone} />
           <a
             href={xProfileUrl(m.handle)}
@@ -566,23 +553,53 @@ function GrowthMember({
   );
 }
 
+/** 登阶记录：最近跨过称号大关的成员。行卡与总排行同一视觉语言（头像 + 名字 + 金色称号 chip + 日期） */
 function ClimbsList({ stats }: { stats: DashboardStats }) {
   if (stats.recentMilestones.length === 0) return <p className="text-mist">还没有登阶记录，第一枚成就正在路上。</p>;
+  // 头像/句柄来自成员表：事件流只带 memberId，联一张 map 取展示数据
+  const byId = new Map(stats.members.map((m) => [m.id, m]));
   return (
-    <div className="divide-y divide-line">
-      {stats.recentMilestones.map((m) => (
-        <RevealItem
-          key={`${m.memberId}-${m.threshold}`}
-          y={12}
-          className="flex items-center gap-3 py-3"
-        >
-          <Badge variant="secondary">{titleOf(m.threshold)}</Badge>
-          <Link to="/members/$id" params={{ id: m.memberId }} className="min-w-0 flex-1 truncate font-medium underline-offset-4 hover:underline">
-            {m.displayName ?? m.handle}
-          </Link>
-          <span className="shrink-0 text-mist">{fmtDate(m.achievedAt)}</span>
-        </RevealItem>
-      ))}
-    </div>
+    <ol className="space-y-3">
+      {stats.recentMilestones.map((m) => {
+        const member = byId.get(m.memberId);
+        const name = m.displayName ?? member?.displayName ?? m.handle;
+        return (
+          <RevealItem key={`${m.memberId}-${m.threshold}`} y={12}>
+            <div className="card-lift flex items-center gap-x-3 gap-y-2 rounded-2xl border border-line bg-surface p-4 sm:gap-x-4 sm:p-5">
+              <Avatar url={member?.profileImage} name={name} className="size-10 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <Link to="/members/$id" params={{ id: m.memberId }} className="font-semibold underline-offset-4 hover:underline">
+                    {name}
+                  </Link>
+                  <a
+                    href={xProfileUrl(m.handle)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
+                  >
+                    @{m.handle}
+                  </a>
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                    titleBadgeClass(m.threshold)
+                  )}
+                  title={`跨过 ${badge(m.threshold)} 大关`}
+                >
+                  <span aria-hidden="true">🏅</span>
+                  {titleOf(m.threshold)}
+                  <span className="font-normal text-mist/60 tabular-nums">{badge(m.threshold)}</span>
+                </span>
+                <span className="text-xs text-mist tabular-nums">{fmtDate(m.achievedAt)} 达成</span>
+              </div>
+            </div>
+          </RevealItem>
+        );
+      })}
+    </ol>
   );
 }
