@@ -386,7 +386,7 @@ function LeaderboardMember({
       className={
         podium
           ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
-          : "flex flex-wrap items-center gap-x-3 gap-y-3 py-4 sm:gap-x-4"
+          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
       }
     >
       <div
@@ -516,7 +516,7 @@ function GrowthMember({
       className={
         podium
           ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
-          : "flex flex-wrap items-center gap-x-3 gap-y-3 py-4 sm:gap-x-4"
+          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
       }
     >
       <div
