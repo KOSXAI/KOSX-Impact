@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchMemberDetail } from "@/data.functions";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { fmt, fmtDate, badge } from "@/lib/format";
 import { nextThreshold, titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
-import { ArrowLeft, BadgeCheck, ExternalLink, MapPin } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Check, ExternalLink, MapPin, Share2 } from "lucide-react";
 
 export const Route = createFileRoute("/members/$id")({
   loader: async ({ params }) => {
@@ -94,6 +94,63 @@ function BannerImage({ src }: { src: string }) {
   );
 }
 
+/** 横幅上的磨砂玻璃圆钮：深色半透明底 + 背景模糊，任何横幅图上都可读 */
+const frostedBtn =
+  "inline-flex size-9 items-center justify-center rounded-full border border-white/15 bg-black/30 text-ink shadow-lg shadow-black/20 backdrop-blur-md transition-colors hover:bg-black/45 focus-visible:bg-black/45";
+
+/**
+ * 分享按钮：优先把分享卡 PNG 作为图片文件交系统分享盘（X/微信发图带链接），
+ * 系统分享盘不支持文件时退纯链接分享；桌面无分享盘则复制链接（图标短暂变勾）。
+ */
+function ShareButton({ memberId, title }: { memberId: string; title: string }) {
+  const [copied, setCopied] = useState(false);
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+
+  const share = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    setPending(true);
+    try {
+      if (typeof navigator.share === "function") {
+        let file: File | null = null;
+        try {
+          const blob = await fetch(`/og/members/${memberId}.png?v=2`).then((r) => r.blob());
+          file = new File([blob], "kosx-impact.png", { type: "image/png" });
+        } catch {
+          // 拉卡失败：退纯链接分享
+        }
+        if (file && navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title });
+        } else {
+          await navigator.share({ title, url: location.href });
+        }
+        return;
+      }
+      await navigator.clipboard.writeText(location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // 用户在系统分享盘取消：静默
+    } finally {
+      busy.current = false;
+      setPending(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={share}
+      aria-label={copied ? "链接已复制" : "分享"}
+      title={copied ? "链接已复制" : "分享"}
+      className={cn(frostedBtn, pending && "opacity-60")}
+    >
+      {copied ? <Check className="size-4 text-signal" /> : <Share2 className="size-4" />}
+    </button>
+  );
+}
+
 function MemberPage() {
   const { member, profile, counters, snapshots, milestones } = Route.useLoaderData();
   const name = member.displayName ?? member.handle;
@@ -128,16 +185,8 @@ function MemberPage() {
       <SiteHeader containerClassName="max-w-4xl" />
       <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
-          >
-            <ArrowLeft className="size-4" />
-            返回看板
-          </Link>
-
           {/* 档案卡：横幅 hero + 身份区 + 简介（全部来自 X 公开资料） */}
-          <section className="mt-8 overflow-hidden rounded-3xl border border-line bg-surface">
+          <section className="overflow-hidden rounded-3xl border border-line bg-surface">
             <div className="relative h-32 sm:h-44">
               {profile.bannerUrl ? (
                 <BannerImage src={profile.bannerUrl} />
@@ -151,6 +200,18 @@ function MemberPage() {
                 aria-hidden="true"
                 className="from-surface via-surface/30 absolute inset-0 bg-gradient-to-t to-transparent"
               />
+              {/* 返回/分享圆钮压在横幅左上/右上角：磨砂玻璃质感，同时填起顶部留白 */}
+              <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between p-3 sm:p-4">
+                <Link
+                  to="/"
+                  aria-label="返回看板"
+                  title="返回看板"
+                  className={frostedBtn}
+                >
+                  <ArrowLeft className="size-4" />
+                </Link>
+                <ShareButton memberId={member.id} title={`${name} · ${SITE_NAME}`} />
+              </div>
             </div>
             <div className="px-6 pb-6 sm:px-8">
               {/* z-10：横幅容器是定位元素会盖住静态兄弟，头像压边必须抬高一层 */}
