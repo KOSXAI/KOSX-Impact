@@ -18,7 +18,7 @@ type LookupPreview = {
   latestRecordedAt: string | null;
   tierKey: string;
   tierName: string;
-  nextTier: number;
+  nextMilestone: number;
   pending: boolean;
   lastProcessedAt: string | null;
 };

@@ -301,7 +301,7 @@ describe("lookupRefreshMember", () => {
       latestFollowers: 900,
       pending: false,
       tierKey: "seed",
-      nextTier: 1000,
+      nextMilestone: 1000,
     });
 
     await enqueueRefresh(env, "alice", T0);

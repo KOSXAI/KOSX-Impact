@@ -1,4 +1,4 @@
-/** 前后端共享的展示格式化工具（千分位 / 日期 / 台阶档位缩写） */
+/** 前后端共享的展示格式化工具（千分位 / 日期 / 大关档位缩写） */
 
 export function fmt(n: number): string {
   return n.toLocaleString("zh-CN");

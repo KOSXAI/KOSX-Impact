@@ -23,7 +23,7 @@ export interface RefreshPreview {
   latestRecordedAt: string | null;
   tierKey: string;
   tierName: string;
-  nextTier: number;
+  nextMilestone: number;
   /** 是否已有待处理的更新 */
   pending: boolean;
   /** 最近一次自助更新完成时间 */
@@ -94,7 +94,7 @@ export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<
     latestRecordedAt: (member.latestRecordedAt as string | null) ?? null,
     tierKey: tier.key,
     tierName: tier.name,
-    nextTier: nextThreshold(followers ?? 0),
+    nextMilestone: nextThreshold(followers ?? 0),
     pending: pendingRow != null,
     lastProcessedAt: doneRow?.lastAt ?? null,
   };

@@ -58,7 +58,7 @@ describe("computeMemberStats", () => {
     expect(stats.daysSinceUpdate).toBe(1);
   });
 
-  it("计算段位与下一级台阶", () => {
+  it("计算段位与下一道大关", () => {
     const snapshots = [
       { followers: 1000, recordedAt: "2026-09-01T00:00:00Z" },
       { followers: 1200, recordedAt: "2026-09-02T00:00:00Z" },
