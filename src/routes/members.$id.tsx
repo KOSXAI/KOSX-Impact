@@ -14,7 +14,7 @@ import { fmt, fmtDate, badge } from "@/lib/format";
 import { nextThreshold, titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ExternalLink, MapPin } from "lucide-react";
 
 export const Route = createFileRoute("/members/$id")({
   loader: async ({ params }) => {
@@ -26,14 +26,16 @@ export const Route = createFileRoute("/members/$id")({
   // 让搜索引擎丢弃软 404（SSR 状态码已是 HTTP 404，noindex 兜底防重复抓取）
   head: ({ loaderData }) => {
     const name = loaderData ? loaderData.member.displayName ?? loaderData.member.handle : "成员不存在";
+    // 简介是成员的自我介绍：有就拿来当分享描述，没有退回站点文案
+    const blurb = loaderData?.profile.bio?.trim() || `${name} 的成长档案：粉丝量曲线、称号大关与成就徽章。`;
     return {
       meta: [
         { title: `${name} · ${SITE_NAME}` },
         ...(loaderData
-          ? [{ name: "description", content: `${name} 的成长档案：粉丝量曲线、称号大关与成就徽章。` }]
+          ? [{ name: "description", content: blurb }]
           : [{ name: "robots", content: "noindex, follow" }]),
         { property: "og:title", content: `${name} · ${SITE_NAME}` },
-        { property: "og:description", content: "看见每个人的成长——这是 TA 迈向万粉「万人迷」及更高称号的进度。" },
+        { property: "og:description", content: blurb },
         { property: "og:type", content: "profile" },
         ...(loaderData
           ? [
@@ -53,8 +55,47 @@ export const Route = createFileRoute("/members/$id")({
   notFoundComponent: () => <MemberNotFound id="" />,
 });
 
+/** X 龄：账号创建距今的时长（不足一年按月） */
+function xAgeText(xCreatedAt: string | null): string | null {
+  if (!xCreatedAt) return null;
+  const created = Date.parse(xCreatedAt);
+  if (Number.isNaN(created)) return null;
+  const days = Math.floor((Date.now() - created) / 86_400_000);
+  if (days < 0) return null;
+  if (days < 365) return `X 龄 ${Math.max(1, Math.round(days / 30.4))} 个月`;
+  return `X 龄 ${Math.floor(days / 365.25)} 年`;
+}
+
+/** 主页外链的展示文案：只显示主机名（去掉 www.），长链接不撑爆 chip */
+function urlHost(raw: string): string | null {
+  try {
+    return new URL(raw).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/** 档案横幅：X 横幅可能随时被成员删掉（URL 失效），加载失败回退渐变底 */
+function BannerImage({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return <div aria-hidden="true" className="bg-gradient-to-r size-full from-signal/15 via-surface to-surface" />;
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="size-full object-cover"
+    />
+  );
+}
+
 function MemberPage() {
-  const { member, snapshots, milestones } = Route.useLoaderData();
+  const { member, profile, counters, snapshots, milestones } = Route.useLoaderData();
   const name = member.displayName ?? member.handle;
   const [submitOpen, setSubmitOpen] = useState(false);
 
@@ -71,6 +112,17 @@ function MemberPage() {
     t = nextThreshold(t);
   }
 
+  const age = xAgeText(profile.xCreatedAt);
+  const homeHost = profile.url ? urlHost(profile.url) : null;
+
+  // 次级计数：关注 / 发帖 / 列表收录 / 点赞（近 30 天增量有值才显示）
+  const secondary: Array<{ label: string; value: number | null; delta?: number | null }> = [
+    { label: "关注", value: counters.following, delta: counters.delta30d.following },
+    { label: "发帖", value: counters.posts, delta: counters.delta30d.posts },
+    { label: "列表收录", value: counters.listedCount, delta: counters.delta30d.listedCount },
+    { label: "点赞", value: counters.favouritesCount, delta: counters.delta30d.favouritesCount },
+  ];
+
   return (
     <>
       <SiteHeader containerClassName="max-w-4xl" />
@@ -83,29 +135,80 @@ function MemberPage() {
             <ArrowLeft className="size-4" />
             返回看板
           </Link>
-  
-          <div className="mt-8 flex items-center gap-5">
-            <Avatar url={member.profileImage} name={name} className="size-20" />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{name}</h1>
-                <TierBadge tierKey={member.tierKey} tierName={member.tierName} />
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-                <a
-                  href={xProfileUrl(member.handle)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-base text-mist underline-offset-4 hover:text-ink hover:underline"
-                >
-                  @{member.handle}
-                </a>
-                <Badge variant="secondary">加入于 {fmtDate(member.joinedAt)}</Badge>
-              </div>
+
+          {/* 档案卡：横幅 hero + 身份区 + 简介（全部来自 X 公开资料） */}
+          <section className="mt-8 overflow-hidden rounded-3xl border border-line bg-surface">
+            <div className="relative h-32 sm:h-44">
+              {profile.bannerUrl ? (
+                <BannerImage src={profile.bannerUrl} />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="bg-gradient-to-r size-full from-signal/15 via-surface to-surface"
+                />
+              )}
+              <div
+                aria-hidden="true"
+                className="from-surface via-surface/30 absolute inset-0 bg-gradient-to-t to-transparent"
+              />
             </div>
-          </div>
+            <div className="px-6 pb-6 sm:px-8">
+              <div className="-mt-12 sm:-mt-14">
+                <div className="flex items-end gap-4">
+                  <Avatar url={member.profileImage} name={name} className="ring-surface size-20 ring-4 sm:size-24" />
+                  <div className="min-w-0 pb-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{name}</h1>
+                      {profile.verified && (
+                        <BadgeCheck className="size-5 text-sky-400" aria-label="X 认证账号" />
+                      )}
+                      <TierBadge tierKey={member.tierKey} tierName={member.tierName} />
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <a
+                    href={xProfileUrl(member.handle)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-signal/40 hover:text-ink"
+                  >
+                    @{member.handle}
+                  </a>
+                  {profile.location && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist">
+                      <MapPin className="size-3.5" aria-hidden="true" />
+                      {profile.location}
+                    </span>
+                  )}
+                  {age && (
+                    <span className="rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist">
+                      {age}
+                    </span>
+                  )}
+                  <span className="rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist">
+                    加入于 {fmtDate(member.joinedAt)}
+                  </span>
+                  {profile.url && homeHost && (
+                    <a
+                      href={profile.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-signal/40 hover:text-ink"
+                    >
+                      <ExternalLink className="size-3.5" aria-hidden="true" />
+                      {homeHost}
+                    </a>
+                  )}
+                </div>
+              </div>
+              {profile.bio && (
+                <p className="text-mist mt-4 text-sm leading-relaxed whitespace-pre-line">{profile.bio}</p>
+              )}
+            </div>
+          </section>
         </Reveal>
-  
+
         <main className="mt-10 space-y-12 sm:mt-14">
           <RevealGroup className="grid grid-cols-2 gap-3 lg:grid-cols-4" stagger={0.06}>
             <RevealItem>
@@ -121,7 +224,29 @@ function MemberPage() {
               <Stat label="登阶成就" value={milestones.length} />
             </RevealItem>
           </RevealGroup>
-  
+
+          {/* 次级计数：同一份采集响应带出的公开数据（快照无值显示 —） */}
+          <Reveal>
+            <Card>
+              <CardContent className="grid grid-cols-2 gap-x-6 gap-y-5 px-5 py-4 sm:grid-cols-4">
+                {secondary.map((s) => (
+                  <div key={s.label}>
+                    <div className="text-sm text-mist">{s.label}</div>
+                    <div className="mt-1 text-xl font-bold tabular-nums">
+                      {s.value != null ? fmt(s.value) : "—"}
+                    </div>
+                    {s.value != null && s.delta != null && (
+                      <div className={cn("mt-0.5 text-xs text-mist tabular-nums", s.delta > 0 && "text-signal")}>
+                        近 30 天 {s.delta > 0 ? "+" : ""}
+                        {fmt(s.delta)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </Reveal>
+
           <Reveal>
             <section>
               <h2 className="text-2xl font-bold">称号之路</h2>
@@ -172,14 +297,14 @@ function MemberPage() {
               </Card>
             </section>
           </Reveal>
-  
+
           <Reveal>
             <section>
               <h2 className="text-2xl font-bold">成长曲线</h2>
               <GrowthChart snapshots={snapshots} nextMilestone={member.nextMilestone} className="mt-6" />
             </section>
           </Reveal>
-  
+
           <Reveal>
             <section>
               <div className="flex items-center gap-3">
@@ -207,7 +332,7 @@ function MemberPage() {
               )}
             </section>
           </Reveal>
-  
+
           <Reveal>
             <div className="border-t border-line pt-6 text-sm text-mist">
               这是你的账号？
@@ -220,7 +345,7 @@ function MemberPage() {
             </div>
           </Reveal>
         </main>
-  
+
         <SubmitDialog open={submitOpen} onOpenChange={setSubmitOpen} defaultHandle={member.handle} />
       </div>
     </>
@@ -246,7 +371,7 @@ function Stat({
           value={value}
           prefix={prefix}
           suffix={suffix}
-          className="mt-1.5 block text-2xl font-bold tabular-nums"
+          className="mt-1.5 block text-2xl font-bold tabular-nums sm:text-3xl"
         />
       </CardContent>
     </Card>

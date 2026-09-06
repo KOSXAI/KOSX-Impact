@@ -113,8 +113,17 @@ async function writeSnapshot(
       "DELETE FROM snapshots WHERE member_id = ?1 AND date(recorded_at) = date(?2)"
     ).bind(memberId, now),
     env.DB.prepare(
-      "INSERT INTO snapshots (member_id, followers, following, posts, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5)"
-    ).bind(memberId, stats.followers, stats.following ?? null, stats.posts ?? null, now),
+      `INSERT INTO snapshots (member_id, followers, following, posts, listed_count, favourites_count, recorded_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+    ).bind(
+      memberId,
+      stats.followers,
+      stats.following ?? null,
+      stats.posts ?? null,
+      stats.listedCount ?? null,
+      stats.favouritesCount ?? null,
+      now
+    ),
     env.DB.prepare(
       `UPDATE members SET
          display_name = CASE
@@ -122,9 +131,25 @@ async function writeSnapshot(
            ELSE COALESCE(display_name, ?2)
          END,
          profile_image = ?3,
+         bio = COALESCE(?4, bio),
+         location = COALESCE(?5, location),
+         url = COALESCE(?6, url),
+         banner_url = COALESCE(?7, banner_url),
+         x_created_at = COALESCE(?8, x_created_at),
+         verified = COALESCE(?9, verified),
          updated_at = datetime('now')
        WHERE id = ?1`
-    ).bind(memberId, stats.displayName ?? null, stats.profileImageUrl ?? null),
+    ).bind(
+      memberId,
+      stats.displayName ?? null,
+      stats.profileImageUrl ?? null,
+      stats.bio ?? null,
+      stats.location ?? null,
+      stats.url ?? null,
+      stats.bannerUrl ?? null,
+      stats.xCreatedAt ?? null,
+      stats.verified == null ? null : stats.verified ? 1 : 0
+    ),
     env.DB.prepare(
       `INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
        ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`

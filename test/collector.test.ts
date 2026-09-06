@@ -166,12 +166,25 @@ describe("collectWithSource", () => {
     ).run();
     await env.DB.prepare("DELETE FROM site_meta WHERE key = 'cache_bust'").run();
 
-    await applyFollowerStats(env, "alice", { followers: 1500, displayName: "爱丽丝" }, "2026-09-05T04:00:00Z");
+    await applyFollowerStats(env, "alice", {
+      followers: 1500,
+      displayName: "爱丽丝",
+      bio: "KOSX 成员",
+      location: "上海",
+      url: "https://alice.example.com",
+      bannerUrl: "https://pbs.twimg.com/profile_banners/1/1500x500",
+      xCreatedAt: "Wed May 12 08:00:00 +0000 2019",
+      verified: true,
+      listedCount: 37,
+      favouritesCount: 4200,
+    }, "2026-09-05T04:00:00Z");
 
     const snapshot = (await env.DB.prepare(
-      "SELECT followers FROM snapshots WHERE member_id = 'alice'"
-    ).first()) as { followers: number };
+      "SELECT followers, listed_count, favourites_count FROM snapshots WHERE member_id = 'alice'"
+    ).first()) as { followers: number; listed_count: number; favourites_count: number };
     expect(snapshot.followers).toBe(1500);
+    expect(snapshot.listed_count).toBe(37);
+    expect(snapshot.favourites_count).toBe(4200);
 
     const daily = (await env.DB.prepare(
       "SELECT followers FROM daily_stats WHERE member_id = 'alice'"
@@ -179,20 +192,35 @@ describe("collectWithSource", () => {
     expect(daily.followers).toBe(1500);
 
     const member = (await env.DB.prepare(
-      "SELECT display_name FROM members WHERE id = 'alice'"
-    ).first()) as { display_name: string };
+      `SELECT display_name, bio, location, url, banner_url, x_created_at, verified
+       FROM members WHERE id = 'alice'`
+    ).first()) as {
+      display_name: string; bio: string; location: string; url: string;
+      banner_url: string; x_created_at: string; verified: number;
+    };
     expect(member.display_name).toBe("爱丽丝");
+    expect(member.bio).toBe("KOSX 成员");
+    expect(member.location).toBe("上海");
+    expect(member.url).toBe("https://alice.example.com");
+    expect(member.banner_url).toContain("profile_banners");
+    expect(member.x_created_at).toBe("Wed May 12 08:00:00 +0000 2019");
+    expect(member.verified).toBe(1);
 
     const bust = (await env.DB.prepare(
       "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
     ).first()) as { bust: number };
     expect(bust.bust).toBe(1);
 
-    // 再次写库：cache_bust 递增（缓存键换新）
+    // 再次写库：cache_bust 递增（缓存键换新）；响应缺档案字段时不清空已有值
     await applyFollowerStats(env, "alice", { followers: 1600 }, "2026-09-05T04:05:00Z");
     const bust2 = (await env.DB.prepare(
       "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
     ).first()) as { bust: number };
     expect(bust2.bust).toBe(2);
+    const kept = (await env.DB.prepare(
+      "SELECT bio, verified FROM members WHERE id = 'alice'"
+    ).first()) as { bio: string; verified: number };
+    expect(kept.bio).toBe("KOSX 成员");
+    expect(kept.verified).toBe(1);
   });
 });

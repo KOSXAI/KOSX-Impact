@@ -5,7 +5,7 @@
  * 采集/提交写库后版本 +1，新键在各区必然 miss → 数据变化后刷新立即可见。
  */
 import type { DashboardStats, MemberDetail } from "./stats";
-import { computeDashboardStats, computeMemberStats } from "./stats";
+import { computeDashboardStats, computeMemberStats, computeCountDelta } from "./stats";
 import { MILESTONE_THRESHOLDS } from "./milestones";
 import { roster } from "./roster";
 import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
@@ -74,12 +74,16 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     3600,
     async () => {
     const member = await env.DB.prepare(
-      `SELECT ${MEMBER_FIELDS} FROM members WHERE id = ? AND status = 'active'`
+      `SELECT ${MEMBER_FIELDS},
+              bio, location, url, banner_url AS bannerUrl, x_created_at AS xCreatedAt, verified
+       FROM members WHERE id = ? AND status = 'active'`
     ).bind(id).first();
     if (!member) return new Response(JSON.stringify({ error: "member not found" }), { status: 404 });
 
     const { results: snapshots } = await env.DB.prepare(
-      "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ? ORDER BY recorded_at"
+      `SELECT followers, following, posts, listed_count AS listedCount, favourites_count AS favouritesCount,
+              recorded_at AS recordedAt
+       FROM snapshots WHERE member_id = ? ORDER BY recorded_at`
     ).bind(id).all();
     const { results: milestones } = await env.DB.prepare(
       "SELECT threshold, achieved_at AS achievedAt FROM milestones WHERE member_id = ? ORDER BY threshold"
@@ -90,18 +94,64 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
       (r) => ladderSet.has(r.threshold)
     );
 
+    const memberRow = member as never as {
+      id: string;
+      handle: string;
+      displayName: string | null;
+      joinedAt: string;
+      profileImage: string | null;
+      bio: string | null;
+      location: string | null;
+      url: string | null;
+      bannerUrl: string | null;
+      xCreatedAt: string | null;
+      verified: number | null;
+    };
+    const snapshotRows = snapshots as never as Array<
+      { recordedAt: string } & Record<string, number | null> & { followers: number }
+    >;
+
     const stats = computeMemberStats(
-      member as never as {
-        id: string;
-        handle: string;
-        displayName: string | null;
-        joinedAt: string;
-        profileImage: string | null;
+      {
+        id: memberRow.id,
+        handle: memberRow.handle,
+        displayName: memberRow.displayName,
+        joinedAt: memberRow.joinedAt,
+        profileImage: memberRow.profileImage,
       },
-      snapshots as never,
+      snapshotRows,
       new Date().toISOString()
     );
-    const detail = { member: stats, snapshots: snapshots as never, milestones: ladderMilestones as never };
+
+    // 次级计数：最新快照的当前值 + 近 30 天增量（历史快照缺值的字段不硬算）
+    const latestSnap = snapshotRows[snapshotRows.length - 1] ?? null;
+    const counters: MemberDetail["counters"] = {
+      following: latestSnap?.following ?? null,
+      posts: latestSnap?.posts ?? null,
+      listedCount: latestSnap?.listedCount ?? null,
+      favouritesCount: latestSnap?.favouritesCount ?? null,
+      delta30d: {
+        following: computeCountDelta(snapshotRows, 30, "following"),
+        posts: computeCountDelta(snapshotRows, 30, "posts"),
+        listedCount: computeCountDelta(snapshotRows, 30, "listedCount"),
+        favouritesCount: computeCountDelta(snapshotRows, 30, "favouritesCount"),
+      },
+    };
+
+    const detail: MemberDetail = {
+      member: stats,
+      profile: {
+        bio: memberRow.bio,
+        location: memberRow.location,
+        url: memberRow.url,
+        bannerUrl: memberRow.bannerUrl,
+        xCreatedAt: memberRow.xCreatedAt,
+        verified: memberRow.verified === 1,
+      },
+      counters,
+      snapshots: snapshotRows,
+      milestones: ladderMilestones,
+    };
     return new Response(JSON.stringify(detail), { headers: { "Content-Type": "application/json" } });
   });
   if (res.status === 404) return null;

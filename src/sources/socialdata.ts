@@ -52,6 +52,14 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
         friends_count?: number;
         statuses_count?: number;
         profile_image_url_https?: string;
+        description?: string;
+        location?: string;
+        url?: string | null;
+        profile_banner_url?: string;
+        created_at?: string;
+        verified?: boolean;
+        listed_count?: number;
+        favourites_count?: number;
       };
       if (typeof data.followers_count !== "number") {
         throw new SocialDataError(`响应缺少 followers_count：${JSON.stringify(data)}`);
@@ -62,6 +70,14 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
         posts: data.statuses_count,
         displayName: data.name ?? null,
         profileImageUrl: data.profile_image_url_https,
+        bio: data.description ?? null,
+        location: data.location ?? null,
+        url: data.url ?? null,
+        bannerUrl: data.profile_banner_url,
+        xCreatedAt: data.created_at,
+        verified: data.verified === true,
+        listedCount: typeof data.listed_count === "number" ? data.listed_count : undefined,
+        favouritesCount: typeof data.favourites_count === "number" ? data.favourites_count : undefined,
       };
     },
   };

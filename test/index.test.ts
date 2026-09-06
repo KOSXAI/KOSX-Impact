@@ -41,15 +41,21 @@ describe("API", () => {
     await env.DB.prepare(
       "INSERT INTO milestones (member_id, threshold, achieved_at) VALUES (?, ?, ?)"
     ).bind("alice", 1000, "2026-08-20T00:00:00Z").run();
+    await env.DB.prepare(
+      "UPDATE members SET bio = 'KOSX 成员', verified = 1 WHERE id = 'alice'"
+    ).run();
 
     const res = await exports.default.fetch("https://example.com/api/members/alice");
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       member: { handle: string };
+      profile: { bio: string | null; verified: boolean };
       snapshots: unknown[];
       milestones: Array<{ threshold: number }>;
     };
     expect(body.member.handle).toBe("alice_x");
+    expect(body.profile.bio).toBe("KOSX 成员");
+    expect(body.profile.verified).toBe(true);
     expect(body.snapshots).toHaveLength(1);
     expect(body.milestones).toHaveLength(1);
   });

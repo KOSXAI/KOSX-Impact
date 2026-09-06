@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeCountDelta,
   computeDashboardStats,
   computeGrowthNDays,
   computeMemberStats,
@@ -174,5 +175,39 @@ describe("computeDashboardStats", () => {
     expect(stats.totalGrowth30d).toBe(9510);
     expect(stats.tenKMembers).toBe(1);
     expect(stats.totalFollowers).toBe(10560);
+  });
+});
+
+describe("computeCountDelta", () => {
+  const rows = [
+    { recordedAt: "2026-08-01T00:00:00Z", posts: 100, listedCount: null },
+    { recordedAt: "2026-08-10T00:00:00Z", posts: 108, listedCount: 5 },
+    { recordedAt: "2026-08-20T00:00:00Z", posts: 120, listedCount: 6 },
+    { recordedAt: "2026-09-03T00:00:00Z", posts: 130, listedCount: 9 },
+  ];
+
+  it("窗口内取最旧有值快照为基线", () => {
+    // 30 天窗口（cutoff 08-05）→ 基线 08-10 的 108
+    expect(computeCountDelta(rows, 30, "posts")).toBe(22);
+    // 20 天窗口（cutoff 08-15）→ 基线 08-20 的 120
+    expect(computeCountDelta(rows, 20, "posts")).toBe(10);
+    // 08-01 缺值跳过，基线 08-10 的 5
+    expect(computeCountDelta(rows, 30, "listedCount")).toBe(4);
+  });
+
+  it("只有最新一个数据点时不显示增量（列后加的首次采集）", () => {
+    // 3 天窗口只含最新行 → 无基线，返回 null 而非 +0
+    expect(computeCountDelta(rows, 3, "listedCount")).toBeNull();
+    expect(computeCountDelta(rows, 3, "posts")).toBeNull();
+  });
+
+  it("最新值缺值返回 null", () => {
+    const stale = rows.slice(0, 3).map((r, i) => (i === 2 ? { ...r, listedCount: null } : r));
+    expect(computeCountDelta(stale, 30, "listedCount")).toBeNull();
+  });
+
+  it("全史无有值快照 / 空快照返回 null", () => {
+    expect(computeCountDelta(rows, 30, "favouritesCount")).toBeNull();
+    expect(computeCountDelta([], 30, "posts")).toBeNull();
   });
 });

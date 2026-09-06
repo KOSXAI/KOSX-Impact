@@ -66,8 +66,40 @@ export interface DashboardStats {
 
 export interface MemberDetail {
   member: MemberStats;
+  /** 档案资料（members 表最新值，SocialData 同一响应收集，零额外 API） */
+  profile: MemberProfile;
+  /** 次级计数（快照最新值 + 近 30 天增量；快照无值时为 null） */
+  counters: MemberCounters;
   snapshots: Array<{ followers: number; recordedAt: string }>;
   milestones: Array<{ threshold: number; achievedAt: string }>;
+}
+
+/** 档案资料（慢变量，members 表最新值） */
+export interface MemberProfile {
+  bio: string | null;
+  location: string | null;
+  url: string | null;
+  bannerUrl: string | null;
+  /** X 账号创建时间（ISO）——「X 龄」 */
+  xCreatedAt: string | null;
+  verified: boolean;
+}
+
+/** 次级计数（快变量，取自最新快照） */
+export interface MemberCounters {
+  following: number | null;
+  posts: number | null;
+  /** 被列表收录数 */
+  listedCount: number | null;
+  /** 该账号发出的点赞数 */
+  favouritesCount: number | null;
+  /** 各计数的近 30 天增量（快照两端任一缺值则为 null） */
+  delta30d: {
+    following: number | null;
+    posts: number | null;
+    listedCount: number | null;
+    favouritesCount: number | null;
+  };
 }
 
 /** 计算两个 ISO 日期之间的整天数（b - a，按 UTC 日历日） */
@@ -86,6 +118,45 @@ export function computeGrowthNDays(
   const cutoff = new Date(Date.parse(latest.recordedAt) - (n - 1) * 86_400_000).toISOString();
   const first = snapshots.find((s) => s.recordedAt >= cutoff);
   return latest.followers - (first?.followers ?? snapshots[0].followers);
+}
+
+/**
+ * 次级计数（关注/发帖/列表收录/点赞）的近 n 天增量。
+ * 与粉丝增长不同：列是后加的，历史快照可能缺值——窗口内最早的有值快照为基线，
+ * 窗口内没值时回退全史最早；只有最新一个数据点时不显示增量（返回 null）。
+ */
+export function computeCountDelta(
+  snapshots: Array<{ recordedAt: string } & { [key: string]: string | number | null | undefined }>,
+  n: number,
+  field: string
+): number | null {
+  if (snapshots.length === 0) return null;
+  const last = snapshots.length - 1;
+  const latestVal = snapshots[last][field];
+  if (typeof latestVal !== "number") return null;
+  const cutoff = new Date(Date.parse(snapshots[last].recordedAt) - (n - 1) * 86_400_000).toISOString();
+  let baseIdx = -1;
+  for (let i = 0; i <= last; i++) {
+    if (snapshots[i].recordedAt >= cutoff) {
+      const v = snapshots[i][field];
+      if (typeof v === "number") {
+        baseIdx = i;
+        break;
+      }
+    }
+  }
+  if (baseIdx === -1) {
+    for (let i = 0; i <= last; i++) {
+      const v = snapshots[i][field];
+      if (typeof v === "number") {
+        baseIdx = i;
+        break;
+      }
+    }
+  }
+  if (baseIdx === -1 || baseIdx === last) return null;
+  const base = snapshots[baseIdx][field];
+  return typeof base === "number" ? latestVal - base : null;
 }
 
 export function computeMemberStats(

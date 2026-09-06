@@ -7,6 +7,22 @@ export interface FollowerStats {
   displayName?: string | null;
   /** X 公开头像 URL（pbs.twimg.com），无头像时缺省 */
   profileImageUrl?: string;
+  /** X 简介（bio，自由文本） */
+  bio?: string | null;
+  /** 地区（X 资料自由文本，可能是 emoji/国旗） */
+  location?: string | null;
+  /** 资料里的主页外链 */
+  url?: string | null;
+  /** 横幅图 URL（pbs.twimg.com，档案页 hero） */
+  bannerUrl?: string | null;
+  /** X 账号创建时间（ISO 8601） */
+  xCreatedAt?: string | null;
+  /** 是否认证账号 */
+  verified?: boolean;
+  /** 被列表收录数（独立于粉丝量的策展型影响力信号） */
+  listedCount?: number;
+  /** 该账号发出的点赞数（活跃度信号） */
+  favouritesCount?: number;
 }
 
 /**
