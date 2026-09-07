@@ -151,7 +151,40 @@ Monitor 的价值只在「**分钟级以下的实时** + 免轮询」。低频�
 
 - Search Monitor 每小时 ≈ $0.14/月 保底起、5 分钟 ≈ $1.73/月 —— 比 User Monitor 便宜得多，适合「某关键词有没有人提 / 提到多少」类需求
 
-## 七、实施注意点清单（给后面系统设计）
+## 七、三源成本对比：SocialData vs 官方 X API vs 自建爬虫
+
+> 核对日期 2026-09-07。⚠️ 官方 X API 定价自 2026-02 起改为**按用量计费**（pay-per-use，预付点数、无月度订阅承诺），试点价：读 1 条 Post $0.005、读 1 个 User $0.01、写 1 条 Post $0.015（带链接 $0.20）；「Owned Reads」自读数据 $0.001/资源（仅限自己的 posts/followers/following 等端点）。旧 Basic $200/月、Pro $5,000/月套餐仍在售，新老用户可切换。
+
+### 核心场景：每日抓 1 次 N 个账号的 profile（KOSX 现有形态）
+
+| 账号规模 | SocialData | 官方 X API（按用量） | 自建爬虫 |
+| --- | --- | --- | --- |
+| 100 | **$0.60 / 月** | $30 / 月（3,000 User reads） | 见下文 |
+| 1,000 | **$6 / 月** | $300 / 月 | 见下文 |
+| 10,000 | **$60 / 月** | $3,000 / 月 | 见下文 |
+
+结论：**官方 X API 单价是 SocialData 的 50 倍**（$0.01 vs $0.0002），且「Owned Reads」低价不适用于 KOSX——它只覆盖**自己的**账号数据，而 KOSX 追踪的是成员/竞品（第三方）账号，只能走全价 $0.01/User Read。若未来走「成员 OAuth 授权」读取成员自己的数据，官方 Owned Reads $0.001/资源 与 SocialData 同量级（贵 5 倍），但要成员授权配合 + 官方额度管理，复杂度高。
+
+### 限流对比（10,000 账号日更一次的吞吐）
+
+| 数据源 | 限流 | 10,000 请求耗时 |
+| --- | --- | --- |
+| SocialData | 120 req/min / Key（可免费提额） | ≈ 83 分钟 |
+| 官方 X API | user lookup 300 req / 15 分钟 / App（≈20 req/min） | ≈ 8.3 小时（单 App，需多 App 或排队） |
+
+### 「自建爬虫」的账（无 API 费 ≠ 免费）
+
+- **反爬工程成本**：X 对未登录/机房流量强反爬（JS 渲染 + bot 检测），稳定抓取基本依赖住宅代理（约 $3–8/GB）；profile 页 JS 重（约 2–5MB/次），1,000 账号/天 ≈ 3–5GB ≈ **$10–40/月纯流量**，还不含对抗开发的工程人时
+- **风险**：封号封 IP、ToS 违约、无 SLA；对抗成本随规模上升，且 X 每改版一次就有系统性归零风险
+- **结论**：百级规模「能爬」，千级以上工程成本超过 API 费；对 KOSX 这种公开数据平台，合规与稳定是刚需，自建不可作为长期方案
+
+### 选型结论
+
+- KOSX 现有场景（第三方账号 profile 日更）：**SocialData 最优**——比官方 API 便宜 50 倍，又比自建爬虫省掉全部工程与合规风险
+- 值得切换官方 API 的理由只剩：需要**写操作**（发帖/互动）、企业级 SLA/数据契约（Enterprise 定制价）、或官方独占的数据功能
+- 自建爬虫只适合一次性研究型小批量抓取，不适合生产线
+
+## 八、实施注意点清单（给后面系统设计）
 
 1. **402 兜底**：余额 ≤ 0 时全部请求失败，采集管线必须识别 HTTP 402 并暂停（避免无限重试烧日志）；官方提供余额预警通知与自动充值，建议启用
 2. **空响应免费额度的语义**：免费 3 次/分钟只豁免「空响应」；返回数据的请求一律 $0.0002。设计节流时别把 3 req/min 当成本红线，120 req/min 才是硬限流
@@ -161,10 +194,12 @@ Monitor 的价值只在「**分钟级以下的实时** + 免轮询」。低频�
 6. **成本对账**：官方有用量面板 + 低余额通知；也可自建对账（记录每日请求数 × 单价，与余额下降幅度比对，能早期发现异常调用）
 7. **MCP 免费溢价**：MCP 与 REST 同价，临时人工查数（比如运营核对某个账号）直接走 MCP 或 REST 均可，成本一样
 
-## 来源（核对日期 2026-09-07）
+## 九、来源（核对日期 2026-09-07）
 
 - Overview: https://docs.socialdata.tools/getting-started/overview/
 - Pricing: https://docs.socialdata.tools/getting-started/pricing/
 - Monitoring Pricing: https://docs.socialdata.tools/monitoring/pricing/
 - Rate Limits: https://docs.socialdata.tools/getting-started/rate-limits/
 - 主页（充值/退款/免费套餐说明）: https://socialdata.tools/
+- 官方 X API 按用量计费与 Owned Reads: https://docs.x.com/x-api/getting-started/pricing
+- 官方 X API rate limits: https://docs.x.com/x-api/fundamentals/rate-limits
