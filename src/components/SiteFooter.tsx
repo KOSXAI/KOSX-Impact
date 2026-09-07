@@ -1,0 +1,59 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { SubmitDialog } from "@/components/member/SubmitDialog";
+import { ArrowUpRight } from "lucide-react";
+import { GITHUB_URL, OFFICIAL_SITE_URL, SITE_NAME } from "@/lib/site";
+
+/** GitHub 官方 octocat 标记（lucide 已移除品牌图标，内联 SVG 用 currentColor 跟主题） */
+function GitHubIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+  );
+}
+
+/**
+ * 全站统一页脚（挂在根布局，所有页面共用）：
+ * 左侧品牌名 + 版权行，右侧官网/GitHub 与「加入追踪」主按钮（提交弹窗在此）。
+ * 说明性文案一律不放——页脚只做两件事：标识身份、给加入入口。
+ */
+export function SiteFooter() {
+  const [joinOpen, setJoinOpen] = useState(false);
+  return (
+    <footer className="border-t border-line/60 bg-paper">
+      <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-6 sm:py-8">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+          <div className="min-w-0">
+            <div className="font-bold">{SITE_NAME}</div>
+            <div className="mt-0.5 text-xs text-mist">© 2026 KOSX.ai</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href={OFFICIAL_SITE_URL}
+              target="_blank"
+              rel="noreferrer"
+              title="KOSX 官网"
+              className="inline-flex items-center gap-0.5 text-sm font-semibold text-mist transition-colors hover:text-ink"
+            >
+              官网
+              <ArrowUpRight className="size-3.5" aria-hidden="true" />
+            </a>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              title="KOSX-Impact 开源仓库"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+            >
+              <GitHubIcon className="size-4" />
+              GitHub
+            </a>
+            <Button onClick={() => setJoinOpen(true)}>加入追踪</Button>
+          </div>
+        </div>
+      </div>
+      <SubmitDialog open={joinOpen} onOpenChange={setJoinOpen} />
+    </footer>
+  );
+}

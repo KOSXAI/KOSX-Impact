@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Menu, X } from "lucide-react";
 import { GITHUB_URL, OFFICIAL_SITE_URL } from "@/lib/site";
-import { Button } from "@/components/ui/button";
-import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { cn } from "@/lib/utils";
 
 /** GitHub 官方 octocat 标记（lucide 已移除品牌图标，内联 SVG 用 currentColor 跟主题） */
@@ -15,48 +13,59 @@ function GitHubIcon({ className }: { className?: string }) {
   );
 }
 
-/** 全站导航：各页面按模块拆分后的顶级入口（访问 /tracks/xxx 时「赛道」保持高亮） */
+/**
+ * 全站导航：按优先级渐进显示——越重要的越先出现，放不下的收进窄屏汉堡面板。
+ * - 总览/榜单：所有宽度恒显（回首页 + 核心榜单）
+ * - 成员 ≥360px · 赛道 ≥480px · 内容 ≥640px · 关于 ≥768px · 官网 ≥900px
+ * - 访问 /tracks/xxx、/members/xxx 时对应项保持高亮
+ */
 const NAV = [
-  { to: "/", label: "总览", exact: true },
-  { to: "/leaderboard", label: "榜单", exact: false },
-  { to: "/tracks", label: "赛道", exact: false },
-  { to: "/posts", label: "内容", exact: false },
-  { to: "/about", label: "关于", exact: false },
+  { to: "/", label: "总览", exact: true, cls: "" },
+  { to: "/leaderboard", label: "榜单", exact: false, cls: "" },
+  { to: "/members", label: "成员", exact: false, cls: "hidden min-[360px]:inline-flex" },
+  { to: "/tracks", label: "赛道", exact: false, cls: "hidden min-[480px]:inline-flex" },
+  { to: "/posts", label: "内容", exact: false, cls: "hidden min-[640px]:inline-flex" },
+  { to: "/about", label: "关于", exact: false, cls: "hidden md:inline-flex" },
 ] as const;
 
+const NAV_BASE_CLS =
+  "shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold text-mist transition-colors hover:text-ink";
+
 /**
- * 全站统一头部。响应式两档（断点 md=768px）：
- * - 宽屏（≥md）：一行式——logo | 导航居中（六项全显，激活圆底高亮）| 「加入追踪」+ GitHub
- * - 窄屏（<md）：logo | 「加入追踪」+ 汉堡；导航收进毛玻璃下拉面板（竖排大点击区，点选即关），
- *   GitHub 随面板出现。移动端不横向滑动——一次看全六项。
- * 「加入追踪」CTA 所有宽度恒显；官网在导航「关于」右侧，与导航同一种链接风格。
+ * 全站统一头部（菜单居中，加入追踪在页脚 SiteFooter）。
+ * 布局 Grid 三段式 grid-cols-[1fr_auto_1fr]：左 logo / 中导航 / 右 GitHub·汉堡，1fr 严格均分保证导航像素级居中。
+ * - 窄屏（<md）：logo 隐藏让位，导航按宽度渐进显示——总览/榜单恒显，成员/赛道/内容/关于随宽度加入，
+ *   放不下的收进汉堡下拉面板（竖排大点击区，点选即关，GitHub 随面板出现）
+ * - 宽屏（≥md）：logo | 导航居中整行显示（官网在「关于」右侧，同链接风格）| GitHub
  */
 export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClassName?: string }) {
-  const [joinOpen, setJoinOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 border-b border-line/60 bg-paper/85 backdrop-blur-md">
       <div
         className={cn(
-          "mx-auto flex h-14 items-center gap-2 sm:gap-3",
+          "mx-auto grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3",
           "px-[clamp(18px,2.2vw,34px)]",
           containerClassName
         )}
       >
-        <Link to="/" aria-label="KOSX 万粉影响力计划" className="flex shrink-0 items-center">
-          <img src="/kosx-logo-white.png" alt="KOSX.ai" className="h-6 w-auto" />
-        </Link>
+        {/* 左格：窄屏留白让导航严格居中，宽屏放 logo */}
+        <div className="flex items-center">
+          <Link to="/" aria-label="KOSX 万粉影响力计划" className="hidden items-center md:flex">
+            <img src="/kosx-logo-white.png" alt="KOSX.ai" className="h-6 w-auto" />
+          </Link>
+        </div>
 
-        {/* 宽屏导航：≥md 整行显示，不滚动 */}
-        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex">
+        {/* 中格：导航居中；窄屏渐进显示（放不下的进汉堡面板），宽屏整行显示 */}
+        <nav className="flex items-center justify-center gap-1">
           {NAV.map((n) => (
             <Link
               key={n.to}
               to={n.to}
               activeOptions={n.exact ? { exact: true } : undefined}
               activeProps={{ className: "bg-soft-surface text-ink" }}
-              className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold text-mist transition-colors hover:text-ink"
+              className={cn(NAV_BASE_CLS, n.cls)}
             >
               {n.label}
             </Link>
@@ -66,17 +75,15 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
             target="_blank"
             rel="noreferrer"
             title="KOSX 官网"
-            className="inline-flex shrink-0 items-center gap-0.5 rounded-full px-3 py-1.5 text-sm font-semibold text-mist transition-colors hover:text-ink"
+            className={cn(NAV_BASE_CLS, "hidden items-center gap-0.5 min-[900px]:inline-flex")}
           >
             官网
             <ArrowUpRight className="size-3.5" aria-hidden="true" />
           </a>
         </nav>
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-          <Button size="sm" onClick={() => setJoinOpen(true)}>
-            加入追踪
-          </Button>
+        {/* 右格：GitHub（宽屏）/ 汉堡（窄屏） */}
+        <div className="flex items-center justify-end gap-2 sm:gap-2.5">
           <a
             href={GITHUB_URL}
             target="_blank"
@@ -99,7 +106,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
         </div>
       </div>
 
-      {/* 窄屏导航面板：点汉堡展开，吸附在头部下方；点任一导航项即关 */}
+      {/* 窄屏导航面板：收容放不下的导航项（七项 + 官网全量），点任一导航项即关 */}
       {menuOpen && (
         <div className="absolute inset-x-0 top-full z-50 border-b border-line/60 bg-paper/95 backdrop-blur-md md:hidden">
           <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-4">
@@ -143,8 +150,6 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
           </div>
         </div>
       )}
-
-      <SubmitDialog open={joinOpen} onOpenChange={setJoinOpen} />
     </header>
   );
 }

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 import { SITE_URL } from "@/lib/site";
 import "@/styles.css";
 
@@ -28,8 +29,12 @@ function RootComponent() {
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-dvh bg-background text-foreground antialiased">
-        <Outlet />
+      <body className="flex min-h-dvh flex-col bg-background text-foreground antialiased">
+        {/* flex-1：内容不足一屏时页脚也贴底 */}
+        <div className="flex-1">
+          <Outlet />
+        </div>
+        <SiteFooter />
         <Scripts />
       </body>
     </html>
