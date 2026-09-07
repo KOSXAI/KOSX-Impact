@@ -42,35 +42,41 @@ const notFound = [];
 
 for (const m of members) {
   const { handle, tracks, tags, confidence } = m;
-  // 结构校验
+  // 结构校验：tracks/tags 必须是数组；显式空数组 = 清空分类（摘除赛道），缺字段 = 拒绝
   const problems = [];
-  if (!Array.isArray(tracks) || tracks.length === 0) problems.push("tracks 缺失或为空");
-  if (!Array.isArray(tags) || tags.length === 0) problems.push("tags 缺失或为空");
+  if (!Array.isArray(tracks)) problems.push("tracks 缺失或非数组");
+  if (!Array.isArray(tags)) problems.push("tags 缺失或非数组");
   if (problems.length > 0) {
     rejected.push(`@${handle}: ${problems.join("、")}`);
     continue;
   }
-  // 赛道白名单校验 + 去重
-  const dedupTracks = [...new Set(tracks)];
-  const badTracks = dedupTracks.filter((t) => !TRACK_WHITELIST.includes(t));
-  if (badTracks.length > 0) {
-    rejected.push(`@${handle}: 赛道不在白名单（${badTracks.join("、")}）`);
-    continue;
-  }
-  if (dedupTracks.length > TRACK_MAX) {
-    rejected.push(`@${handle}: 赛道超 ${TRACK_MAX} 个（${dedupTracks.join("、")}）`);
-    continue;
-  }
-  const dedupTags = [...new Set(tags)];
-  if (dedupTags.length < TAGS_MIN || dedupTags.length > TAGS_MAX) {
-    rejected.push(`@${handle}: 标签数 ${dedupTags.length}（需 ${TAGS_MIN}-${TAGS_MAX}）`);
-    continue;
+  const clear = tracks.length === 0 && tags.length === 0;
+  if (!clear) {
+    // 赛道白名单校验 + 去重
+    const dedupTracks = [...new Set(tracks)];
+    const badTracks = dedupTracks.filter((t) => !TRACK_WHITELIST.includes(t));
+    if (badTracks.length > 0) {
+      rejected.push(`@${handle}: 赛道不在白名单（${badTracks.join("、")}）`);
+      continue;
+    }
+    if (dedupTracks.length > TRACK_MAX) {
+      rejected.push(`@${handle}: 赛道超 ${TRACK_MAX} 个（${dedupTracks.join("、")}）`);
+      continue;
+    }
+    const dedupTags = [...new Set(tags)];
+    if (dedupTags.length < TAGS_MIN || dedupTags.length > TAGS_MAX) {
+      rejected.push(`@${handle}: 标签数 ${dedupTags.length}（需 ${TAGS_MIN}-${TAGS_MAX}）`);
+      continue;
+    }
   }
 
-  // 写库：按 handle 匹配（members.handle 唯一），同时 bump cache_bust
+  // 写库：按 handle 匹配（members.handle 唯一），同时 bump cache_bust。
+  // clear（显式空数组）= 清空分类；否则写去重后的值
+  const finalTracks = clear ? [] : [...new Set(tracks)];
+  const finalTags = clear ? [] : [...new Set(tags)];
   const res = runSql(
-    `UPDATE members SET tracks = ${sql(JSON.stringify(dedupTracks))}, tags = ${sql(
-      JSON.stringify(dedupTags)
+    `UPDATE members SET tracks = ${sql(JSON.stringify(finalTracks))}, tags = ${sql(
+      JSON.stringify(finalTags)
     )}, updated_at = datetime('now') WHERE handle = ${sql(handle)} AND status = 'active'`
   );
   const changed = res?.[0]?.meta?.changes ?? 0;
@@ -82,7 +88,7 @@ for (const m of members) {
   if (typeof confidence === "number" && confidence < LOW_CONFIDENCE) {
     lowConf.push(`@${handle} (${confidence})`);
   }
-  console.log(`✓ @${handle} -> ${dedupTracks.join("/")} · ${dedupTags.length} 标签${confidence != null ? ` · conf=${confidence}` : ""}`);
+  console.log(`✓ @${handle} -> ${finalTracks.length ? finalTracks.join("/") : "(清空)"} · ${finalTags.length} 标签${confidence != null ? ` · conf=${confidence}` : ""}`);
 }
 
 // 有写入成功才 bump cache_bust（读端点缓存键换新，各数据中心立即可见）
