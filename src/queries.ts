@@ -86,6 +86,46 @@ async function getPostActivity(env: Env, memberId: string, handle: string, limit
   return { posts, ...totals };
 }
 
+/** 精华帖：近 N 天全社群单帖浏览 Top（posts 表 + members 联查，带成员展示信息）。走 /api/top-posts 缓存键 */
+export async function getTopPosts(
+  env: Env,
+  opts: { days?: number; limit?: number } = {}
+): Promise<PostItem[]> {
+  const { days = 30, limit = 20 } = opts;
+  const bust = await readCacheBust(env);
+  const res = await cachedResponse(
+    new Request(`${SITE_URL}${CACHE_KEYS.topPosts}&days=${days}&cb=${bust}`),
+    3600,
+    async () => {
+      const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+      const { results: rows } = await env.DB.prepare(
+        `SELECT p.tweet_id AS tweetId, p.created_at AS createdAt, p.text,
+                p.views_count AS views, p.like_count AS likes, p.reply_count AS replies,
+                p.retweet_count AS retweets, p.quote_count AS quotes, p.bookmark_count AS bookmarks,
+                m.id AS memberId, m.handle, m.display_name AS displayName, m.profile_image AS profileImage
+         FROM posts p
+         JOIN members m ON m.id = p.member_id
+         WHERE m.status = 'active' AND p.views_count IS NOT NULL AND p.created_at >= ?1
+         ORDER BY p.views_count DESC LIMIT ?2`
+      ).bind(cutoff, limit).all();
+      const posts = (rows as never as Array<PostRow & {
+        memberId: string;
+        handle: string;
+        displayName: string | null;
+        profileImage: string | null;
+      }>).map((r) => ({
+        ...mapPostRow(r, r.handle),
+        member: { id: r.memberId, handle: r.handle, displayName: r.displayName, profileImage: r.profileImage },
+      }));
+      return new Response(JSON.stringify({ posts, days, cutoff }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  );
+  const body = (await res.json()) as { posts: PostItem[] };
+  return body.posts;
+}
+
 /** 看板统计（/api/dashboard 与首页 SSR 共用，缓存键 ${SITE_URL}/api/dashboard&cb=数据版本） */
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
   const bust = await readCacheBust(env);

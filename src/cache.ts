@@ -38,6 +38,8 @@ export const CACHE_KEYS = {
   ogSite: "/og/site.png?v=1",
   /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v15：档案卡赛道 chip + 标签组 */
   memberDetail: (id: string) => `/api/members/${id}?v=15`,
+  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——近 30 天单帖浏览 Top */
+  topPosts: "/api/top-posts?v=1",
 } as const;
 
 export async function cachedResponse(

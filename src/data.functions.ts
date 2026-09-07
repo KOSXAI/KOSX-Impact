@@ -5,8 +5,8 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { env } from "cloudflare:workers";
-import { getDashboardStats, getMemberDetail } from "./queries";
-import type { DashboardStats, MemberDetail } from "./stats";
+import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
+import type { DashboardStats, MemberDetail, PostItem } from "./stats";
 
 export const fetchDashboard = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardStats> => getDashboardStats(env as Env)
@@ -15,3 +15,7 @@ export const fetchDashboard = createServerFn({ method: "GET" }).handler(
 export const fetchMemberDetail = createServerFn({ method: "GET" })
   .validator((id: string) => id)
   .handler(async ({ data: id }): Promise<MemberDetail | null> => getMemberDetail(env as Env, id));
+
+export const fetchTopPosts = createServerFn({ method: "GET" }).handler(
+  async (): Promise<PostItem[]> => getTopPosts(env as Env)
+);

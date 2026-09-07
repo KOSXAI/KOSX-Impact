@@ -5,7 +5,7 @@ import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { renderMemberOgPng, renderSiteOgPng, ogNotFound } from "./og-render";
 import { computeMemberStats, computeDashboardStats } from "./stats";
-import { getDashboardStats, getMemberDetail } from "./queries";
+import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
 import { roster } from "./roster";
 import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
 import { getSource } from "./sources";
@@ -21,6 +21,12 @@ api.get("/api/health", (c) => c.json({ ok: true, now: new Date().toISOString() }
 api.get("/api/dashboard", async (c) => {
   const stats = await getDashboardStats(c.env);
   return c.json(stats);
+});
+
+// 精华帖：近 30 天单帖浏览 Top（独立页 /posts 与 API 共用缓存）
+api.get("/api/top-posts", async (c) => {
+  const posts = await getTopPosts(c.env);
+  return c.json({ posts, updatedAt: new Date().toISOString() });
 });
 
 // 成员列表，附带每人最新一次快照的粉丝量
@@ -210,6 +216,7 @@ function renderSitemap(): Response {
   const today = new Date().toISOString().slice(0, 10);
   const urls = [
     { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
+    { loc: `${SITE_URL}/posts`, changefreq: "daily", priority: "0.7" },
     { loc: `${SITE_URL}/about`, changefreq: "monthly", priority: "0.3" },
     ...roster.members.map((m) => ({ loc: `${SITE_URL}/members/${m.id}`, changefreq: "daily", priority: "0.8" })),
   ];

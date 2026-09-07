@@ -178,6 +178,9 @@ function DashboardPage() {
             <h2 className="text-xl font-bold">加入这场远征</h2>
             <div className="mt-5 flex flex-wrap items-center gap-4">
               <Button onClick={() => setApplyOpen(true)}>加入追踪</Button>
+              <Link to="/posts" className="text-mist underline-offset-4 hover:text-ink hover:underline">
+                精华帖
+              </Link>
               <Link to="/about" className="text-mist underline-offset-4 hover:text-ink hover:underline">
                 了解流程
               </Link>
