@@ -4,16 +4,19 @@
  * 不因前端迁移增加 D1 行读取。缓存键带 cache_bust 数据版本：
  * 采集/提交写库后版本 +1，新键在各区必然 miss → 数据变化后刷新立即可见。
  */
-import type { DashboardStats, MemberDetail, PostItem } from "./stats";
+import type { DashboardStats, MemberDetail, PostItem, MentionItem, TrackStats, FanProfile, SimilarAccount } from "./stats";
 import { computeDashboardStats, computeMemberStats, computeCountDelta } from "./stats";
-import { MILESTONE_THRESHOLDS } from "./milestones";
+import { computeInfluence } from "./influence";
+import { computeMemberInsights, detectViral, type PostMetric } from "./insights";
+import { MILESTONE_THRESHOLDS, titleOf } from "./milestones";
+import { TRACKS, TRACK_OTHER } from "./tracks";
 import { roster } from "./roster";
 import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
 import { SITE_URL } from "./lib/site";
 
 // Env 由 worker-configuration.d.ts / env.d.ts 全局声明（无单独模块）
 
-const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage, tracks, tags`;
+const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage, tracks, tags, verified`;
 const SNAPSHOT_FIELDS = `member_id AS memberId, followers, recorded_at AS recordedAt`;
 const POST_FIELDS = `tweet_id AS tweetId, created_at AS createdAt, text,
   views_count AS views, like_count AS likes, reply_count AS replies,
@@ -27,8 +30,9 @@ type MemberRow = {
   profileImage: string | null;
   tracks: string | null;
   tags: string | null;
+  verified: number | null;
 };
-type SnapshotRow = { memberId: string; followers: number; recordedAt: string };
+type SnapshotRow = { memberId: string; followers: number; recordedAt: string; listedCount?: number | null };
 type PostRow = {
   tweetId: string;
   createdAt: string;
@@ -141,7 +145,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     const memberList = memberRows as never as MemberRow[];
     // 每成员最近 31 条快照（窗口查询，走 idx_snapshots_member_date，行读取恒定）
     const snapshotStmt = env.DB.prepare(
-      "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 31"
+      "SELECT member_id AS memberId, followers, listed_count AS listedCount, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 31"
     );
     const snapshotBatches = await env.DB.batch(memberList.map((m) => snapshotStmt.bind(m.id)));
 
@@ -173,6 +177,27 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       member: { id: r.memberId, handle: r.handle, displayName: r.displayName, profileImage: r.profileImage },
     }));
 
+    // 近 30 天全社群帖子：影响力指数 / 内容洞察 / 赛道互动榜的数据源（单次窗口查询）
+    const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const { results: post30dRows } = await env.DB.prepare(
+      `SELECT member_id AS memberId, ${POST_FIELDS}
+       FROM posts WHERE created_at >= ?1`
+    ).bind(cutoff30d).all();
+    const postsByMember = new Map<string, PostRow[]>();
+    for (const r of post30dRows as never as Array<PostRow & { memberId: string }>) {
+      const list = postsByMember.get(r.memberId) ?? [];
+      list.push({ tweetId: r.tweetId, createdAt: r.createdAt, text: r.text, views: r.views, likes: r.likes, replies: r.replies, retweets: r.retweets, quotes: r.quotes, bookmarks: r.bookmarks });
+      postsByMember.set(r.memberId, list);
+    }
+
+    // 品牌声量：最近 20 条站外提及
+    const { results: mentionRows } = await env.DB.prepare(
+      `SELECT keyword, author_handle AS authorHandle, author_name AS authorName, text,
+              tweet_url AS url, sentiment, collected_at AS collectedAt
+       FROM mentions ORDER BY collected_at DESC LIMIT 20`
+    ).all();
+    const mentions: MentionItem[] = mentionRows as never as MentionItem[];
+
     const memberStats = memberList.map((m, i) => {
       const rows = (snapshotBatches[i]?.results ?? []) as never as SnapshotRow[];
       // 窗口内是倒序取的，统计层期望正序
@@ -185,6 +210,70 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     const stats = computeDashboardStats(roster, memberStats, milestoneRows as never, now);
     // 帖子互动 Top：纯函数层返回空数组，这里用真实查询覆盖
     stats.topPosts = topPosts;
+    stats.mentions = mentions;
+
+    // 影响力指数：近 30 天帖子 + 最新快照列表收录数 + verified（逐成员）
+    const rowById = new Map(memberStats.map((m) => [m.id, m]));
+    for (const ms of stats.members) {
+      const row = rowById.get(ms.id)!;
+      const latestSnap = row.snapshots[row.snapshots.length - 1] ?? null;
+      ms.influence = computeInfluence({
+        followers: ms.latestFollowers ?? 0,
+        growth30d: ms.growth30d,
+        verified: row.verified === 1,
+        listedCount: latestSnap?.listedCount ?? null,
+        posts30d: postsByMember.get(ms.id) ?? [],
+      });
+    }
+
+    // 社群内容洞察：爆款帖汇总（浏览降序 Top8）+ 停更名单（天数降序）+ 话题标签云
+    const viralPosts: PostItem[] = [];
+    const inactiveMembers: DashboardStats["insights"]["inactiveMembers"] = [];
+    for (const ms of stats.members) {
+      const posts = postsByMember.get(ms.id) ?? [];
+      const ins = computeMemberInsights(posts, now);
+      const member = { id: ms.id, handle: ms.handle, displayName: ms.displayName, profileImage: ms.profileImage };
+      for (const v of detectViral(posts)) {
+        viralPosts.push({ ...mapPostRow(v as PostRow, ms.handle), member });
+      }
+      if (ins.inactive && typeof ins.inactiveDays === "number") {
+        inactiveMembers.push({ memberId: ms.id, handle: ms.handle, displayName: ms.displayName, days: ins.inactiveDays });
+      }
+    }
+    viralPosts.sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+    inactiveMembers.sort((a, b) => b.days - a.days);
+    const tagCounts = new Map<string, number>();
+    for (const m of memberStats) for (const t of m.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+    const tagCloud = [...tagCounts.entries()]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+    stats.insights = { viralPosts: viralPosts.slice(0, 8), inactiveMembers, tagCloud };
+
+    // 赛道能量统计：成员规模 / 总粉丝 / 30 天增长 / 赛道内互动 Top3（帖子互动榜数据源）
+    const trackStats: TrackStats[] = [...TRACKS, TRACK_OTHER].map((t) => {
+      const members = stats.members.filter((m) => m.tracks.includes(t.name));
+      const posts: PostItem[] = [];
+      for (const m of members) {
+        for (const p of postsByMember.get(m.id) ?? []) {
+          posts.push({
+            ...mapPostRow(p, m.handle),
+            member: { id: m.id, handle: m.handle, displayName: m.displayName, profileImage: m.profileImage },
+          });
+        }
+      }
+      const viewKey = (p: PostItem) => p.views ?? (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0);
+      return {
+        name: t.name,
+        slug: t.slug,
+        memberCount: members.length,
+        totalFollowers: members.reduce((s, m) => s + (m.latestFollowers ?? 0), 0),
+        growth30dTotal: members.reduce((s, m) => s + m.growth30d, 0),
+        topPosts: posts.sort((a, b) => viewKey(b) - viewKey(a)).slice(0, 3),
+      };
+    });
+    stats.trackStats = trackStats;
+
     return new Response(JSON.stringify(stats), {
       headers: { "Content-Type": "application/json" },
     });
@@ -239,6 +328,45 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     // 帖子活跃度：近 20 帖 + 互动合计（posts 表，尚未采集到时为 null）
     const postActivity = await getPostActivity(env, memberRow.id, memberRow.handle);
 
+    // 近 30 天帖子：影响力指数 + 内容洞察（爆款 / 停更 / 互动率中位数）
+    const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const { results: post30dRows } = await env.DB.prepare(
+      `SELECT ${POST_FIELDS} FROM posts WHERE member_id = ?1 AND created_at >= ?2`
+    ).bind(memberRow.id, cutoff30d).all();
+    const posts30d = post30dRows as never as PostRow[];
+
+    // 粉丝圈画像（尚未采样为 null）
+    const fanRow = await env.DB.prepare(
+      `SELECT sampled_at AS sampledAt, sample_size AS sampleSize, avg_followers AS avgFollowers,
+              pct_followers_1k AS pctFollowers1k, pct_followers_10k AS pctFollowers10k,
+              verified_pct AS verifiedPct, avg_friends AS avgFriends, avg_tweets AS avgTweets,
+              avg_age_days AS avgAgeDays, top_handles AS topHandlesRaw
+       FROM fan_profiles WHERE member_id = ?1`
+    ).bind(memberRow.id).first();
+    let fanProfile: FanProfile | null = null;
+    if (fanRow) {
+      const fr = fanRow as never as Omit<FanProfile, "topHandles"> & { topHandlesRaw: string | null };
+      fanProfile = {
+        sampledAt: fr.sampledAt,
+        sampleSize: fr.sampleSize,
+        avgFollowers: fr.avgFollowers,
+        pctFollowers1k: fr.pctFollowers1k,
+        pctFollowers10k: fr.pctFollowers10k,
+        verifiedPct: fr.verifiedPct,
+        avgFriends: fr.avgFriends,
+        avgTweets: fr.avgTweets,
+        avgAgeDays: fr.avgAgeDays,
+        topHandles: parseStrArray(fr.topHandlesRaw) as unknown as FanProfile["topHandles"],
+      };
+    }
+
+    // 相似账号推荐（Grok 扫描产出）
+    const { results: similarRows2 } = await env.DB.prepare(
+      `SELECT handle, name, avatar, reason, difference, created_at AS createdAt
+       FROM similar_accounts WHERE member_id = ?1 ORDER BY created_at`
+    ).bind(memberRow.id).all();
+    const similarAccounts = similarRows2 as never as SimilarAccount[];
+
     const snapshotRows = snapshots as never as Array<
       { recordedAt: string } & Record<string, number | null> & { followers: number }
     >;
@@ -287,6 +415,26 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
       snapshots: snapshotRows,
       milestones: ladderMilestones,
       postActivity,
+      posts30d: posts30d.map((p) => mapPostRow(p, memberRow.handle)),
+      influence: computeInfluence({
+        followers: stats.latestFollowers ?? 0,
+        growth30d: stats.growth30d,
+        verified: memberRow.verified === 1,
+        listedCount: counters.listedCount,
+        posts30d,
+      }),
+      insights: posts30d.length
+        ? (() => {
+            const ins = computeMemberInsights(posts30d, new Date().toISOString());
+            // virals 补全原文外链（insights 纯函数只保留互动指标）
+            return {
+              ...ins,
+              virals: ins.virals.map((v) => mapPostRow(v as PostRow, memberRow.handle)),
+            };
+          })()
+        : null,
+      fanProfile,
+      similarAccounts,
     };
     return new Response(JSON.stringify(detail), { headers: { "Content-Type": "application/json" } });
   });

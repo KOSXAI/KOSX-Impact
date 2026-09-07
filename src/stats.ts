@@ -1,5 +1,7 @@
 import type { RosterFile } from "./roster";
 import { nextThreshold, prevThreshold, progressToNext, tierOf, TEN_K, MILESTONE_THRESHOLDS } from "./milestones";
+import type { Influence } from "./influence";
+import type { MemberInsights } from "./insights";
 
 export interface MemberStats {
   id: string;
@@ -34,6 +36,8 @@ export interface MemberStats {
   tracks: string[];
   /** 描述性标签数组（自由组合，空数组=未打标） */
   tags: string[];
+  /** 影响力指数（queries 层用近 30 天帖子计算后覆盖；纯函数层为 undefined） */
+  influence?: Influence;
 }
 
 /** 预聚合字段（来自 daily_stats）：直传绕过窗口重算 */
@@ -48,6 +52,43 @@ export interface TrendPoint {
   date: string;
   /** 当日全体成员粉丝量合计（daily_stats 按日聚合） */
   total: number;
+}
+
+/** 品牌声量提及（站外「KOSX / impact.kosx.ai / 万粉影响力计划」的 X 提及，Grok 定时搜索入库） */
+export interface MentionItem {
+  keyword: string;
+  authorHandle: string;
+  authorName: string | null;
+  text: string;
+  url: string | null;
+  sentiment: string | null;
+  collectedAt: string;
+}
+
+/** 社群内容洞察（queries 层填充） */
+export interface CommunityInsights {
+  /** 全社群近 30 天爆款帖（浏览 ≥5000 且 ≥ 本人均值×2，按浏览降序） */
+  viralPosts: PostItem[];
+  /** 疑似停更成员（近 14 天无新帖，按停更天数降序） */
+  inactiveMembers: Array<{
+    memberId: string;
+    handle: string;
+    displayName: string | null;
+    days: number;
+  }>;
+  /** 话题标签云：成员 tags 全社群聚合（计数降序） */
+  tagCloud: Array<{ tag: string; count: number }>;
+}
+
+/** 赛道能量统计（queries 层填充：赛道区块与赛道页共用） */
+export interface TrackStats {
+  name: string;
+  slug: string;
+  memberCount: number;
+  totalFollowers: number;
+  growth30dTotal: number;
+  /** 赛道内近 30 天单帖浏览 Top（帖子互动榜数据源） */
+  topPosts: PostItem[];
 }
 
 export interface DashboardStats {
@@ -68,6 +109,78 @@ export interface DashboardStats {
   trend: TrendPoint[];
   /** 全社群单帖浏览 Top N（queries 层填充） */
   topPosts: PostItem[];
+  /** 社群内容洞察：爆款帖 / 停更成员 / 话题标签云（queries 层填充） */
+  insights: CommunityInsights;
+  /** 品牌声量：最近站外提及（queries 层填充） */
+  mentions: MentionItem[];
+  /** 赛道能量统计（queries 层填充，5 正式赛道 + 综合兜底） */
+  trackStats: TrackStats[];
+}
+
+/** 粉丝圈画像（SocialData followers 采样聚合，fan_profiles 表） */
+export interface FanProfile {
+  sampledAt: string;
+  sampleSize: number;
+  avgFollowers: number;
+  /** 千粉以上粉丝占比（0-100） */
+  pctFollowers1k: number;
+  /** 万粉以上粉丝占比（KOL，0-100） */
+  pctFollowers10k: number;
+  /** 认证账号占比（0-100） */
+  verifiedPct: number;
+  avgFriends: number;
+  avgTweets: number;
+  /** 账号平均年龄（天） */
+  avgAgeDays: number;
+  /** 样本内粉丝量 Top 20 KOL */
+  topHandles: Array<{ handle: string; name: string | null; followers: number }>;
+}
+
+/** 相似账号推荐（Grok 逐个扫描产出，similar_accounts 表） */
+export interface SimilarAccount {
+  handle: string;
+  name: string | null;
+  avatar: string | null;
+  /** 相似理由（Grok 判断） */
+  reason: string;
+  /** 与本人的主要差异 */
+  difference: string | null;
+  createdAt: string;
+}
+
+/** 成员内容周报（动态计算：近 7 天滚动窗口，与全站 7 天口径一致） */
+export interface WeeklyReport {
+  memberId: string;
+  handle: string;
+  displayName: string | null;
+  profileImage: string | null;
+  tracks: string[];
+  tags: string[];
+  /** 近 7 天窗口 */
+  windowStart: string;
+  windowEnd: string;
+  followersStart: number;
+  followersEnd: number;
+  growth: number;
+  /** 相对增长率（0-1；起点粉丝过小时为 null） */
+  growthPct: number | null;
+  /** 当前称号进度（与成员页一致） */
+  prevMilestone: number;
+  nextMilestone: number;
+  progressToNext: number;
+  /** 窗口内目标大关与达成时间（Grok 无责，纯数据） */
+  milestoneAchieved: { threshold: number; achievedAt: string } | null;
+  /** 窗口内发帖数 */
+  postCount: number;
+  /** 窗口内互动率中位数 */
+  engagementMedian: number | null;
+  /** 窗口内单帖互动 Top（浏览优先） */
+  topPosts: PostItem[];
+  /** 窗口内爆款帖 */
+  virals: PostItem[];
+  /** 近 14 天无新帖 */
+  inactive: boolean;
+  inactiveDays: number | null;
 }
 
 export interface MemberDetail {
@@ -80,6 +193,16 @@ export interface MemberDetail {
   milestones: Array<{ threshold: number; achievedAt: string }>;
   /** 帖子活跃度（近 20 帖互动数据；尚未采集到时为 null） */
   postActivity: PostActivity | null;
+  /** 近 30 天帖子（周报 / 内容洞察计算用；无帖子数据为空数组） */
+  posts30d: PostItem[];
+  /** 影响力指数（近 30 天帖子计算；无粉丝数据为 null） */
+  influence: Influence | null;
+  /** 内容洞察：发帖数 / 互动率中位数 / 爆款（含原文链接）/ 停更（无帖子数据为 null） */
+  insights: MemberInsights<PostItem> | null;
+  /** 粉丝圈画像（尚未采样为 null） */
+  fanProfile: FanProfile | null;
+  /** 相似账号推荐（排序稳定，按扫描时间） */
+  similarAccounts: SimilarAccount[];
 }
 
 /** 单帖活跃度数据（浏览/赞/评论等互动数 + 内容摘要） */
@@ -341,5 +464,8 @@ export function computeDashboardStats(
     recentMilestones,
     trend,
     topPosts: [],
+    insights: { viralPosts: [], inactiveMembers: [], tagCloud: [] },
+    mentions: [],
+    trackStats: [],
   };
 }

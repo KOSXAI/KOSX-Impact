@@ -11,6 +11,8 @@ import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { TopPosts } from "@/components/dashboard/TopPosts";
 import { TrackSection } from "@/components/dashboard/TrackSection";
+import { InsightsSection } from "@/components/dashboard/InsightsSection";
+import { MentionsSection } from "@/components/dashboard/MentionsSection";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Flag, Clock3 } from "lucide-react";
 import { MILESTONES, TEN_K, TITLE_FILL, titleOf } from "@/milestones";
@@ -36,7 +38,7 @@ export const Route = createFileRoute("/")({
   component: DashboardPage,
 });
 
-type TabKey = "leaderboard" | "growth" | "climbs";
+type TabKey = "leaderboard" | "growth" | "climbs" | "influence";
 
 /** 总排行 / 成长榜前三的荣誉样式：只保留行卡外壳（边框渐晕 + 名次渐变数字），不加榜位徽章抢内容的戏 */
 const PODIUM = [
@@ -62,6 +64,10 @@ function DashboardPage() {
   const growth = [...stats.members].sort(
     (a, b) => b.growth30d - a.growth30d || b.growth7d - a.growth7d || b.growth - a.growth
   );
+  // 影响力榜：指数从高到低（无粉丝数据的排最后）
+  const influence = [...stats.members].sort(
+    (a, b) => (b.influence?.score ?? -1) - (a.influence?.score ?? -1)
+  );
   const latest = stats.recentMilestones[0];
   const justAchieved = latest && latest.achievedAt.slice(0, 10) >= new Date().toISOString().slice(0, 10);
   const totalClimbs = stats.members.reduce((sum, m) => sum + m.climbs, 0);
@@ -71,6 +77,7 @@ function DashboardPage() {
   const tabs: Array<{ key: TabKey; label: string; count: number }> = [
     { key: "leaderboard", label: "总排行", count: leaderboard.length },
     { key: "growth", label: "成长榜", count: growth.length },
+    { key: "influence", label: "影响力", count: influence.length },
     { key: "climbs", label: "登阶记录", count: stats.recentMilestones.length },
   ];
 
@@ -122,11 +129,11 @@ function DashboardPage() {
           </section>
         </Reveal>
 
-        {/* 赛道：成员按「核心活动」分组（Grok 分类产物），点赛道看该赛道成员 */}
+        {/* 赛道：成员按「核心活动」分组（Grok 分类产物），三重口径榜单（存量/增长/帖子互动） */}
         <Reveal delay={0.08}>
           <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
             <h2 className="text-xl font-bold">赛道</h2>
-            <TrackSection members={stats.members} />
+            <TrackSection members={stats.members} trackStats={stats.trackStats} />
           </section>
         </Reveal>
 
@@ -136,6 +143,28 @@ function DashboardPage() {
             <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">互动 Top</h2>
               <TopPosts posts={stats.topPosts} />
+            </section>
+          </Reveal>
+        )}
+
+        {/* 内容洞察：爆款帖 / 社群话题标签 / 疑似停更（任一为空整体隐藏） */}
+        {(stats.insights.viralPosts.length > 0 ||
+          stats.insights.inactiveMembers.length > 0 ||
+          stats.insights.tagCloud.length > 0) && (
+          <Reveal delay={0.08}>
+            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+              <h2 className="text-xl font-bold">内容洞察</h2>
+              <InsightsSection insights={stats.insights} />
+            </section>
+          </Reveal>
+        )}
+
+        {/* 品牌声量：站外对 KOSX 的提及（Grok 定时搜索） */}
+        {stats.mentions.length > 0 && (
+          <Reveal delay={0.08}>
+            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+              <h2 className="text-xl font-bold">品牌声量</h2>
+              <MentionsSection mentions={stats.mentions} />
             </section>
           </Reveal>
         )}
@@ -170,6 +199,7 @@ function DashboardPage() {
         <main key={tab} className="tab-in mt-6">
           {tab === "leaderboard" && <LeaderboardList members={leaderboard} />}
           {tab === "growth" && <GrowthSection members={growth} />}
+          {tab === "influence" && <InfluenceList members={influence} />}
           {tab === "climbs" && <ClimbsList stats={stats} />}
         </main>
   
@@ -572,6 +602,112 @@ function GrowthMember({
           <div className="text-xs text-mist">近 30 天</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** 影响力榜：综合指数（0-1000）= 规模 + 增长 + 互动 + 产能；有效粉丝 = 粉丝量 × 质量系数 */
+function InfluenceList({ members }: { members: MemberStats[] }) {
+  if (members.length === 0) return <p className="text-mist">还没有成员上榜。</p>;
+  return (
+    <ol className="space-y-3">
+      {members.map((m, i) => (
+        <RevealItem key={m.id} y={16}>
+          <InfluenceMember member={m} rank={i + 1} podium={PODIUM[i]} />
+        </RevealItem>
+      ))}
+    </ol>
+  );
+}
+
+/** 影响力榜行：排名 + 头像 + 四维分项条 + 指数大数（前三名与总排行同样的荣誉样式） */
+function InfluenceMember({
+  member: m,
+  rank,
+  podium,
+}: {
+  member: MemberStats;
+  rank: number;
+  podium?: (typeof PODIUM)[number];
+}) {
+  const name = m.displayName ?? m.handle;
+  const inf = m.influence;
+  const parts: Array<[string, number, number]> = [
+    ["规模", inf?.breakdown.scale ?? 0, 400],
+    ["增长", inf?.breakdown.growth ?? 0, 200],
+    ["互动", inf?.breakdown.engagement ?? 0, 250],
+    ["产能", inf?.breakdown.output ?? 0, 150],
+  ];
+  return (
+    <div
+      className={
+        podium
+          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
+          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
+      }
+    >
+      <div
+        className={
+          podium
+            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
+            : "w-6 shrink-0 text-mist tabular-nums"
+        }
+      >
+        {rank}
+      </div>
+      <Avatar url={m.profileImage} name={name} className="size-10" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+            {name}
+          </Link>
+          <TitleBadge threshold={m.prevMilestone} />
+          <a
+            href={xProfileUrl(m.handle)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
+          >
+            @{m.handle}
+          </a>
+        </div>
+        {inf && (
+          <div className="mt-2 flex gap-2">
+            {parts.map(([label, v, max]) => (
+              <div key={label} className="flex-1" title={`${label} ${v} / ${max}`}>
+                <div className="flex justify-between text-[10px] leading-none text-mist">
+                  <span>{label}</span>
+                  <span className="tabular-nums">{v}</span>
+                </div>
+                <div className="mt-1 h-1 overflow-hidden rounded-full bg-line/70">
+                  <div className="h-full rounded-full bg-signal/70" style={{ width: `${Math.min(100, (v / max) * 100)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {inf ? (
+        <div className="shrink-0 text-right">
+          <div className="flex items-baseline justify-end gap-1">
+            <span className="bg-gradient-to-br from-amber-300 to-amber-600 bg-clip-text text-2xl font-extrabold tabular-nums text-transparent">
+              {inf.score}
+            </span>
+            <span className="text-xs text-mist">/ 1000</span>
+          </div>
+          <div className="mt-0.5 text-xs text-mist tabular-nums" title={`质量系数 x${inf.qualityMultiplier.toFixed(2)}`}>
+            有效粉丝 {fmt(inf.effectiveFollowers)}
+          </div>
+        </div>
+      ) : (
+        <span
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-line bg-soft-surface px-2.5 py-1 text-xs font-semibold text-mist"
+          title="首次采集完成后自动上榜"
+        >
+          <Clock3 className="size-3.5" aria-hidden="true" />
+          首次采集排队中
+        </span>
+      )}
     </div>
   );
 }

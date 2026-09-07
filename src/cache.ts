@@ -26,18 +26,22 @@ export interface CachedResponseOptions {
  * 结构升级升 v、数据变化靠 cb 自动换键。
  */
 export const CACHE_KEYS = {
-  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v17：posts 数据动态化（每日采集） */
-  dashboard: "/api/dashboard?v=17",
+  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v18：影响力指数 + 内容洞察 + 赛道三重榜单 + 品牌声量 */
+  dashboard: "/api/dashboard?v=18",
   /** 成员列表（/api/members） */
   memberList: "/api/members?v=10",
   /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */
   og: "/og.svg",
   /** 成员 OG 分享卡（PNG，X/微信分享预览用） */
   ogMember: (id: string) => `/og/members/${id}?v=1`,
+  /** 周报 OG 分享卡（PNG） */
+  ogReport: (memberId: string) => `/og/reports/${memberId}?v=1`,
+  /** 赛道 OG 分享卡（PNG） */
+  ogTrack: (slug: string) => `/og/tracks/${slug}?v=1`,
   /** 站点 OG 分享卡（PNG） */
   ogSite: "/og/site.png?v=1",
-  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v16：帖子数据动态化（每日采集） */
-  memberDetail: (id: string) => `/api/members/${id}?v=16`,
+  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v17：影响力 + 内容洞察 + posts30d */
+  memberDetail: (id: string) => `/api/members/${id}?v=17`,
   /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v2：views 缺失 COALESCE 兜底排序 */
   topPosts: "/api/top-posts?v=2",
 } as const;

@@ -14,11 +14,14 @@ import { ShareDialog } from "@/components/member/ShareDialog";
 import { SiteHeader } from "@/components/SiteHeader";
 import { GrowthChart } from "@/components/member/GrowthChart";
 import { PostActivity } from "@/components/member/PostActivity";
+import { InfluenceCard } from "@/components/member/InfluenceCard";
+import { FanProfileCard } from "@/components/member/FanProfileCard";
+import { SimilarAccountsCard } from "@/components/member/SimilarAccountsCard";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { TEN_K, nextThreshold, titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
-import { ArrowLeft, BadgeCheck, ExternalLink, MapPin, Share2 } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ExternalLink, MapPin, PauseCircle, Share2, Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/members/$id")({
   loader: async ({ params }) => {
@@ -128,7 +131,7 @@ function ShareButton({ onClick }: { onClick: () => void }) {
 }
 
 function MemberPage() {
-  const { member, profile, counters, snapshots, milestones, postActivity } = Route.useLoaderData();
+  const { member, profile, counters, snapshots, milestones, postActivity, influence, insights, fanProfile, similarAccounts } = Route.useLoaderData();
   const name = member.displayName ?? member.handle;
   const [submitOpen, setSubmitOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -214,6 +217,15 @@ function MemberPage() {
                   >
                     @{member.handle}
                   </a>
+                  {insights?.inactive && (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist"
+                      title="近 14 天没有发布新内容"
+                    >
+                      <PauseCircle className="size-3.5 text-signal" aria-hidden="true" />
+                      已 {insights.inactiveDays} 天未更新
+                    </span>
+                  )}
                   {profile.location && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist">
                       <MapPin className="size-3.5" aria-hidden="true" />
@@ -321,7 +333,55 @@ function MemberPage() {
           </Reveal>
 
           {/* 帖子活跃度：近 20 帖的浏览/赞/评论汇总（帖子表有数据才显示） */}
-          {postActivity && <PostActivity activity={postActivity} />}
+          {postActivity && (
+            <>
+              {insights && insights.virals.length > 0 && (
+                <Reveal>
+                  <div className="flex flex-wrap gap-2">
+                    {insights.virals.map((v) => (
+                      <a
+                        key={v.tweetId}
+                        href={v.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/10 px-3 py-1 text-sm font-semibold text-signal transition-colors hover:border-signal/50"
+                        title={`${fmtDate(v.createdAt)} · 浏览 ${v.views ?? "—"}`}
+                      >
+                        <Trophy className="size-3.5" aria-hidden="true" />
+                        近 30 天爆款
+                        <span className="tabular-nums">{v.views ?? ""}</span>
+                      </a>
+                    ))}
+                  </div>
+                </Reveal>
+              )}
+              <PostActivity activity={postActivity} />
+            </>
+          )}
+
+          {/* 影响力指数：综合分 + 有效粉丝 + 四维分项（近 30 天帖子数据） */}
+          <Reveal>
+            <section>
+              <h2 className="text-2xl font-bold">影响力指数</h2>
+              <div className="mt-6">
+                <InfluenceCard influence={influence} />
+              </div>
+            </section>
+          </Reveal>
+
+          {/* 粉丝圈画像：粉丝样本质量指标（月度刷新） */}
+          <Reveal>
+            <section>
+              <FanProfileCard fanProfile={fanProfile} />
+            </section>
+          </Reveal>
+
+          {/* 相似账号：Grok 扫描推荐 */}
+          <Reveal>
+            <section>
+              <SimilarAccountsCard accounts={similarAccounts} />
+            </section>
+          </Reveal>
 
           <Reveal>
             <section>
@@ -433,6 +493,10 @@ function MemberPage() {
               >
                 立即自助更新
               </button>
+              <span className="mx-2">·</span>
+              <Link to="/reports/$memberId" params={{ memberId: member.id }} className="font-semibold text-ink underline underline-offset-4 hover:text-mist">
+                内容周报
+              </Link>
             </div>
           </Reveal>
         </main>

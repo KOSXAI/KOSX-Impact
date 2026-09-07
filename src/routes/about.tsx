@@ -100,7 +100,21 @@ function AboutPage() {
               <ul className="mt-3 max-w-2xl list-disc space-y-2 pl-6 leading-relaxed text-mist">
                 <li><b className="text-ink">总排行</b>：按最新粉丝量从高到低，用称号大关分割线分赛段，前三名有奖牌荣誉。</li>
                 <li><b className="text-ink">成长榜</b>：按近 30 天增长排序——和自己比，小账号也有机会登顶。</li>
+                <li><b className="text-ink">影响力榜</b>：按影响力指数从高到低（见下节公式）。</li>
+                <li><b className="text-ink">赛道榜</b>：赛道内先按粉丝量排，可切到「本周增长」与「帖子互动」口径——看存量，也看势头。</li>
                 <li><b className="text-ink">登阶记录</b>：按时间展示最近拿下的称号。</li>
+              </ul>
+            </section>
+          </Reveal>
+
+          <Reveal>
+            <section>
+              <h2 className="text-2xl font-bold">影响力指数怎么算</h2>
+              <ul className="mt-3 max-w-2xl space-y-3 leading-relaxed text-mist">
+                <li><b className="text-ink">综合分 0-1000</b>，四项相加：规模（粉丝量对数映射，满分 400）+ 增长（近 30 天相对增长，满分 200）+ 互动（近 30 天帖子互动率中位数，满分 250）+ 产能（近 30 天发帖数，满分 150）。</li>
+                <li><b className="text-ink">有效粉丝量 = 粉丝量 × 质量系数</b>：认证账号、被列表收录、高互动率都会提升质量系数（1.0–1.4）。这一项量化「粉丝质量」，呈现的是有效粉丝，不是泛泛的总数。</li>
+                <li>互动率 = (赞 + 评 + 转 + 引 + 藏) / 浏览。帖子数据尚未采集完成时，互动与产能两项暂记 0，跑起来后自动补全。</li>
+                <li>公式公开、同一套口径跑所有人：不刷榜、不给任何人开小灶。</li>
               </ul>
             </section>
           </Reveal>
