@@ -91,7 +91,7 @@ api.post("/api/refresh", async (c) => {
       await registerMember(c.env, handle, nowIso);
       member = await lookupRefreshMember(c.env, handle);
       if (!member) return c.json({ error: "register_failed" }, 500);
-      await applyFollowerStats(c.env, member.id, stats, nowIso);
+      await applyFollowerStats(c.env, member.id, stats, nowIso, source);
       return c.json({ status: "done", followersAfter: stats.followers, memberId: member.id });
     } catch (error) {
       if (error instanceof SocialDataError && error.status === 404) {

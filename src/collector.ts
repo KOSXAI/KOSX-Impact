@@ -298,16 +298,27 @@ async function writeRecentPosts(
 /**
  * 把一次已拉取的真实数据完整写入管线：快照（含昵称/头像 + cache_bust）+ 登阶检测 + 日聚合。
  * cron 采集、队列消费、注册当场校验三条路径复用同一写入逻辑，保证数据口径一致。
+ * 传入 source 且 profile 响应含数字 ID 时，同步刷新帖子数据（与 cron 同链路）。
  */
 export async function applyFollowerStats(
   env: Env,
   memberId: string,
   stats: FollowerStats,
-  nowIso: string
+  nowIso: string,
+  source?: FollowerSource
 ): Promise<void> {
   await writeSnapshot(env, memberId, stats, nowIso);
   await checkMilestones(env, memberId, stats.followers, nowIso);
   await writeDailyStats(env, memberId, stats.followers, nowIso);
+  if (source && stats.userId) {
+    try {
+      const posts = await source.fetchRecentPosts(stats.userId);
+      await writeRecentPosts(env, memberId, posts, nowIso);
+    } catch (error) {
+      // 帖子刷新失败不影响快照结果（快照已写库）；日志记录供诊断
+      console.error(`[collect] @${memberId} 帖子刷新失败（不影响快照）：`, error);
+    }
+  }
 }
 
 /** 单条失败重试上限：超过转 failed，等待成员重新提交 */
@@ -342,7 +353,8 @@ async function processRefreshJob(
   const nowIso = new Date().toISOString();
   try {
     const stats = await source.fetchStats(member.handle);
-    await applyFollowerStats(env, memberId, stats, nowIso);
+    // 帖子采集已并入 applyFollowerStats（source 传入时同步刷新）
+    await applyFollowerStats(env, memberId, stats, nowIso, source);
     await env.DB.prepare(
       "UPDATE refresh_queue SET status = 'done', processed_at = ?2, followers_after = ?3, error = NULL WHERE id = ?1"
     ).bind(jobId, nowIso, stats.followers).run();
