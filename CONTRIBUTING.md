@@ -24,7 +24,7 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 
 - 数据一天更新一次，页面为服务端渲染（SEO 友好），读接口走边缘缓存，不做每次访问实时计算
 - 全链路在 Cloudflare 免费额度内即可支撑当前量级，无服务器运维
-- 数据源成本/限流/Monitor 选型 + 与官方 X API/自建爬三源对比参考（官方定价逐条核对版）：`docs/socialdata-pricing.md`
+- 数据源定价/限流/Monitor/API 对接速查参考（官方逐条核对版，含与官方 X API 三源对比）：`docs/socialdata-pricing.md`
 - 数据源通过抽象层接入（当前：SocialData），未来可切换官方 API / 成员 OAuth 而不改业务逻辑
 - 成员自助更新与自助加入（首页「加入追踪」弹窗）：提交 handle → 在册成员入队即时刷新，
   未在册直接注册加入。入队后抢到全局节流槽（CAS，≥21 秒间隔，守住

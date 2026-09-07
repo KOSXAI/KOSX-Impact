@@ -184,7 +184,39 @@ Monitor 的价值只在「**分钟级以下的实时** + 免轮询」。低频�
 - 值得切换官方 API 的理由只剩：需要**写操作**（发帖/互动）、企业级 SLA/数据契约（Enterprise 定制价）、或官方独占的数据功能
 - 自建爬虫只适合一次性研究型小批量抓取，不适合生产线
 
-## 八、实施注意点清单（给后面系统设计）
+## 八、API 对接速查（开发用，2026-09-07 核对）
+
+### 认证与基础
+
+- Base URL：`https://api.socialdata.tools`
+- 每个请求必须带 `Authorization: Bearer <API_KEY>` + `Accept: application/json`，无认证一律拒绝
+- Key **永不过期**，在 dashboard 生成/管理；泄露等于余额风险，当密码对待
+- 同一 Key 共用 REST / Monitor / Social Actions / MCP 四通道与 120 req/min 共享限流
+
+### 核心端点 URL 形态
+
+| 端点 | 方法 / 路径 | 关键参数 | 备注 |
+| --- | --- | --- | --- |
+| Get User Profile | `GET /twitter/user/{username}` | username 不带 @，也可传数字 ID | ✅ 现状管线（`src/sources/socialdata.ts`）；响应字段与 Twitter v1.1 users/show 一致 |
+| Bulk Profiles by IDs | `POST /twitter/users-by-ids` | body `{"ids": ["44196397", …]}`，**每请求 ≤100 个** | 返回 `{users:[…]}`；**ID 必须用字符串**（int64 超 JS 整数上限） |
+| Get User Followers | `GET /twitter/user/{user_id}/followers?cursor={cursor}` | 路径参数是**数字 ID**（不是 username） | 分页：响应 `next_cursor` 回填 `cursor`，省略取第一页；无页大小参数 |
+| Search 等其余端点 | 见官方 API 参考（docs.socialdata.tools/reference/…） | — | 全部 $0.0002/条 |
+
+### 错误码表（官方 Errors 页核对）
+
+| 状态码 | 含义 | 处理建议 |
+| --- | --- | --- |
+| 401 | 无有效 API Key | 查 env 配置 |
+| **402** | 余额不足 | **停止采集 + 告警，充值后续跑**；勿无限重试 |
+| 403 | Key 无权限 | 查 Key 权限 |
+| **404** | 资源不存在（profile 端点 = 账号不存在/已封禁） | 名册标记「账号失效」，别当故障重试 |
+| 422 | 参数校验失败 | 查请求参数 |
+| 429 | 限流 | 指数退避重试（官方建议） |
+| 500 / 502 / 503 | SocialData 侧异常（罕见） | 重试通常成功 |
+
+注：官方错误码表里没有 400；`src/sources/socialdata.ts` 把 `!ok` 统一抛 `SocialDataError`（透传 status），对 402/404/429 分流时可直接 `err.status` 判断。
+
+## 九、实施注意点清单（给后面系统设计）
 
 1. **402 兜底**：余额 ≤ 0 时全部请求失败，采集管线必须识别 HTTP 402 并暂停（避免无限重试烧日志）；官方提供余额预警通知与自动充值，建议启用
 2. **空响应免费额度的语义**：免费 3 次/分钟只豁免「空响应」；返回数据的请求一律 $0.0002。设计节流时别把 3 req/min 当成本红线，120 req/min 才是硬限流
@@ -193,13 +225,17 @@ Monitor 的价值只在「**分钟级以下的实时** + 免轮询」。低频�
 5. **Monitor 与 REST 不要混记账**：成本形态完全不同（Monitor 按活跃数小时扣费，与事件量无关）；余额不足时 Monitor 暂停而非删除，别误判为丢失
 6. **成本对账**：官方有用量面板 + 低余额通知；也可自建对账（记录每日请求数 × 单价，与余额下降幅度比对，能早期发现异常调用）
 7. **MCP 免费溢价**：MCP 与 REST 同价，临时人工查数（比如运营核对某个账号）直接走 MCP 或 REST 均可，成本一样
+8. **404 分流**：profile 端点返回 404 = 账号不存在/已封禁，名册应标记「账号失效」走人工复核，不要当故障无限重试
 
-## 九、来源（核对日期 2026-09-07）
+## 十、来源（核对日期 2026-09-07）
 
 - Overview: https://docs.socialdata.tools/getting-started/overview/
 - Pricing: https://docs.socialdata.tools/getting-started/pricing/
+- Authentication: https://docs.socialdata.tools/getting-started/authentication/
+- Errors: https://docs.socialdata.tools/getting-started/errors/
 - Monitoring Pricing: https://docs.socialdata.tools/monitoring/pricing/
 - Rate Limits: https://docs.socialdata.tools/getting-started/rate-limits/
+- API 参考（Get User Profile / Multiple Profiles / Followers 等）: https://docs.socialdata.tools/reference/
 - 主页（充值/退款/免费套餐说明）: https://socialdata.tools/
 - 官方 X API 按用量计费与 Owned Reads: https://docs.x.com/x-api/getting-started/pricing
 - 官方 X API rate limits: https://docs.x.com/x-api/fundamentals/rate-limits
