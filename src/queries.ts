@@ -4,7 +4,7 @@
  * 不因前端迁移增加 D1 行读取。缓存键带 cache_bust 数据版本：
  * 采集/提交写库后版本 +1，新键在各区必然 miss → 数据变化后刷新立即可见。
  */
-import type { DashboardStats, MemberDetail } from "./stats";
+import type { DashboardStats, MemberDetail, PostItem } from "./stats";
 import { computeDashboardStats, computeMemberStats, computeCountDelta } from "./stats";
 import { MILESTONE_THRESHOLDS } from "./milestones";
 import { roster } from "./roster";
@@ -15,6 +15,9 @@ import { SITE_URL } from "./lib/site";
 
 const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage`;
 const SNAPSHOT_FIELDS = `member_id AS memberId, followers, recorded_at AS recordedAt`;
+const POST_FIELDS = `tweet_id AS tweetId, created_at AS createdAt, text,
+  views_count AS views, like_count AS likes, reply_count AS replies,
+  retweet_count AS retweets, quote_count AS quotes, bookmark_count AS bookmarks`;
 
 type MemberRow = {
   id: string;
@@ -24,6 +27,51 @@ type MemberRow = {
   profileImage: string | null;
 };
 type SnapshotRow = { memberId: string; followers: number; recordedAt: string };
+type PostRow = {
+  tweetId: string;
+  createdAt: string;
+  text: string | null;
+  views: number | null;
+  likes: number | null;
+  replies: number | null;
+  retweets: number | null;
+  quotes: number | null;
+  bookmarks: number | null;
+};
+
+/** posts 表行 → PostItem（拼 x.com 原文外链） */
+function mapPostRow(row: PostRow, handle: string): PostItem {
+  return {
+    tweetId: row.tweetId,
+    createdAt: row.createdAt,
+    text: row.text,
+    views: row.views,
+    likes: row.likes,
+    replies: row.replies,
+    retweets: row.retweets,
+    quotes: row.quotes,
+    bookmarks: row.bookmarks,
+    url: `https://x.com/${encodeURIComponent(handle)}/status/${row.tweetId}`,
+  };
+}
+
+/** 成员近 N 帖 + 互动合计（返回 null 表示该成员尚无帖子数据） */
+async function getPostActivity(env: Env, memberId: string, handle: string, limit = 20): Promise<MemberDetail["postActivity"]> {
+  const { results: rows } = await env.DB.prepare(
+    `SELECT ${POST_FIELDS} FROM posts WHERE member_id = ?1 ORDER BY created_at DESC LIMIT ?2`
+  ).bind(memberId, limit).all();
+  const posts = (rows as never as PostRow[]).map((r) => mapPostRow(r, handle));
+  if (posts.length === 0) return null;
+  const totals = posts.reduce(
+    (acc, p) => ({
+      totalViews: acc.totalViews + (p.views ?? 0),
+      totalLikes: acc.totalLikes + (p.likes ?? 0),
+      totalReplies: acc.totalReplies + (p.replies ?? 0),
+    }),
+    { totalViews: 0, totalLikes: 0, totalReplies: 0 }
+  );
+  return { posts, ...totals };
+}
 
 /** 看板统计（/api/dashboard 与首页 SSR 共用，缓存键 ${SITE_URL}/api/dashboard&cb=数据版本） */
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
@@ -50,6 +98,27 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
        WHERE m.status = 'active'`
     ).all();
 
+    // 全社群单帖浏览 Top 8（posts 表 + members 联查，带成员展示信息）
+    const { results: topPostRows } = await env.DB.prepare(
+      `SELECT p.tweet_id AS tweetId, p.created_at AS createdAt, p.text,
+              p.views_count AS views, p.like_count AS likes, p.reply_count AS replies,
+              p.retweet_count AS retweets, p.quote_count AS quotes, p.bookmark_count AS bookmarks,
+              m.id AS memberId, m.handle, m.display_name AS displayName, m.profile_image AS profileImage
+       FROM posts p
+       JOIN members m ON m.id = p.member_id
+       WHERE m.status = 'active' AND p.views_count IS NOT NULL
+       ORDER BY p.views_count DESC LIMIT 8`
+    ).all();
+    const topPosts: PostItem[] = (topPostRows as never as Array<PostRow & {
+      memberId: string;
+      handle: string;
+      displayName: string | null;
+      profileImage: string | null;
+    }>).map((r) => ({
+      ...mapPostRow(r, r.handle),
+      member: { id: r.memberId, handle: r.handle, displayName: r.displayName, profileImage: r.profileImage },
+    }));
+
     const memberStats = memberList.map((m, i) => {
       const rows = (snapshotBatches[i]?.results ?? []) as never as SnapshotRow[];
       // 窗口内是倒序取的，统计层期望正序
@@ -59,6 +128,8 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
     // 与 API JSON 响应同构：computeDashboardStats 输出即 DashboardStats（trend 由快照窗口推导）
     const stats = computeDashboardStats(roster, memberStats, milestoneRows as never, now);
+    // 帖子互动 Top：纯函数层返回空数组，这里用真实查询覆盖
+    stats.topPosts = topPosts;
     return new Response(JSON.stringify(stats), {
       headers: { "Content-Type": "application/json" },
     });
@@ -107,6 +178,10 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
       xCreatedAt: string | null;
       verified: number | null;
     };
+
+    // 帖子活跃度：近 20 帖 + 互动合计（posts 表，尚未采集到时为 null）
+    const postActivity = await getPostActivity(env, memberRow.id, memberRow.handle);
+
     const snapshotRows = snapshots as never as Array<
       { recordedAt: string } & Record<string, number | null> & { followers: number }
     >;
@@ -151,6 +226,7 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
       counters,
       snapshots: snapshotRows,
       milestones: ladderMilestones,
+      postActivity,
     };
     return new Response(JSON.stringify(detail), { headers: { "Content-Type": "application/json" } });
   });

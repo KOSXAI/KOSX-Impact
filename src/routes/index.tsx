@@ -9,6 +9,7 @@ import { Avatar } from "@/components/member/Avatar";
 import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { TrendChart } from "@/components/dashboard/TrendChart";
+import { TopPosts } from "@/components/dashboard/TopPosts";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Flag, Clock3 } from "lucide-react";
 import { MILESTONES, TEN_K, TITLE_FILL, titleOf } from "@/milestones";
@@ -119,6 +120,16 @@ function DashboardPage() {
             )}
           </section>
         </Reveal>
+
+        {/* 互动 Top：全社群单帖浏览 Top 8（帖子表有数据才显示） */}
+        {stats.topPosts.length > 0 && (
+          <Reveal delay={0.08}>
+            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+              <h2 className="text-xl font-bold">互动 Top</h2>
+              <TopPosts posts={stats.topPosts} />
+            </section>
+          </Reveal>
+        )}
   
         {justAchieved && (
           <PopIn className="mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">

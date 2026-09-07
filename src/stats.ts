@@ -62,6 +62,8 @@ export interface DashboardStats {
   }>;
   /** 社群总粉丝量按日趋势（daily_stats 聚合；纯函数层返回空数组，queries 层填充） */
   trend: TrendPoint[];
+  /** 全社群单帖浏览 Top N（queries 层填充） */
+  topPosts: PostItem[];
 }
 
 export interface MemberDetail {
@@ -72,6 +74,36 @@ export interface MemberDetail {
   counters: MemberCounters;
   snapshots: Array<{ followers: number; recordedAt: string }>;
   milestones: Array<{ threshold: number; achievedAt: string }>;
+  /** 帖子活跃度（近 20 帖互动数据；尚未采集到时为 null） */
+  postActivity: PostActivity | null;
+}
+
+/** 单帖活跃度数据（浏览/赞/评论等互动数 + 内容摘要） */
+export interface PostItem {
+  tweetId: string;
+  /** 发帖时间（ISO） */
+  createdAt: string;
+  /** 帖子正文（展示层只出摘要，不外链全文） */
+  text: string | null;
+  views: number | null;
+  likes: number | null;
+  replies: number | null;
+  retweets: number | null;
+  quotes: number | null;
+  bookmarks: number | null;
+  /** 原文外链（x.com/{handle}/status/{tweetId}） */
+  url: string;
+  /** 成员展示信息（看板 topPosts 用；成员页内嵌区块可不带） */
+  member?: { id: string; handle: string; displayName: string | null; profileImage: string | null };
+}
+
+/** 成员帖子活跃度汇总（queries 层从 posts 表窗口聚合） */
+export interface PostActivity {
+  /** 近 20 帖 */
+  posts: PostItem[];
+  totalViews: number;
+  totalLikes: number;
+  totalReplies: number;
 }
 
 /** 档案资料（慢变量，members 表最新值） */
@@ -295,5 +327,6 @@ export function computeDashboardStats(
     members,
     recentMilestones,
     trend,
+    topPosts: [],
   };
 }

@@ -11,6 +11,7 @@ import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { ShareDialog } from "@/components/member/ShareDialog";
 import { SiteHeader } from "@/components/SiteHeader";
 import { GrowthChart } from "@/components/member/GrowthChart";
+import { PostActivity } from "@/components/member/PostActivity";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { TEN_K, nextThreshold, titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
@@ -115,7 +116,7 @@ function ShareButton({ onClick }: { onClick: () => void }) {
 }
 
 function MemberPage() {
-  const { member, profile, counters, snapshots, milestones } = Route.useLoaderData();
+  const { member, profile, counters, snapshots, milestones, postActivity } = Route.useLoaderData();
   const name = member.displayName ?? member.handle;
   const [submitOpen, setSubmitOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -272,6 +273,9 @@ function MemberPage() {
               </CardContent>
             </Card>
           </Reveal>
+
+          {/* 帖子活跃度：近 20 帖的浏览/赞/评论汇总（帖子表有数据才显示） */}
+          {postActivity && <PostActivity activity={postActivity} />}
 
           <Reveal>
             <section>
