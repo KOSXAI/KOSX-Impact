@@ -391,11 +391,13 @@ function QueuedBody({
             : "已加入更新队列，完成后本窗口会自动回到成功状态（高峰期最长约 10 分钟）。"}
       </p>
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="outline" asChild className="w-full sm:w-auto">
-          <Link to="/members/$id" params={{ id: memberId }}>
-            查看成长档案
-          </Link>
-        </Button>
+        {memberId && (
+          <Button variant="outline" asChild className="w-full sm:w-auto">
+            <Link to="/members/$id" params={{ id: memberId }}>
+              查看成长档案
+            </Link>
+          </Button>
+        )}
       </div>
     </>
   );

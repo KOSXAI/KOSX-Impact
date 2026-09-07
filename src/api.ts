@@ -113,7 +113,11 @@ api.post("/api/refresh", async (c) => {
 
   const enqueued = await enqueueRefresh(c.env, member.id, nowIso);
   if (enqueued === "already_pending" || enqueued === "throttled") {
-    return c.json({ status: enqueued === "already_pending" ? "queued" : "throttled" });
+    // memberId 必须带：前端排队态「查看成长档案」依赖它跳转（缺失会点不动）
+    return c.json({
+      status: enqueued === "already_pending" ? "queued" : "throttled",
+      memberId: member.id,
+    });
   }
 
   // 抢到节流槽才即时采集：CAS 保证并发下同一时刻只有一条请求真正拉 SocialData，
