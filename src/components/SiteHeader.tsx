@@ -15,21 +15,21 @@ function GitHubIcon({ className }: { className?: string }) {
 
 /**
  * 全站导航：按优先级渐进显示——越重要的越先出现，放不下的收进窄屏汉堡面板。
- * - 总览/榜单：所有宽度恒显（回首页 + 核心榜单）
- * - 成员 ≥360px · 赛道 ≥480px · 内容 ≥640px · 关于 ≥768px · 官网 ≥900px
+ * - 总览/榜单/成员/赛道：所有宽度恒显（320px 起四项即「绰绰有余」，主流手机宽度全可见）
+ * - 内容 ≥340px · 关于 ≥640px · 官网 ≥900px
  * - 访问 /tracks/xxx、/members/xxx 时对应项保持高亮
  */
 const NAV = [
   { to: "/", label: "总览", exact: true, cls: "" },
   { to: "/leaderboard", label: "榜单", exact: false, cls: "" },
-  { to: "/members", label: "成员", exact: false, cls: "hidden min-[360px]:inline-flex" },
-  { to: "/tracks", label: "赛道", exact: false, cls: "hidden min-[480px]:inline-flex" },
-  { to: "/posts", label: "内容", exact: false, cls: "hidden min-[640px]:inline-flex" },
-  { to: "/about", label: "关于", exact: false, cls: "hidden md:inline-flex" },
+  { to: "/members", label: "成员", exact: false, cls: "" },
+  { to: "/tracks", label: "赛道", exact: false, cls: "" },
+  { to: "/posts", label: "内容", exact: false, cls: "hidden min-[360px]:inline-flex" },
+  { to: "/about", label: "关于", exact: false, cls: "hidden sm:inline-flex" },
 ] as const;
 
 const NAV_BASE_CLS =
-  "shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold text-mist transition-colors hover:text-ink";
+  "shrink-0 rounded-full px-2.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:text-ink lg:px-3";
 
 /**
  * 全站统一头部（菜单居中，加入追踪在页脚 SiteFooter）。
@@ -45,7 +45,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
     <header className="sticky top-0 z-40 border-b border-line/60 bg-paper/85 backdrop-blur-md">
       <div
         className={cn(
-          "mx-auto grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3",
+          "mx-auto grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3",
           "px-[clamp(18px,2.2vw,34px)]",
           containerClassName
         )}
@@ -57,7 +57,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
           </Link>
         </div>
 
-        {/* 中格：导航居中；窄屏渐进显示（放不下的进汉堡面板），宽屏整行显示 */}
+        {/* 中格：导航 + 窄屏汉堡（作为导航流末尾的整体，一起居中，不挤占独立空间） */}
         <nav className="flex items-center justify-center gap-1">
           {NAV.map((n) => (
             <Link
@@ -80,9 +80,18 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
             官网
             <ArrowUpRight className="size-3.5" aria-hidden="true" />
           </a>
+          <button
+            type="button"
+            aria-label={menuOpen ? "关闭菜单" : "打开菜单"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            className="ml-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-mist transition-colors hover:border-signal/40 hover:text-ink md:hidden"
+          >
+            {menuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
+          </button>
         </nav>
 
-        {/* 右格：GitHub（宽屏）/ 汉堡（窄屏） */}
+        {/* 右格：GitHub（宽屏） */}
         <div className="flex items-center justify-end gap-2 sm:gap-2.5">
           <a
             href={GITHUB_URL}
@@ -94,15 +103,6 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
             <GitHubIcon className="size-4" />
             GitHub
           </a>
-          <button
-            type="button"
-            aria-label={menuOpen ? "关闭菜单" : "打开菜单"}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((o) => !o)}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-mist transition-colors hover:border-signal/40 hover:text-ink md:hidden"
-          >
-            {menuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
-          </button>
         </div>
       </div>
 
