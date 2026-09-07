@@ -27,18 +27,22 @@ const MIN_INTERVAL_MS = 650;
 let members = [];
 if (wantHandles.length) {
   const out = execSync(
-    `wrangler d1 execute kosx-impact --remote --json --command "SELECT id, handle FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => `'${h.replaceAll("'", "''")}'`).join(",")})"`,
+    `wrangler d1 execute kosx-impact --remote --json --command "SELECT id, handle, user_id AS userId FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => `'${h.replaceAll("'", "''")}'`).join(",")})"`,
     { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
   );
   members = JSON.parse(out).flatMap((r) => r.results ?? []);
 } else {
   const out = execSync(
-    `wrangler d1 execute kosx-impact --remote --json --command "SELECT id, handle FROM members WHERE status='active' ORDER BY handle"`,
+    `wrangler d1 execute kosx-impact --remote --json --command "SELECT id, handle, user_id AS userId FROM members WHERE status='active' ORDER BY handle"`,
     { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
   );
   members = JSON.parse(out).flatMap((r) => r.results ?? []);
 }
-console.log(`待采样 ${members.length} 位成员，目标 ${SAMPLE_SIZE} 粉丝/账号，节流 ${MIN_INTERVAL_MS}ms`);
+// 复用库内 user_id（每日采集已持久化）：缺值的跳过，下次采集补上后重跑，不再调 profile 拿 ID
+const ready = members.filter((m) => m.userId);
+const skipped = members.filter((m) => !m.userId).map((m) => m.handle);
+console.log(`待采样 ${ready.length} 位（${members.length - ready.length} 位缺 user_id 跳过），目标 ${SAMPLE_SIZE} 粉丝/账号，节流 ${MIN_INTERVAL_MS}ms`);
+if (skipped.length) console.log("缺 user_id 跳过:", skipped.join(", "), "（下次采集自动补齐后重跑）");
 
 let lastRequestAt = 0;
 async function get(path) {
@@ -52,11 +56,8 @@ async function get(path) {
   return res.json();
 }
 
-/** 拉某成员粉丝样本：profile 拿 ID → followers 翻页直到 SAMPLE_SIZE */
-async function sampleFollowers(handle) {
-  const profile = await get(`/twitter/user/${encodeURIComponent(handle)}`);
-  const userId = profile.id_str;
-  if (!userId) throw new Error("profile 无 id_str");
+/** 拉某成员粉丝样本：直接用库内 userId（每日采集已持久化），翻页直到 SAMPLE_SIZE */
+async function sampleFollowers(userId) {
   const users = [];
   let cursor = "";
   const seen = new Set();
@@ -74,7 +75,7 @@ async function sampleFollowers(handle) {
     if (!page.next_cursor || batch.length === 0) break;
     cursor = page.next_cursor;
   }
-  return { users: users.slice(0, SAMPLE_SIZE), userId };
+  return { users: users.slice(0, SAMPLE_SIZE) };
 }
 
 function aggregate(users, now) {
@@ -115,11 +116,11 @@ function aggregate(users, now) {
 const now = new Date().toISOString();
 const profiles = [];
 const failed = [];
-for (let i = 0; i < members.length; i++) {
-  const m = members[i];
-  process.stdout.write(`[${i + 1}/${members.length}] @${m.handle} … `);
+for (let i = 0; i < ready.length; i++) {
+  const m = ready[i];
+  process.stdout.write(`[${i + 1}/${ready.length}] @${m.handle} … `);
   try {
-    const { users } = await sampleFollowers(m.handle);
+    const { users } = await sampleFollowers(m.userId);
     const agg = aggregate(users, now);
     if (!agg) throw new Error("样本为空");
     profiles.push({ member_id: m.id, ...agg });

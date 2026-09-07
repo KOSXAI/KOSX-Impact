@@ -156,6 +156,7 @@ async function writeSnapshot(
          banner_url = COALESCE(?7, banner_url),
          x_created_at = COALESCE(?8, x_created_at),
          verified = COALESCE(?9, verified),
+         user_id = COALESCE(?10, user_id),
          updated_at = datetime('now')
        WHERE id = ?1`
     ).bind(
@@ -167,7 +168,8 @@ async function writeSnapshot(
       stats.url ?? null,
       stats.bannerUrl ?? null,
       stats.xCreatedAt ?? null,
-      stats.verified == null ? null : stats.verified ? 1 : 0
+      stats.verified == null ? null : stats.verified ? 1 : 0,
+      stats.userId ?? null
     ),
     env.DB.prepare(
       `INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
