@@ -98,6 +98,7 @@ export async function getTopPosts(
     3600,
     async () => {
       const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+      // views 缺失时用 赞+评论+转推 估算排序（COALESCE 兜底），避免高互动帖被筛掉
       const { results: rows } = await env.DB.prepare(
         `SELECT p.tweet_id AS tweetId, p.created_at AS createdAt, p.text,
                 p.views_count AS views, p.like_count AS likes, p.reply_count AS replies,
@@ -105,8 +106,8 @@ export async function getTopPosts(
                 m.id AS memberId, m.handle, m.display_name AS displayName, m.profile_image AS profileImage
          FROM posts p
          JOIN members m ON m.id = p.member_id
-         WHERE m.status = 'active' AND p.views_count IS NOT NULL AND p.created_at >= ?1
-         ORDER BY p.views_count DESC LIMIT ?2`
+         WHERE m.status = 'active' AND p.created_at >= ?1
+         ORDER BY COALESCE(p.views_count, p.like_count + p.reply_count + p.retweet_count) DESC LIMIT ?2`
       ).bind(cutoff, limit).all();
       const posts = (rows as never as Array<PostRow & {
         memberId: string;

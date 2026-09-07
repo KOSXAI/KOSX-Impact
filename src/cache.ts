@@ -26,8 +26,8 @@ export interface CachedResponseOptions {
  * 结构升级升 v、数据变化靠 cb 自动换键。
  */
 export const CACHE_KEYS = {
-  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v16：赛道榜区块 */
-  dashboard: "/api/dashboard?v=16",
+  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v17：posts 数据动态化（每日采集） */
+  dashboard: "/api/dashboard?v=17",
   /** 成员列表（/api/members） */
   memberList: "/api/members?v=10",
   /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */
@@ -36,10 +36,10 @@ export const CACHE_KEYS = {
   ogMember: (id: string) => `/og/members/${id}?v=1`,
   /** 站点 OG 分享卡（PNG） */
   ogSite: "/og/site.png?v=1",
-  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v15：档案卡赛道 chip + 标签组 */
-  memberDetail: (id: string) => `/api/members/${id}?v=15`,
-  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——近 30 天单帖浏览 Top */
-  topPosts: "/api/top-posts?v=1",
+  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v16：帖子数据动态化（每日采集） */
+  memberDetail: (id: string) => `/api/members/${id}?v=16`,
+  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v2：views 缺失 COALESCE 兜底排序 */
+  topPosts: "/api/top-posts?v=2",
 } as const;
 
 export async function cachedResponse(

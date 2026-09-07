@@ -162,7 +162,7 @@ git push           # 推送 GitHub
 - 开启 `main` 分支保护（本仓库无 GitHub Actions 状态检查，建议要求 review，或以本地 `npm run check` 验证结果为准）
 - **名册成员加入（维护者批量）**：在 `data/members.json` 中按 id 排序加入该成员（通过 PR 提交，校验脚本会检查格式）→ 本地跑 `node scripts/sync-new-members.mjs`（新成员会从 SocialData 拉取粉丝数、头像与 **X 显示名**；名下写回 `data/members.json`，随本 PR 一并提交，缺了它会退化成 handle）；执行生成的 `/tmp/onboard.sql` 入库。每次引入新成员时**必须**跑该脚本，避免 `displayName` 缺失
 - **成员退出**：从名册中删除该成员（PR），同步后自动停止公开追踪、数据保留；如成员要求移除历史数据，删除其 `snapshots` / `milestones` 记录
-- **帖子活跃度数据（手动刷新，未接定时任务）**：`node scripts/sync-posts.mjs && wrangler d1 execute kosx-impact --remote --file=/tmp/posts.sql`——对名册成员逐个拉取 tweets（约 20 帖/人，$0.0002/帖）写入 `posts` 表并 bump `cache_bust`；待常态化后并入每日采集管线
+- **帖子活跃度数据（已纳入每日采集）**：滚动采集（`src/collector.ts`）复用 profile 响应的数字 ID（id_str）自动拉取 tweets 写入 `posts` 表（约 20 帖/人/天，$0.0002/帖，无额外 profile 调用），并清理 90 天前旧帖；`scripts/sync-posts.mjs` 保留为一次性手动补跑入口（profile+tweets 全链路）
 - **成员赛道分类（脚本运行，非网页自动）**：赛道体系为**五个正式赛道 + 综合兜底**——`AI工具 / 财经 / 开发者 / 增长 / 出海`，一人可挂多个赛道；无法归入任何正式赛道的成员统一挂「综合」，综合是一个**过渡桶**：人数攒到足够或分类维度清晰后再细分出新赛道。分类由**脚本执行**（Grok Build 子代理逐个博主扫描打标 → 人工 review → 入库），**不做网页自动分类**，避免不可控的分类结果直接上生产。打标执行用 **Grok Build 子代理**（x_search 访问博主主页读 bio+帖子，一次输出赛道+标签+置信度，文档 `docs/grok-track-classifier.md`），不占 SocialData 额度——SocialData 只留给结构化数据采集。**入库**：`node scripts/apply-tracks.mjs /path/to/grok-output.json`——校验赛道枚举白名单（AI工具/财经/开发者/增长/出海/综合）、tracks 1-3 个、tags 3-8 个后写 members 表 tracks/tags 并 bump `cache_bust`，输出低置信度清单供复查。数据存 `members` 表（0010 迁移），看板「赛道」区块 + 成员页档案卡 chip/标签组读取展示；赛道定义唯一来源 `src/tracks.ts`
 - 数据库变更一律通过 `migrations/` 下的新迁移文件进行，不直接改线上库
 

@@ -19,6 +19,10 @@ function stubSource(stats: Record<string, FollowerStats | Error>): FollowerSourc
       if (value instanceof Error) throw value;
       return value;
     },
+    // 帖子采集未被本测试断言：mock 返回空即可（stats 无 userId 时采集分支不触发）
+    async fetchRecentPosts() {
+      return [];
+    },
   };
 }
 
@@ -26,6 +30,7 @@ beforeEach(async () => {
   await env.DB.prepare("DELETE FROM snapshots").run();
   await env.DB.prepare("DELETE FROM milestones").run();
   await env.DB.prepare("DELETE FROM daily_stats").run();
+  await env.DB.prepare("DELETE FROM posts").run();
   await env.DB.prepare("DELETE FROM members").run();
 });
 
@@ -63,6 +68,31 @@ describe("collectWithSource", () => {
       "SELECT followers FROM snapshots WHERE member_id = 'bob' ORDER BY recorded_at DESC LIMIT 1"
     ).first()) as { followers: number };
     expect(latestBob.followers).toBe(1300);
+  });
+
+  it("profile 响应含 userId 时自动采集帖子（复用同一响应，零额外 profile 调用）", async () => {
+    await seedBaselines();
+    const source: FollowerSource = {
+      name: "stub",
+      async fetchStats() {
+        return { followers: 1500, userId: "44196397" };
+      },
+      async fetchRecentPosts() {
+        return [
+          { tweetId: "t1", createdAt: "2026-09-05T00:00:00Z", fullText: "hi", views: 100, likes: 10, replies: 2, retweets: 1, quotes: 0, bookmarks: 3, lang: "zh" },
+          { tweetId: "t2", createdAt: "2026-09-06T00:00:00Z", fullText: null, views: null, likes: 5, replies: 0, retweets: 0, quotes: 0, bookmarks: 0, lang: null },
+        ];
+      },
+    };
+    await collectWithSource(env, source, testRoster, undefined, 0);
+
+    const { results: posts } = await env.DB.prepare(
+      "SELECT tweet_id AS tweetId, views_count AS views FROM posts WHERE member_id = 'alice' ORDER BY created_at"
+    ).all() as { results: Array<{ tweetId: string; views: number | null }> };
+    expect(posts).toEqual([
+      { tweetId: "t1", views: 100 },
+      { tweetId: "t2", views: null },
+    ]);
   });
 
   it("滚动采集：daily_stats 预聚合随采集写入", async () => {

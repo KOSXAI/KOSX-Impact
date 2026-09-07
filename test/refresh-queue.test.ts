@@ -24,6 +24,9 @@ function stubSource(stats: Record<string, FollowerStats | Error>): FollowerSourc
       if (value instanceof Error) throw value;
       return value;
     },
+    async fetchRecentPosts() {
+      return [];
+    },
   };
 }
 

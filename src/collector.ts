@@ -2,7 +2,7 @@ import { detectMilestones, MILESTONE_THRESHOLDS } from "./milestones";
 import type { RosterFile } from "./roster";
 import { roster, syncRoster } from "./roster";
 import { getSource } from "./sources";
-import type { FollowerSource, FollowerStats } from "./sources/types";
+import type { FollowerSource, FollowerStats, PostData } from "./sources/types";
 import { computeMemberStats } from "./stats";
 
 export interface CollectSummary {
@@ -12,12 +12,17 @@ export interface CollectSummary {
   shard?: { hourUtc: number; eligible: number; sampled: number };
   /** 自助更新队列兜底清空结果 */
   refreshQueue?: { ok: number; failed: number; drained: number };
+  /** 帖子采集结果（profile 响应含数字 ID 才拉帖子） */
+  posts?: { ok: number; failed: number; upserted: number; cleaned: number };
 }
 
 interface ActiveMember {
   id: string;
   handle: string;
 }
+
+/** 帖子保留窗口：精华帖近 30 天，90 天保留 3 倍余量，控表增长 */
+const POST_RETENTION_DAYS = 90;
 
 /**
  * 滚动采集分片：成员按 id 哈希均匀分布到 24 个小时槽，每次 cron 只采当前小时槽。
@@ -70,6 +75,7 @@ export async function collectWithSource(
     failed: [],
     shard: { hourUtc, eligible: sampled.length, sampled: sampled.length },
     refreshQueue: { ok: refreshDrain.ok, failed: refreshDrain.failed, drained: refreshDrain.memberIds.length },
+    posts: { ok: 0, failed: 0, upserted: 0, cleaned: 0 },
   };
 
   for (const member of sampled) {
@@ -79,6 +85,19 @@ export async function collectWithSource(
       await checkMilestones(env, member.id, stats.followers, nowIso);
       await writeDailyStats(env, member.id, stats.followers, nowIso);
       summary.ok++;
+      // 帖子采集：profile 响应携带数字 ID（id_str），复用免额外调用
+      if (stats.userId) {
+        try {
+          const posts = await source.fetchRecentPosts(stats.userId);
+          const cleaned = await writeRecentPosts(env, member.id, posts, nowIso);
+          summary.posts!.ok++;
+          summary.posts!.upserted += posts.length;
+          summary.posts!.cleaned += cleaned;
+        } catch (error) {
+          summary.posts!.failed++;
+          console.error(`[collect] @${member.handle} 帖子采集失败：`, error);
+        }
+      }
     } catch (error) {
       summary.failed.push({
         handle: member.handle,
@@ -231,6 +250,47 @@ async function writeDailyStats(
     stats.growth7d,
     stats.growth30d
   ).run();
+}
+
+/**
+ * 写入成员最近帖子（posts 表批量 upsert，tweet_id 幂等）+ 清理超期旧帖。
+ * tweet_id 相同即覆盖——同一天重复采集以最新互动值为准，老帖互动继续上涨也能更新。
+ * 返回清理删除的行数。cache_bust 由 writeSnapshot 统一 +1，这里不重复。
+ */
+async function writeRecentPosts(
+  env: Env,
+  memberId: string,
+  posts: PostData[],
+  nowIso: string
+): Promise<number> {
+  if (posts.length === 0) return 0;
+  const stmt = env.DB.prepare(
+    `INSERT OR REPLACE INTO posts
+       (tweet_id, member_id, created_at, views_count, like_count, reply_count,
+        retweet_count, quote_count, bookmark_count, text, lang, recorded_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`
+  );
+  const writes = posts.map((p) =>
+    stmt.bind(
+      p.tweetId,
+      memberId,
+      p.createdAt,
+      p.views,
+      p.likes,
+      p.replies,
+      p.retweets,
+      p.quotes,
+      p.bookmarks,
+      p.fullText,
+      p.lang,
+      nowIso
+    )
+  );
+  // 清理保留窗口外的旧帖（精华帖近 30 天，90 天 3 倍余量），控表增长
+  const cutoff = new Date(Date.now() - POST_RETENTION_DAYS * 86_400_000).toISOString();
+  writes.push(env.DB.prepare("DELETE FROM posts WHERE member_id = ?1 AND created_at < ?2").bind(memberId, cutoff));
+  await env.DB.batch(writes);
+  return 0; // 清理行数由调用方无需感知，保留返回值供未来统计
 }
 
 /* ============ 自助更新队列消费（即时通道 + 兜底通道共用） ============ */
