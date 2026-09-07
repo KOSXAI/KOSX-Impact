@@ -56,6 +56,17 @@ function parseStrArray(raw: string | null): string[] {
   }
 }
 
+/** 任意 JSON 数组解析（对象数组等）：解析失败或非数组回退空数组 */
+function parseJsonArray<T>(raw: string | null): T[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /** posts 表行 → PostItem（拼 x.com 原文外链） */
 function mapPostRow(row: PostRow, handle: string): PostItem {
   return {
@@ -356,7 +367,7 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
         avgFriends: fr.avgFriends,
         avgTweets: fr.avgTweets,
         avgAgeDays: fr.avgAgeDays,
-        topHandles: parseStrArray(fr.topHandlesRaw) as unknown as FanProfile["topHandles"],
+        topHandles: parseJsonArray<FanProfile["topHandles"][number]>(fr.topHandlesRaw),
       };
     }
 
