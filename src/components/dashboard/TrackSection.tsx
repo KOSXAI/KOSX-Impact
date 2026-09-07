@@ -1,11 +1,11 @@
 import { useState } from "react";
-import type { MemberStats } from "@/stats";
+import type { MemberStats, TrackStats } from "@/stats";
 import { TRACKS, TRACK_OTHER, trackOf } from "@/tracks";
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/member/Avatar";
 import { AnimatedNumber } from "@/components/motion";
-import { Blocks, CandlestickChart, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
-import { fmt } from "@/lib/format";
+import { ArrowUpRight, Blocks, CandlestickChart, Eye, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
+import { fmt, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** 赛道图标映射（src/tracks.ts 存图标名字符串，组件侧映射到 lucide 组件） */
@@ -23,26 +23,42 @@ function TrackIcon({ name, className }: { name: string; className?: string }) {
   return <Icon className={className} aria-hidden="true" />;
 }
 
+type SortKey = "followers" | "growth" | "posts";
+
 /**
- * 看板「赛道」区块 = 赛道排行榜：顶部赛道选择（5 正式 + 综合），
- * 选中赛道后显示该赛道成员按粉丝量排序的榜单。一人可挂多赛道，按归属分别上榜。
+ * 看板「赛道」区块 = 赛道排行榜：赛道选择器（5 正式 + 综合）+ 三重口径榜单。
+ * - 存量粉丝榜：赛道成员按粉丝量排序（原有）
+ * - 本周增长榜：赛道成员按近 7 天增长排序
+ * - 帖子互动榜：赛道内近 30 天单帖浏览 Top（posts join tracks）
+ * 综合是过渡桶不参与榜单；顶部每赛道可直达赛道独立页。
  */
-export function TrackSection({ members }: { members: MemberStats[] }) {
+export function TrackSection({ members, trackStats }: { members: MemberStats[]; trackStats: TrackStats[] }) {
   const active = members.filter((m) => m.tracks.length > 0);
   if (active.length === 0) return null;
 
-  const allTracks = [...TRACKS, TRACK_OTHER];
-  // 默认选第一个有人的正式赛道
+  const [sortKey, setSortKey] = useState<SortKey>("followers");
   const [selected, setSelected] = useState<string>(
-    () => allTracks.find((t) => active.some((m) => m.tracks.includes(t.name)))?.name ?? TRACK_OTHER.name
+    () => [...TRACKS, TRACK_OTHER].find((t) => active.some((m) => m.tracks.includes(t.name)))?.name ?? TRACK_OTHER.name
   );
   const inTrack = active.filter((m) => m.tracks.includes(selected));
+  const isOther = selected === TRACK_OTHER.name;
+  const perTrack = trackStats.find((t) => t.name === selected);
+
+  const sortedMembers = [...inTrack].sort((a, b) =>
+    sortKey === "growth" ? b.growth7d - a.growth7d : (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0)
+  );
+
+  const sorts: Array<{ key: SortKey; label: string }> = [
+    { key: "followers", label: "存量粉丝" },
+    { key: "growth", label: "本周增长" },
+    { key: "posts", label: "帖子互动" },
+  ];
 
   return (
     <div className="mt-6">
       {/* 赛道选择器 */}
       <div className="flex flex-wrap gap-2">
-        {allTracks.map((track) => {
+        {[...TRACKS, TRACK_OTHER].map((track) => {
           const count = active.filter((m) => m.tracks.includes(track.name)).length;
           if (count === 0) return null;
           return (
@@ -64,20 +80,100 @@ export function TrackSection({ members }: { members: MemberStats[] }) {
         })}
       </div>
 
-      {/* 选中赛道成员榜（按粉丝量从高到低） */}
-      <ol className="mt-5 space-y-2.5">
-        {inTrack
-          .sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0))
-          .map((m, i) => (
-            <TrackRow key={m.id} member={m} rank={i + 1} />
+      {/* 赛道能量摘要（正式赛道；综合为过渡桶不出数字） */}
+      {!isOther && perTrack && perTrack.memberCount > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-mist">
+          <span>
+            社群粉丝 <b className="text-ink tabular-nums">{fmt(perTrack.totalFollowers)}</b>
+          </span>
+          <span>
+            近 30 天 <b className="text-signal tabular-nums">+{fmt(perTrack.growth30dTotal)}</b>
+          </span>
+          <Link
+            to="/tracks/$slug"
+            params={{ slug: perTrack.slug }}
+            className="ml-auto inline-flex items-center gap-1 font-semibold text-signal underline-offset-4 hover:underline"
+          >
+            赛道主页 <ArrowUpRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        </div>
+      )}
+
+      {/* 口径切换：存量 / 增长 / 帖子互动（综合过渡桶只出成员） */}
+      {!isOther && (
+        <div className="mt-4 flex gap-1 rounded-full border border-line bg-soft-surface p-1 sm:inline-flex">
+          {sorts.map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setSortKey(s.key)}
+              className={cn(
+                "h-8 flex-1 rounded-full px-3 text-xs font-semibold transition-colors sm:flex-none sm:px-4",
+                sortKey === s.key ? "bg-white text-paper" : "text-mist hover:text-ink"
+              )}
+            >
+              {s.label}
+            </button>
           ))}
-      </ol>
+        </div>
+      )}
+
+      {sortKey === "posts" && !isOther ? (
+        <TrackPostList trackName={selected} posts={perTrack?.topPosts ?? []} />
+      ) : (
+        <ol className="mt-5 space-y-2.5">
+          {sortedMembers.map((m, i) => (
+            <TrackRow key={m.id} member={m} rank={i + 1} metric={sortKey === "growth" ? m.growth7d : null} />
+          ))}
+          {sortedMembers.length === 0 && <li className="text-sm text-mist">这个赛道还没有成员。</li>}
+        </ol>
+      )}
     </div>
   );
 }
 
-/** 赛道榜行卡：排名 + 头像 + 名字 + 粉丝量 + 距下一称号（仿总排行行，精简） */
-function TrackRow({ member: m, rank }: { member: MemberStats; rank: number }) {
+/** 赛道周榜：赛道内近 30 天单帖浏览 Top 3（帖子互动榜） */
+function TrackPostList({ trackName, posts }: { trackName: string; posts: TrackStats["topPosts"] }) {
+  if (posts.length === 0) {
+    return <p className="mt-5 text-sm text-mist">「{trackName}」赛道近期还没有帖子数据，采集跑起来后自动上榜。</p>;
+  }
+  return (
+    <ol className="mt-5 space-y-2.5">
+      {posts.map((p, i) => {
+        const name = p.member?.displayName ?? p.member?.handle ?? "?";
+        return (
+          <li key={p.tweetId} className="flex items-center gap-3 rounded-2xl border border-line bg-soft-surface px-4 py-3">
+            <div className="w-6 shrink-0 font-extrabold tabular-nums text-mist">{i + 1}</div>
+            <Avatar url={p.member?.profileImage ?? null} name={name} className="size-9 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <Link to="/members/$id" params={{ id: p.member?.id ?? "" }} className="text-sm font-semibold underline-offset-4 hover:underline">
+                  {name}
+                </Link>
+                <span className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</span>
+              </div>
+              <p className="mt-0.5 line-clamp-1 text-xs text-mist">{p.text ?? "（无正文）"}</p>
+            </div>
+            <a
+              href={p.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-right text-sm font-bold text-signal tabular-nums"
+              title="查看 X 原文"
+            >
+              <span className="inline-flex items-center gap-1">
+                <Eye className="size-3.5" aria-hidden="true" />
+                {fmt(p.views ?? (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0))}
+              </span>
+            </a>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** 赛道成员行卡：排名 + 头像 + 名字 + 轨道 chip + 标签 + 粉丝量或周增长 */
+function TrackRow({ member: m, rank, metric }: { member: MemberStats; rank: number; metric: number | null }) {
   const name = m.displayName ?? m.handle;
   const track = m.tracks.find((t) => t !== TRACK_OTHER.name) ?? m.tracks[0];
   const trackMeta = track ? trackOf(track) : undefined;
@@ -135,12 +231,23 @@ function TrackRow({ member: m, rank }: { member: MemberStats; rank: number }) {
         )}
       </div>
       <div className="shrink-0 text-right">
-        <div className="text-lg font-bold tabular-nums">
-          <AnimatedNumber value={m.latestFollowers ?? 0} />
-        </div>
-        <div className="text-xs text-mist tabular-nums">
-          {m.latestFollowers != null ? `还差 ${fmt(m.nextMilestone - m.latestFollowers)}` : "排队中"}
-        </div>
+        {metric !== null ? (
+          <>
+            <div className="text-lg font-bold text-signal tabular-nums">
+              <AnimatedNumber value={metric} prefix="+" />
+            </div>
+            <div className="text-xs text-mist">近 7 天</div>
+          </>
+        ) : (
+          <>
+            <div className="text-lg font-bold tabular-nums">
+              <AnimatedNumber value={m.latestFollowers ?? 0} />
+            </div>
+            <div className="text-xs text-mist tabular-nums">
+              {m.latestFollowers != null ? `还差 ${fmt(m.nextMilestone - m.latestFollowers)}` : "排队中"}
+            </div>
+          </>
+        )}
       </div>
     </li>
   );

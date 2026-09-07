@@ -3,13 +3,14 @@ import type { DashboardStats } from "./stats";
 import { applyFollowerStats, collect, drainRefreshQueue, processOldestPending } from "./collector";
 import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
-import { renderMemberOgPng, renderSiteOgPng, ogNotFound } from "./og-render";
+import { renderMemberOgPng, renderSiteOgPng, renderReportOgPng, renderTrackOgPng, ogNotFound } from "./og-render";
 import { computeMemberStats, computeDashboardStats } from "./stats";
 import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
 import { roster } from "./roster";
 import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
 import { getSource } from "./sources";
 import { SocialDataError } from "./sources/socialdata";
+import { TRACKS } from "./tracks";
 import { SITE_URL } from "./lib/site";
 
 export const api = new Hono<{ Bindings: Env }>();
@@ -222,6 +223,8 @@ function renderSitemap(): Response {
     { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
     { loc: `${SITE_URL}/posts`, changefreq: "daily", priority: "0.7" },
     { loc: `${SITE_URL}/about`, changefreq: "monthly", priority: "0.3" },
+    // 赛道页（5 正式赛道；综合过渡桶不出独立页）
+    ...TRACKS.map((t) => ({ loc: `${SITE_URL}/tracks/${t.slug}`, changefreq: "daily", priority: "0.8" })),
     ...roster.members.map((m) => ({ loc: `${SITE_URL}/members/${m.id}`, changefreq: "daily", priority: "0.8" })),
   ];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -244,6 +247,14 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
   if (pathname.startsWith("/og/members/")) {
     const id = pathname.slice("/og/members/".length).replace(/\.png$/, "").split("/")[0];
     return id ? renderMemberOgPng(env, id, url.origin) : ogNotFound();
+  }
+  if (pathname.startsWith("/og/reports/")) {
+    const id = pathname.slice("/og/reports/".length).replace(/\.png$/, "").split("/")[0];
+    return id ? renderReportOgPng(env, id, url.origin) : ogNotFound();
+  }
+  if (pathname.startsWith("/og/tracks/")) {
+    const slug = pathname.slice("/og/tracks/".length).replace(/\.png$/, "").split("/")[0];
+    return slug ? renderTrackOgPng(env, slug, url.origin) : ogNotFound();
   }
   if (pathname === "/robots.txt") return renderRobots();
   if (pathname === "/sitemap.xml") return renderSitemap();

@@ -161,3 +161,99 @@ ${footer(`近30天 ${growthText(stats.growth30d)}`)}
 </g>
 </svg>`;
 }
+
+/** 周报 OG 卡入参（WeeklyReport 的卡面所需子集） */
+export interface ReportOgStats {
+  displayName: string | null;
+  handle: string;
+  tierFill: string;
+  followersStart: number;
+  followersEnd: number;
+  growth: number;
+  postCount: number;
+  engagementMedian: number | null;
+  prevMilestone: number;
+  nextMilestone: number;
+  progressToNext: number;
+  milestoneTitle: string | null;
+  inactiveDays: number | null;
+}
+
+/**
+ * 周报 OG 卡：上方「近 7 天周报」标题，左侧身份 + 周增长大数，右侧数据（发帖/互动率），
+ * 下方称号进度带 + 亮点行（登阶/停更）。分享到 X/微信时一眼看清这周的成果。
+ */
+export function reportOgSvg(report: ReportOgStats, logo: OgLogo | null): string {
+  const name = truncate(report.displayName ?? `@${report.handle}`, 520, 62);
+  const growthStr = growthText(report.growth);
+  const growthSize = growthStr.length >= 9 ? 96 : 128;
+  const growthW = textW(growthStr, growthSize);
+
+  const engagement =
+    report.engagementMedian != null ? `${Math.round(report.engagementMedian * 10000) / 100}%` : "—";
+
+  // 右侧数据两列：发帖 / 互动率（左下），当前粉丝（右下）
+  const rightX = OG_W - PAD;
+  const row1 = 258;
+  const row2 = 366;
+
+  // 亮点行：登阶优先，其次停更，都没有则称号进度
+  let highlight: string;
+  if (report.milestoneTitle) {
+    highlight = `🎉 本周拿下「${esc(report.milestoneTitle)}」大关`;
+  } else if (report.inactiveDays != null) {
+    highlight = `已 ${report.inactiveDays} 天没有新内容，内容动力待恢复`;
+  } else {
+    highlight = `距「${esc(titleOf(report.nextMilestone))}」还差 ${esc(fmt(Math.max(0, report.nextMilestone - report.followersEnd)))} 粉`;
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${OG_W}" height="${OG_H}" viewBox="0 0 ${OG_W} ${OG_H}" role="img" aria-label="${esc(name)} 的 KOSX 周报">
+<defs>${linearGradient}</defs>
+<g font-family="${FONT}">
+${frame(report.tierFill, logo)}
+<text x="${PAD}" y="136" font-size="30" font-weight="700" fill="${MIST}">近 7 天内容周报</text>
+<text x="${PAD}" y="258" font-size="62" font-weight="700" fill="${INK}">${esc(name)}</text>
+<text x="${PAD}" y="306" font-size="30" fill="${MIST}">@${esc(report.handle)}</text>
+<text x="${PAD}" y="${row2}" font-size="${growthSize}" font-weight="700" fill="${report.growth > 0 ? SIGNAL : INK}">${esc(growthStr)}</text>
+<text x="${PAD}" y="${row2 + 52}" font-size="26" fill="${MIST}">本周粉丝 ${esc(fmt(report.followersStart))} → ${esc(fmt(report.followersEnd))}</text>
+<text x="${rightX}" y="${row1}" font-size="56" font-weight="700" fill="${INK}" text-anchor="end">${esc(fmt(report.followersEnd))}</text>
+<text x="${rightX}" y="${row1 + 46}" font-size="26" fill="${MIST}" text-anchor="end">当前粉丝</text>
+<text x="${rightX}" y="${row2}" font-size="40" font-weight="700" fill="${INK}" text-anchor="end">${report.postCount}</text>
+<text x="${rightX}" y="${row2 + 46}" font-size="26" fill="${MIST}" text-anchor="end">本周发帖</text>
+<text x="${rightX}" y="${row2 + 92}" font-size="40" font-weight="700" fill="${INK}" text-anchor="end">${esc(engagement)}</text>
+<text x="${rightX}" y="${row2 + 138}" font-size="26" fill="${MIST}" text-anchor="end">互动率中位数</text>
+<rect x="${PAD}" y="496" width="${CONTENT_W}" height="12" rx="6" fill="${LINE}"/>
+<rect x="${PAD}" y="496" width="${progressFillW(report.progressToNext).toFixed(1)}" height="12" rx="6" fill="url(#ogacc)"/>
+<text x="${PAD}" y="556" font-size="26" fill="${MIST}">${highlight}</text>
+${footer("KOSX 万粉影响力计划")}
+</g>
+</svg>`;
+}
+
+/** 赛道 OG 卡入参（TrackStats + 赛道元信息） */
+export interface TrackOgStats {
+  name: string;
+  description: string;
+  memberCount: number;
+  totalFollowers: number;
+  growth30dTotal: number;
+}
+
+/** 赛道 OG 卡：赛道名 + 成员数 + 社群粉丝总量 + 近 30 天增长（对外增长页的分享卡） */
+export function trackOgSvg(track: TrackOgStats, logo: OgLogo | null): string {
+  const name = truncate(track.name, CONTENT_W, 76);
+  const desc = truncate(track.description, CONTENT_W, 30);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${OG_W}" height="${OG_H}" viewBox="0 0 ${OG_W} ${OG_H}" role="img" aria-label="${esc(track.name)} 赛道 · KOSX 万粉影响力计划">
+<defs>${linearGradient}</defs>
+<g font-family="${FONT}">
+${frame(SIGNAL, logo)}
+<text x="${PAD}" y="220" font-size="76" font-weight="700" fill="${INK}">${esc(name)} 赛道</text>
+<text x="${PAD}" y="278" font-size="30" fill="${MIST}">${esc(desc)}</text>
+<text x="${PAD}" y="452" font-size="120" font-weight="700" fill="${SIGNAL}">${esc(fmt(track.totalFollowers))}</text>
+<text x="${PAD}" y="502" font-size="28" fill="${MIST}">赛道社群粉丝 · ${fmt(track.memberCount)} 位博主</text>
+<text x="${OG_W - PAD}" y="452" font-size="54" font-weight="700" fill="${track.growth30dTotal > 0 ? SIGNAL : INK}" text-anchor="end">${esc(growthText(track.growth30dTotal))}</text>
+<text x="${OG_W - PAD}" y="502" font-size="26" fill="${MIST}" text-anchor="end">近 30 天新增</text>
+${footer("围观同赛道博主，看见影响力")}
+</g>
+</svg>`;
+}
