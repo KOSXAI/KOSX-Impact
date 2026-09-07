@@ -30,6 +30,10 @@ export interface MemberStats {
   progressToNext: number;
   /** 已拿下的大关数（成就徽章数，看板聚合时按登阶事件计） */
   climbs: number;
+  /** 赛道数组（5 正式 + 综合；Grok 分类产物，空数组=未分类） */
+  tracks: string[];
+  /** 描述性标签数组（自由组合，空数组=未打标） */
+  tags: string[];
 }
 
 /** 预聚合字段（来自 daily_stats）：直传绕过窗口重算 */
@@ -228,6 +232,8 @@ export function computeMemberStats(
     nextMilestone: nextThreshold(followers),
     progressToNext: progressToNext(followers),
     climbs: 0,
+    tracks: [],
+    tags: [],
   };
 }
 
@@ -240,6 +246,9 @@ export function computeDashboardStats(
     joinedAt: string;
     profileImage?: string | null;
     snapshots: Array<{ followers: number; recordedAt: string }>;
+    /** 赛道/标签（queries 层从 members 表 JSON parse 后传入，无则空数组） */
+    tracks?: string[];
+    tags?: string[];
     /** daily_stats 预聚合字段：有值时直接采用，不重算 */
     preset?: PresetStats;
   }>,
@@ -269,7 +278,7 @@ export function computeDashboardStats(
     );
     // 预聚合覆盖：growth/趋势来自采集时算好的 daily_stats，
     // followers/recordedAt 仍用窗口值（滚动采集下 daily_stats 可能滞后）
-    return row.preset
+    const merged = row.preset
       ? {
           ...computed,
           growth: row.preset.growth,
@@ -277,6 +286,10 @@ export function computeDashboardStats(
           growth30d: row.preset.growth30d,
         }
       : computed;
+    // 赛道/标签透传：computeMemberStats 里是空数组，queries 层提供的真实值覆盖
+    if (row.tracks) merged.tracks = row.tracks;
+    if (row.tags) merged.tags = row.tags;
+    return merged;
   });
 
   // 登阶记录只认证号大关上的档位（旧阶梯档位不再展示）

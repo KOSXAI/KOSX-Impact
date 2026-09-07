@@ -13,7 +13,7 @@ import { SITE_URL } from "./lib/site";
 
 // Env 由 worker-configuration.d.ts / env.d.ts 全局声明（无单独模块）
 
-const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage`;
+const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage, tracks, tags`;
 const SNAPSHOT_FIELDS = `member_id AS memberId, followers, recorded_at AS recordedAt`;
 const POST_FIELDS = `tweet_id AS tweetId, created_at AS createdAt, text,
   views_count AS views, like_count AS likes, reply_count AS replies,
@@ -25,6 +25,8 @@ type MemberRow = {
   displayName: string | null;
   joinedAt: string;
   profileImage: string | null;
+  tracks: string | null;
+  tags: string | null;
 };
 type SnapshotRow = { memberId: string; followers: number; recordedAt: string };
 type PostRow = {
@@ -38,6 +40,17 @@ type PostRow = {
   quotes: number | null;
   bookmarks: number | null;
 };
+
+/** members 表的 tracks/tags（JSON 文本，可能为 NULL）→ 数组；解析失败回退空数组 */
+function parseStrArray(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 /** posts 表行 → PostItem（拼 x.com 原文外链） */
 function mapPostRow(row: PostRow, handle: string): PostItem {
@@ -123,7 +136,8 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       const rows = (snapshotBatches[i]?.results ?? []) as never as SnapshotRow[];
       // 窗口内是倒序取的，统计层期望正序
       const snapshots = rows.slice().reverse();
-      return { ...m, snapshots };
+      // 赛道/标签：members 表 JSON 文本 → 数组（挂到 stats.members 供 computeDashboardStats 透传）
+      return { ...m, snapshots, tracks: parseStrArray(m.tracks), tags: parseStrArray(m.tags) };
     });
 
     // 与 API JSON 响应同构：computeDashboardStats 输出即 DashboardStats（trend 由快照窗口推导）
@@ -177,6 +191,8 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
       bannerUrl: string | null;
       xCreatedAt: string | null;
       verified: number | null;
+      tracks: string | null;
+      tags: string | null;
     };
 
     // 帖子活跃度：近 20 帖 + 互动合计（posts 表，尚未采集到时为 null）
@@ -197,6 +213,9 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
       snapshotRows,
       new Date().toISOString()
     );
+    // 赛道/标签：computeMemberStats 里是空数组，用 members 表真实值覆盖
+    stats.tracks = parseStrArray(memberRow.tracks);
+    stats.tags = parseStrArray(memberRow.tags);
 
     // 次级计数：最新快照的当前值 + 近 30 天增量（历史快照缺值的字段不硬算）
     const latestSnap = snapshotRows[snapshotRows.length - 1] ?? null;

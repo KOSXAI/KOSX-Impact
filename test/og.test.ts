@@ -21,6 +21,8 @@ const base: MemberStats = {
   nextMilestone: 10000,
   progressToNext: 72,
   climbs: 3,
+  tracks: [],
+  tags: [],
 };
 
 const logo = { href: "data:image/png;base64,QUJD", aspect: 6 };

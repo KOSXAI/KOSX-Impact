@@ -7,6 +7,8 @@ import { AnimatedNumber, GrowProgress, Reveal, RevealGroup, RevealItem } from "@
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
 import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
+import { trackOf } from "@/tracks";
+import { Blocks, CandlestickChart, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { ShareDialog } from "@/components/member/ShareDialog";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -56,6 +58,16 @@ export const Route = createFileRoute("/members/$id")({
   component: MemberPage,
   notFoundComponent: () => <MemberNotFound id="" />,
 });
+
+/** 赛道图标映射（src/tracks.ts 存图标名字符串，这里映射到 lucide 组件） */
+const TRACK_ICON_MAP: Record<string, LucideIcon> = {
+  Sparkles,
+  CandlestickChart,
+  Blocks,
+  PenTool,
+  Globe,
+  Shapes,
+};
 
 /** X 龄：账号创建距今的时长（不足一年按月） */
 function xAgeText(xCreatedAt: string | null): string | null {
@@ -229,6 +241,40 @@ function MemberPage() {
                   )}
                 </div>
               </div>
+              {/* 赛道 + 标签：Grok 分类产物，未打标不显示 */}
+              {(member.tracks.length > 0 || member.tags.length > 0) && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {member.tracks.map((t) => {
+                    const track = trackOf(t);
+                    if (!track) return null;
+                    const Icon = TRACK_ICON_MAP[track.icon] ?? Shapes;
+                    return (
+                      <span
+                        key={t}
+                        title={track.description}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium",
+                          t === "AI工具"
+                            ? "border-signal/40 bg-signal/10 text-signal"
+                            : "border-line bg-soft-surface text-ink"
+                        )}
+                      >
+                        <Icon className="size-3.5" aria-hidden="true" />
+                        {t}
+                      </span>
+                    );
+                  })}
+                  {member.tags.length > 0 && (
+                    <span className="inline-flex flex-wrap items-center gap-1.5">
+                      {member.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="text-xs text-mist">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              )}
               {profile.bio && (
                 <p className="text-mist mt-4 text-sm leading-relaxed whitespace-pre-line">{profile.bio}</p>
               )}

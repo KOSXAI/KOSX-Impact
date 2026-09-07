@@ -10,6 +10,7 @@ import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { TopPosts } from "@/components/dashboard/TopPosts";
+import { TrackSection } from "@/components/dashboard/TrackSection";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Flag, Clock3 } from "lucide-react";
 import { MILESTONES, TEN_K, TITLE_FILL, titleOf } from "@/milestones";
@@ -118,6 +119,14 @@ function DashboardPage() {
                 <TrendChart data={stats.trend} />
               </div>
             )}
+          </section>
+        </Reveal>
+
+        {/* 赛道：成员按「核心活动」分组（Grok 分类产物），点赛道看该赛道成员 */}
+        <Reveal delay={0.08}>
+          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <h2 className="text-xl font-bold">赛道</h2>
+            <TrackSection members={stats.members} />
           </section>
         </Reveal>
 

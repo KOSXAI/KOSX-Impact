@@ -26,8 +26,8 @@ export interface CachedResponseOptions {
  * 结构升级升 v、数据变化靠 cb 自动换键。
  */
 export const CACHE_KEYS = {
-  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v15：帖子互动 Top 区块 */
-  dashboard: "/api/dashboard?v=15",
+  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v16：赛道榜区块 */
+  dashboard: "/api/dashboard?v=16",
   /** 成员列表（/api/members） */
   memberList: "/api/members?v=10",
   /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */
@@ -36,8 +36,8 @@ export const CACHE_KEYS = {
   ogMember: (id: string) => `/og/members/${id}?v=1`,
   /** 站点 OG 分享卡（PNG） */
   ogSite: "/og/site.png?v=1",
-  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v14：帖子活跃度区块 */
-  memberDetail: (id: string) => `/api/members/${id}?v=14`,
+  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v15：档案卡赛道 chip + 标签组 */
+  memberDetail: (id: string) => `/api/members/${id}?v=15`,
 } as const;
 
 export async function cachedResponse(
