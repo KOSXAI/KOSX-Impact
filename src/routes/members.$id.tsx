@@ -5,13 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedNumber, GrowProgress, Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
+import { BannerImage } from "@/components/member/BannerImage";
 import { TierBadge } from "@/components/member/TierBadge";
 import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
 import { trackOf } from "@/tracks";
 import { Blocks, CandlestickChart, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { ShareDialog } from "@/components/member/ShareDialog";
-import { SiteHeader } from "@/components/SiteHeader";
 import { GrowthChart } from "@/components/member/GrowthChart";
 import { PostActivity } from "@/components/member/PostActivity";
 import { InfluenceCard } from "@/components/member/InfluenceCard";
@@ -92,25 +92,6 @@ function urlHost(raw: string): string | null {
   }
 }
 
-/** 档案横幅：X 横幅可能随时被成员删掉（URL 失效），加载失败回退渐变底 */
-function BannerImage({ src }: { src: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return <div aria-hidden="true" className="bg-gradient-to-r size-full from-signal/15 via-surface to-surface" />;
-  }
-  return (
-    <img
-      src={src}
-      alt=""
-      aria-hidden="true"
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailed(true)}
-      className="size-full object-cover"
-    />
-  );
-}
-
 /** 横幅上的磨砂玻璃圆钮：深色半透明底 + 背景模糊，任何横幅图上都可读 */
 const frostedBtn =
   "inline-flex size-9 items-center justify-center rounded-full border border-white/15 bg-black/30 text-ink shadow-lg shadow-black/20 backdrop-blur-md transition-colors hover:bg-black/45 focus-visible:bg-black/45";
@@ -161,9 +142,7 @@ function MemberPage() {
   ];
 
   return (
-    <>
-      <SiteHeader />
-      <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
+    <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           {/* 档案卡：横幅 hero + 身份区 + 简介（全部来自 X 公开资料） */}
           <section className="overflow-hidden rounded-3xl border border-line bg-surface">
@@ -495,8 +474,7 @@ function MemberPage() {
 
         <SubmitDialog open={submitOpen} onOpenChange={setSubmitOpen} defaultHandle={member.handle} />
         <ShareDialog open={shareOpen} onOpenChange={setShareOpen} member={member} />
-      </div>
-    </>
+    </div>
   );
 }
 

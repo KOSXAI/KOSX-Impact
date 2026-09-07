@@ -3,7 +3,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard } from "@/data.functions";
 import type { MemberStats, TrackStats } from "@/stats";
 import { TRACKS, TRACK_OTHER, trackOf } from "@/tracks";
-import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/member/Avatar";
 import { TitleBadge } from "@/components/member/TitleBadge";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
@@ -72,12 +71,9 @@ function TrackPage() {
 
   if (!track || !trackStat) {
     return (
-      <>
-        <SiteHeader />
-        <main className="mx-auto max-w-3xl px-6 py-24 text-center">
-          <h1 className="text-2xl font-bold">这个赛道不存在</h1>
-        </main>
-      </>
+      <main className="mx-auto max-w-3xl px-6 py-24 text-center">
+        <h1 className="text-2xl font-bold">这个赛道不存在</h1>
+      </main>
     );
   }
 
@@ -108,10 +104,8 @@ function TrackPage() {
   };
 
   return (
-    <>
-      <SiteHeader />
-      <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-10 sm:py-14">
-        <Reveal y={18}>
+    <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-10 sm:py-14">
+      <Reveal y={18}>
           <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
             <div className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border border-line bg-soft-surface">
               <Icon className="size-6 text-signal" aria-hidden="true" />
@@ -224,8 +218,7 @@ function TrackPage() {
             </section>
           </Reveal>
         )}
-      </div>
-    </>
+    </div>
   );
 }
 

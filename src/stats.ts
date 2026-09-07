@@ -36,6 +36,10 @@ export interface MemberStats {
   tracks: string[];
   /** 描述性标签数组（自由组合，空数组=未打标） */
   tags: string[];
+  /** X 公开档案慢变量（members 表最新值；成员广场迷你名片卡用，成员详情页以 profile 为准） */
+  bio?: string | null;
+  bannerUrl?: string | null;
+  verified?: boolean;
   /** 影响力指数（queries 层用近 30 天帖子计算后覆盖；纯函数层为 undefined） */
   influence?: Influence;
 }
@@ -372,6 +376,10 @@ export function computeDashboardStats(
     /** 赛道/标签（queries 层从 members 表 JSON parse 后传入，无则空数组） */
     tracks?: string[];
     tags?: string[];
+    /** 档案慢变量（queries 层从 members 表传入，成员广场名片卡用） */
+    bio?: string | null;
+    bannerUrl?: string | null;
+    verified?: number | null;
     /** daily_stats 预聚合字段：有值时直接采用，不重算 */
     preset?: PresetStats;
   }>,
@@ -412,6 +420,10 @@ export function computeDashboardStats(
     // 赛道/标签透传：computeMemberStats 里是空数组，queries 层提供的真实值覆盖
     if (row.tracks) merged.tracks = row.tracks;
     if (row.tags) merged.tags = row.tags;
+    // 档案慢变量透传：computeMemberStats 不含这些字段，迷你名片卡数据源
+    if (row.bio !== undefined) merged.bio = row.bio;
+    if (row.bannerUrl !== undefined) merged.bannerUrl = row.bannerUrl;
+    if (row.verified !== undefined) merged.verified = row.verified === 1;
     return merged;
   });
 

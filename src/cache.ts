@@ -26,8 +26,8 @@ export interface CachedResponseOptions {
  * 结构升级升 v、数据变化靠 cb 自动换键。
  */
 export const CACHE_KEYS = {
-  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v18：影响力指数 + 内容洞察 + 赛道三重榜单 + 品牌声量 */
-  dashboard: "/api/dashboard?v=18",
+  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v19：成员 payload 携带档案慢变量 bio/bannerUrl（成员广场名片卡） */
+  dashboard: "/api/dashboard?v=19",
   /** 成员列表（/api/members） */
   memberList: "/api/members?v=10",
   /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */

@@ -222,6 +222,7 @@ function renderSitemap(): Response {
   const urls = [
     { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
     { loc: `${SITE_URL}/leaderboard`, changefreq: "daily", priority: "0.9" },
+    { loc: `${SITE_URL}/members`, changefreq: "daily", priority: "0.8" },
     { loc: `${SITE_URL}/tracks`, changefreq: "daily", priority: "0.8" },
     { loc: `${SITE_URL}/posts`, changefreq: "daily", priority: "0.7" },
     { loc: `${SITE_URL}/about`, changefreq: "monthly", priority: "0.3" },

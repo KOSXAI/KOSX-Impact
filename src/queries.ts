@@ -16,7 +16,8 @@ import { SITE_URL } from "./lib/site";
 
 // Env 由 worker-configuration.d.ts / env.d.ts 全局声明（无单独模块）
 
-const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage, tracks, tags, verified`;
+// 含档案慢变量（bio/banner/verified）：看板 members payload 直接携带，成员广场迷你名片卡零额外查询
+const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage, tracks, tags, verified, bio, banner_url AS bannerUrl`;
 const SNAPSHOT_FIELDS = `member_id AS memberId, followers, recorded_at AS recordedAt`;
 const POST_FIELDS = `tweet_id AS tweetId, created_at AS createdAt, text,
   views_count AS views, like_count AS likes, reply_count AS replies,
@@ -31,6 +32,8 @@ type MemberRow = {
   tracks: string | null;
   tags: string | null;
   verified: number | null;
+  bio: string | null;
+  bannerUrl: string | null;
 };
 type SnapshotRow = { memberId: string; followers: number; recordedAt: string; listedCount?: number | null };
 type PostRow = {
@@ -300,8 +303,7 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     3600,
     async () => {
     const member = await env.DB.prepare(
-      `SELECT ${MEMBER_FIELDS},
-              bio, location, url, banner_url AS bannerUrl, x_created_at AS xCreatedAt, verified
+      `SELECT ${MEMBER_FIELDS}, location, url, x_created_at AS xCreatedAt
        FROM members WHERE id = ? AND status = 'active'`
     ).bind(id).first();
     if (!member) return new Response(JSON.stringify({ error: "member not found" }), { status: 404 });
