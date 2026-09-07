@@ -163,6 +163,7 @@ git push           # 推送 GitHub
 - **名册成员加入（维护者批量）**：在 `data/members.json` 中按 id 排序加入该成员（通过 PR 提交，校验脚本会检查格式）→ 本地跑 `node scripts/sync-new-members.mjs`（新成员会从 SocialData 拉取粉丝数、头像与 **X 显示名**；名下写回 `data/members.json`，随本 PR 一并提交，缺了它会退化成 handle）；执行生成的 `/tmp/onboard.sql` 入库。每次引入新成员时**必须**跑该脚本，避免 `displayName` 缺失
 - **成员退出**：从名册中删除该成员（PR），同步后自动停止公开追踪、数据保留；如成员要求移除历史数据，删除其 `snapshots` / `milestones` 记录
 - **帖子活跃度数据（手动刷新，未接定时任务）**：`node scripts/sync-posts.mjs && wrangler d1 execute kosx-impact --remote --file=/tmp/posts.sql`——对名册成员逐个拉取 tweets（约 20 帖/人，$0.0002/帖）写入 `posts` 表并 bump `cache_bust`；待常态化后并入每日采集管线
+- **成员赛道分类（脚本运行，非网页自动）**：赛道体系为**五个正式赛道 + 综合兜底**——`AI工具 / 财经 / 开发者 / 增长 / 出海`，一人可挂多个赛道；无法归入任何正式赛道的成员统一挂「综合」，综合是一个**过渡桶**：人数攒到足够或分类维度清晰后再细分出新赛道。分类由**定时脚本**执行（读成员帖子/资料 → 打标 → 写入，脚本产物人工 review 后入库），**不做网页自动分类**，避免不可控的分类结果直接上生产
 - 数据库变更一律通过 `migrations/` 下的新迁移文件进行，不直接改线上库
 
 ## 沟通与行为规范
