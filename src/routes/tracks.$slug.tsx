@@ -76,9 +76,6 @@ function TrackPage() {
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-24 text-center">
           <h1 className="text-2xl font-bold">这个赛道不存在</h1>
-          <Link to="/" className="mt-4 inline-block text-signal underline-offset-4 hover:underline">
-            回到看板
-          </Link>
         </main>
       </>
     );

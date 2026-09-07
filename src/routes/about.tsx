@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/motion";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { SiteHeader } from "@/components/SiteHeader";
-import { ArrowLeft } from "lucide-react";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 import { MILESTONES } from "@/milestones";
 import { badge } from "@/lib/format";
@@ -30,14 +29,7 @@ function AboutPage() {
       <SiteHeader />
       <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
-          >
-            <ArrowLeft className="size-4" />
-            返回看板
-          </Link>
-          <h1 className="mt-8 text-4xl font-bold tracking-tight sm:text-5xl">关于 {SITE_NAME}</h1>
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">关于 {SITE_NAME}</h1>
         </Reveal>
   
         <main className="mt-10 space-y-12 sm:mt-14">

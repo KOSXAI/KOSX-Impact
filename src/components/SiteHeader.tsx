@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import { GITHUB_URL, OFFICIAL_SITE_URL } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
@@ -25,11 +25,16 @@ const NAV = [
 ] as const;
 
 /**
- * 全站统一头部：左侧 KOSX 标识 + 中部模块导航（总览/榜单/赛道/内容/关于）+ 右侧「加入追踪」与官网/GitHub。
- * sticky + 半透明毛玻璃；窄屏时导航可横向滑动，外链隐藏。
+ * 全站统一头部。响应式两档（断点 md=768px）：
+ * - 宽屏（≥md）：一行式——logo | 导航居中（六项全显，激活圆底高亮）| 「加入追踪」+ GitHub
+ * - 窄屏（<md）：logo | 「加入追踪」+ 汉堡；导航收进毛玻璃下拉面板（竖排大点击区，点选即关），
+ *   GitHub 随面板出现。移动端不横向滑动——一次看全六项。
+ * 「加入追踪」CTA 所有宽度恒显；官网在导航「关于」右侧，与导航同一种链接风格。
  */
 export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClassName?: string }) {
   const [joinOpen, setJoinOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-40 border-b border-line/60 bg-paper/85 backdrop-blur-md">
       <div
@@ -39,10 +44,12 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
           containerClassName
         )}
       >
-        <Link to="/" aria-label="返回看板" className="flex shrink-0 items-center">
+        <Link to="/" aria-label="KOSX 万粉影响力计划" className="flex shrink-0 items-center">
           <img src="/kosx-logo-white.png" alt="KOSX.ai" className="h-6 w-auto" />
         </Link>
-        <nav className="no-scrollbar flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto">
+
+        {/* 宽屏导航：≥md 整行显示，不滚动 */}
+        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex">
           {NAV.map((n) => (
             <Link
               key={n.to}
@@ -54,35 +61,89 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
               {n.label}
             </Link>
           ))}
+          <a
+            href={OFFICIAL_SITE_URL}
+            target="_blank"
+            rel="noreferrer"
+            title="KOSX 官网"
+            className="inline-flex shrink-0 items-center gap-0.5 rounded-full px-3 py-1.5 text-sm font-semibold text-mist transition-colors hover:text-ink"
+          >
+            官网
+            <ArrowUpRight className="size-3.5" aria-hidden="true" />
+          </a>
         </nav>
-        <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
+
+        <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
           <Button size="sm" onClick={() => setJoinOpen(true)}>
             加入追踪
           </Button>
-          <div className="hidden items-center gap-3 md:flex">
-            <a
-              href={OFFICIAL_SITE_URL}
-              target="_blank"
-              rel="noreferrer"
-              title="KOSX 官网"
-              className="inline-flex items-center gap-0.5 text-sm font-semibold text-mist transition-colors hover:text-ink"
-            >
-              官网
-              <ArrowUpRight className="size-3.5" aria-hidden="true" />
-            </a>
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noreferrer"
-              title="KOSX-Impact 开源仓库"
-              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
-            >
-              <GitHubIcon className="size-4" />
-              GitHub
-            </a>
-          </div>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            title="KOSX-Impact 开源仓库"
+            className="hidden items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink md:inline-flex"
+          >
+            <GitHubIcon className="size-4" />
+            GitHub
+          </a>
+          <button
+            type="button"
+            aria-label={menuOpen ? "关闭菜单" : "打开菜单"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-mist transition-colors hover:border-signal/40 hover:text-ink md:hidden"
+          >
+            {menuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
+          </button>
         </div>
       </div>
+
+      {/* 窄屏导航面板：点汉堡展开，吸附在头部下方；点任一导航项即关 */}
+      {menuOpen && (
+        <div className="absolute inset-x-0 top-full z-50 border-b border-line/60 bg-paper/95 backdrop-blur-md md:hidden">
+          <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-4">
+            <nav className="flex flex-col gap-1">
+              {NAV.map((n) => (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  activeOptions={n.exact ? { exact: true } : undefined}
+                  onClick={() => setMenuOpen(false)}
+                  activeProps={{ className: "bg-soft-surface text-ink" }}
+                  className="rounded-xl px-4 py-3 text-base font-semibold text-mist transition-colors hover:bg-soft-surface hover:text-ink"
+                >
+                  {n.label}
+                </Link>
+              ))}
+              <a
+                href={OFFICIAL_SITE_URL}
+                target="_blank"
+                rel="noreferrer"
+                title="KOSX 官网"
+                onClick={() => setMenuOpen(false)}
+                className="inline-flex items-center gap-1 rounded-xl px-4 py-3 text-base font-semibold text-mist transition-colors hover:bg-soft-surface hover:text-ink"
+              >
+                官网
+                <ArrowUpRight className="size-4" aria-hidden="true" />
+              </a>
+            </nav>
+            <div className="mt-3 border-t border-line pt-3">
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noreferrer"
+                title="KOSX-Impact 开源仓库"
+                className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+              >
+                <GitHubIcon className="size-4" />
+                GitHub
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       <SubmitDialog open={joinOpen} onOpenChange={setJoinOpen} />
     </header>
   );

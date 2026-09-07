@@ -221,6 +221,8 @@ function renderSitemap(): Response {
   const today = new Date().toISOString().slice(0, 10);
   const urls = [
     { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
+    { loc: `${SITE_URL}/leaderboard`, changefreq: "daily", priority: "0.9" },
+    { loc: `${SITE_URL}/tracks`, changefreq: "daily", priority: "0.8" },
     { loc: `${SITE_URL}/posts`, changefreq: "daily", priority: "0.7" },
     { loc: `${SITE_URL}/about`, changefreq: "monthly", priority: "0.3" },
     // 赛道页（5 正式赛道；综合过渡桶不出独立页）

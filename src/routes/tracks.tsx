@@ -58,9 +58,6 @@ function TracksPage() {
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">赛道</h1>
-          <p className="mt-3 max-w-2xl text-mist">
-            按博主核心活动分的五大赛道：每个赛道三重口径榜单——存量粉丝看底盘、本周增长看势头、帖子互动看好内容。
-          </p>
         </Reveal>
 
         {/* 赛道导航卡：直达每个赛道的独立页（SEO 收录 + 批量关注 + 分享） */}

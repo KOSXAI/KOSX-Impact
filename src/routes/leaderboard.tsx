@@ -17,7 +17,7 @@ export const Route = createFileRoute("/leaderboard")({
   head: () => ({
     meta: [
       { title: `榜单 · ${SITE_NAME}` },
-      { name: "description", content: `${SITE_NAME} 四大榜单：总排行看绝对影响力、成长榜看近期进步、影响力榜看四维综合、登阶记录看最近拿下的称号。` },
+      { name: "description", content: `${SITE_NAME} 四大榜单：总排行 / 成长榜 / 影响力 / 登阶记录。` },
       { property: "og:title", content: `榜单 · ${SITE_NAME}` },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
@@ -75,9 +75,6 @@ function LeaderboardPage() {
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">榜单</h1>
-          <p className="mt-3 max-w-2xl text-mist">
-            总排行看绝对影响力，成长榜看近期进步，影响力榜看四维综合，登阶记录看最近拿下的称号。
-          </p>
         </Reveal>
 
         {/* Tab 切换：总排行 / 成长榜 / 影响力 / 登阶记录 */}

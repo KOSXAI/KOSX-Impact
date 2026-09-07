@@ -46,7 +46,6 @@ function DashboardPage() {
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{SITE_NAME}</h1>
-          <p className="mt-3 max-w-2xl text-mist">{SLOGAN}榜单、赛道、内容等模块都在顶部导航里，这里是一切的总览。</p>
         </Reveal>
 
         {/* 数据卡：社群的四个侧面 */}
@@ -112,9 +111,6 @@ function DashboardPage() {
         <Reveal delay={0.1}>
           <section className="mt-12 rounded-2xl border border-line bg-surface p-6 sm:p-8">
             <h2 className="text-xl font-bold">加入这场远征</h2>
-            <p className="mt-2 max-w-2xl text-mist">
-              和社群一起冲刺下一个称号大关——提交你的 X 主页，从今天开始记录成长。
-            </p>
             <div className="mt-5">
               <Button onClick={() => setApplyOpen(true)}>加入追踪</Button>
             </div>

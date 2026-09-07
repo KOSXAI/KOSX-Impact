@@ -21,7 +21,7 @@ import { fmt, fmtDate, badge } from "@/lib/format";
 import { TEN_K, nextThreshold, titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
-import { ArrowLeft, BadgeCheck, ExternalLink, MapPin, PauseCircle, Share2, Trophy } from "lucide-react";
+import { BadgeCheck, ExternalLink, MapPin, PauseCircle, Share2, Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/members/$id")({
   loader: async ({ params }) => {
@@ -180,16 +180,8 @@ function MemberPage() {
                 aria-hidden="true"
                 className="from-surface via-surface/30 absolute inset-0 bg-gradient-to-t to-transparent"
               />
-              {/* 返回/分享圆钮压在横幅左上/右上角：磨砂玻璃质感，同时填起顶部留白 */}
-              <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between p-3 sm:p-4">
-                <Link
-                  to="/"
-                  aria-label="返回看板"
-                  title="返回看板"
-                  className={frostedBtn}
-                >
-                  <ArrowLeft className="size-4" />
-                </Link>
+              {/* 分享圆钮压在横幅右上角：磨砂玻璃质感，同时填起顶部留白 */}
+              <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-end p-3 sm:p-4">
                 <ShareButton onClick={() => setShareOpen(true)} />
               </div>
             </div>
@@ -538,11 +530,6 @@ function MemberNotFound({ id }: { id: string }) {
   return (
     <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <h1 className="text-3xl font-bold">成员不存在</h1>
-      <p className="mt-4">
-        <Link to="/" className="text-mist underline-offset-4 hover:text-ink hover:underline">
-          ← 返回看板
-        </Link>
-      </p>
     </div>
   );
 }

@@ -42,8 +42,6 @@ function Metric({ icon, value, label }: { icon: React.ReactNode; value: number |
 
 function PostsPage() {
   const { insights, posts } = Route.useLoaderData();
-  const now = new Date();
-  const monthLabel = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
   return (
     <>
@@ -51,9 +49,6 @@ function PostsPage() {
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">内容</h1>
-          <p className="mt-3 max-w-2xl text-mist">
-            社群最近在聊什么：爆款帖、话题标签、停更检测，以及 {monthLabel} 全社群近 30 天单帖浏览 Top。
-          </p>
         </Reveal>
 
         {/* 内容洞察：爆款帖 / 社群话题标签 / 疑似停更（任一为空整体隐藏） */}
