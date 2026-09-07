@@ -131,6 +131,14 @@
   animation: tab-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* 隐藏滚动条但保留滚动（顶栏导航窄屏横向滑动用） */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* ===== View Transitions：页面切换过渡（仅 SPA 导航触发，不支持时自动回退） ===== */
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root) {

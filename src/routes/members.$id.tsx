@@ -162,7 +162,7 @@ function MemberPage() {
 
   return (
     <>
-      <SiteHeader containerClassName="max-w-4xl" />
+      <SiteHeader />
       <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           {/* 档案卡：横幅 hero + 身份区 + 简介（全部来自 X 公开资料） */}

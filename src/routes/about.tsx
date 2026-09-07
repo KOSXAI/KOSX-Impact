@@ -27,7 +27,7 @@ function AboutPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   return (
     <>
-      <SiteHeader containerClassName="max-w-4xl" />
+      <SiteHeader />
       <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <Link
