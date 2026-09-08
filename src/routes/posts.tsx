@@ -1,20 +1,25 @@
 import { useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchDashboard, fetchTopPosts, fetchTopPostsAll } from "@/data.functions";
+import { fetchDashboard, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals } from "@/data.functions";
 import type { PostItem } from "@/stats";
 import { Avatar } from "@/components/member/Avatar";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 import { Reveal } from "@/components/motion";
 import { SiteHeader } from "@/components/SiteHeader";
-import { ExternalLink, Eye, Heart, MessageCircle, Repeat2 } from "lucide-react";
+import { ExternalLink, Eye, Heart, MessageCircle, Repeat2, Users, TrendingUp } from "lucide-react";
 import { fmt, fmtDate } from "@/lib/format";
-import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
+import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/posts")({
   loader: async () => {
-    const [stats, posts, allPosts] = await Promise.all([fetchDashboard(), fetchTopPosts(), fetchTopPostsAll()]);
-    return { insights: stats.insights, posts, allPosts };
+    const [stats, posts, allPosts, signals] = await Promise.all([
+      fetchDashboard(),
+      fetchTopPosts(),
+      fetchTopPostsAll(),
+      fetchCommunitySignals(),
+    ]);
+    return { insights: stats.insights, posts, allPosts, signals };
   },
   head: () => ({
     meta: [
@@ -43,8 +48,16 @@ function Metric({ icon, value, label }: { icon: React.ReactNode; value: number |
 }
 
 function PostsPage() {
-  const { insights, posts, allPosts } = Route.useLoaderData();
+  const { insights, posts, allPosts, signals } = Route.useLoaderData();
   const [scope, setScope] = useState<"30d" | "all">("30d");
+  const following = signals
+    .filter((s) => s.kind === "following")
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12);
+  const taste = signals
+    .filter((s) => s.kind === "taste")
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12);
 
   return (
     <>
@@ -62,6 +75,54 @@ function PostsPage() {
             <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">内容洞察</h2>
               <InsightsSection insights={insights} />
+            </section>
+          </Reveal>
+        )}
+
+        {/* 社群品味策展：成员们共同关注的大V + 社群帖子中热议的外部账号 */}
+        {(following.length > 0 || taste.length > 0) && (
+          <Reveal delay={0.07}>
+            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+              <h2 className="text-xl font-bold">社群品味</h2>
+              <div className="mt-5 grid gap-6 lg:grid-cols-2">
+                {following.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-mist">
+                      <Users className="size-4" aria-hidden="true" />
+                      成员们共同关注
+                    </div>
+                    <ul className="mt-3 space-y-2">
+                      {following.map((s) => (
+                        <li key={s.handle}>
+                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.name ?? `@${s.handle}`}</span>
+                            <span className="truncate text-xs text-mist">@{s.handle}</span>
+                            <b className="shrink-0 text-xs text-signal tabular-nums">{s.count} 人</b>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {taste.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-mist">
+                      <TrendingUp className="size-4" aria-hidden="true" />
+                      社群最近热议
+                    </div>
+                    <ul className="mt-3 space-y-2">
+                      {taste.map((s) => (
+                        <li key={s.handle}>
+                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">@{s.handle}</span>
+                            <b className="shrink-0 text-xs text-signal tabular-nums">被提 {s.count} 次</b>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </section>
           </Reveal>
         )}

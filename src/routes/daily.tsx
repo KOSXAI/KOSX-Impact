@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchDashboard } from "@/data.functions";
+import { fetchDashboard, fetchDailyArchive } from "@/data.functions";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
@@ -10,11 +10,19 @@ import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 /**
  * 社群日报：社群的「历史总览」——把今天的登阶、涨粉冠军、最爆内容、赛道表现、品牌声量
  * 汇总成一份战报。每天自动更新，属于首页模块的时间切片（顶栏高亮「首页」）。
+ * ?date=YYYY-MM-DD 查看历史归档（数据透明 / 可追溯）。
  */
 export const Route = createFileRoute("/daily")({
-  loader: () => fetchDashboard(),
-  head: () => {
-    const title = `社群日报 · ${SITE_NAME}`;
+  validateSearch: (search: Record<string, unknown>) => ({ date: typeof search.date === "string" ? search.date : "" }),
+  loader: async ({ location }) => {
+    const date = (location.search as { date?: string }).date;
+    if (date) return { archive: await fetchDailyArchive({ data: date }), stats: null as Awaited<ReturnType<typeof fetchDashboard>> | null };
+    return { archive: null, stats: await fetchDashboard() };
+  },
+  head: ({ loaderData }) => {
+    const title = loaderData?.archive
+      ? `社群日报 ${loaderData.archive.date} · ${SITE_NAME}`
+      : `社群日报 · ${SITE_NAME}`;
     return {
       meta: [
         { title },
@@ -32,7 +40,12 @@ export const Route = createFileRoute("/daily")({
 });
 
 function DailyPage() {
-  const stats = Route.useLoaderData();
+  const { archive, stats } = Route.useLoaderData();
+  const navigate = Route.useNavigate();
+
+  if (archive) return <ArchiveView archive={archive} onBack={() => navigate({ search: { date: "" } })} />;
+  if (!stats) return <SiteHeader />;
+
   const today = new Date().toISOString().slice(0, 10);
   const todayClimbs = stats.recentMilestones.filter((m) => m.achievedAt.slice(0, 10) === today);
   const growthChamp = [...stats.members].sort((a, b) => b.growth30d - a.growth30d)[0];
@@ -47,7 +60,12 @@ function DailyPage() {
         <Reveal y={18}>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">社群日报</h1>
-            <span className="text-sm font-semibold text-mist tabular-nums">{fmtDate(today)} · 每日更新</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-mist tabular-nums">{fmtDate(today)} · 每日更新</span>
+              <Link to="/annual" className="inline-flex h-9 items-center rounded-full border border-line bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink">
+                年度报告 →
+              </Link>
+            </div>
           </div>
         </Reveal>
 
@@ -176,6 +194,86 @@ function DailyPage() {
             </section>
           </Reveal>
         )}
+
+        {/* 历史归档：最近 7 天的日报快照（数据透明，逐日可追溯） */}
+        <Reveal delay={0.15}>
+          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <h2 className="text-xl font-bold">历史归档</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[...new Set(stats.trend.map((t) => t.date))]
+                .filter((d) => d < today)
+                .slice(-7)
+                .reverse()
+                .map((d) => (
+                  <Link
+                    key={d}
+                    to="/daily"
+                    search={{ date: d }}
+                    className="rounded-full border border-line bg-soft-surface px-3.5 py-1.5 text-sm font-semibold text-mist tabular-nums transition-colors hover:border-signal/40 hover:text-ink"
+                  >
+                    {d}
+                  </Link>
+                ))}
+            </div>
+          </section>
+        </Reveal>
+      </div>
+    </>
+  );
+}
+
+/** 历史归档视图：某一天的社群快照（当日总粉丝 / 当日登阶 / 当日提及） */
+function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnType<typeof fetchDailyArchive>>>; onBack: () => void }) {
+  return (
+    <>
+      <SiteHeader />
+      <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
+        <Reveal y={18}>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">社群日报</h1>
+              <p className="mt-2 text-sm font-semibold text-mist tabular-nums">{archive.date} · 历史归档</p>
+            </div>
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex h-9 items-center rounded-full border border-line bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+            >
+              ← 最新一期
+            </button>
+          </div>
+        </Reveal>
+
+        <Reveal delay={0.06}>
+          <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <DailyStat label="当日成员" value={archive.memberCount} />
+            <DailyStat label="当日总粉丝" value={archive.totalFollowers} />
+            <DailyStat label="当日新增成员" value={archive.newJoins} highlight />
+            <DailyStat label="当日品牌提及" value={archive.mentionsCount} />
+          </div>
+        </Reveal>
+
+        <Reveal delay={0.08}>
+          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <h2 className="text-xl font-bold">当日登阶</h2>
+            {archive.climbs.length === 0 ? (
+              <p className="mt-4 text-mist">这一天没有登阶记录。</p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {archive.climbs.map((m) => (
+                  <li key={`${m.memberId}-${m.threshold}`}>
+                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:border-signal/40">
+                      <span className="min-w-0 flex-1 truncate font-semibold">{m.displayName ?? m.handle}</span>
+                      <span className="shrink-0 text-sm font-semibold text-signal">
+                        拿下「{titleOf(m.threshold)}」· {badge(m.threshold)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </Reveal>
       </div>
     </>
   );

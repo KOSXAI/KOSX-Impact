@@ -22,7 +22,13 @@ export const Route = createFileRoute("/leaderboard")({
     ).includes(search.tab as TabKey)
       ? (search.tab as TabKey)
       : ("leaderboard" as TabKey),
-    range: search.range === "7" ? (7 as const) : (30 as const),
+    metric: (["growth", "views", "posts", "replies"] as const).includes(search.metric as never)
+      ? (search.metric as "growth" | "views" | "posts" | "replies")
+      : ("growth" as const),
+    range: (() => {
+      const rv = String(search.range ?? "");
+      return rv === "1" ? (1 as const) : rv === "7" ? (7 as const) : (30 as const);
+    })(),
   }),
   loader: () => fetchDashboard(),
   head: () => ({
@@ -61,7 +67,7 @@ const PODIUM = [
 
 function LeaderboardPage() {
   const stats = Route.useLoaderData();
-  const { tab, range } = Route.useSearch();
+  const { tab, range, metric } = Route.useSearch();
   const navigate = Route.useNavigate();
   const setTab = (t: TabKey) => navigate({ search: (prev) => ({ ...prev, tab: t }) });
   // 总排行：最新粉丝量从高到低（stats.members 已按此排序）
@@ -138,7 +144,15 @@ function LeaderboardPage() {
 
         <main key={tab} className="tab-in mt-6">
           {tab === "leaderboard" && <LeaderboardList members={leaderboard} />}
-          {tab === "growth" && <GrowthSection members={growth} range={range} onRangeChange={(r) => navigate({ search: (prev) => ({ ...prev, range: r }) })} />}
+          {tab === "growth" && (
+            <GrowthSection
+              members={growth}
+              metric={metric}
+              onMetricChange={(m) => navigate({ search: (prev) => ({ ...prev, metric: m }) })}
+              range={range}
+              onRangeChange={(r) => navigate({ search: (prev) => ({ ...prev, range: r }) })}
+            />
+          )}
           {tab === "rising" && <RisingList members={rising} />}
           {tab === "influence" && <InfluenceList members={influence} />}
           {tab === "mentions" && <MentionsList members={mentions} />}
@@ -281,23 +295,46 @@ function LeaderboardMember({
 }
 
 /** 成长榜：近 7 天 / 近 30 天口径切换（存 URL，可分享），按所选范围排序，小账号也有机会登顶 */
+const METRICS = [
+  { key: "growth", label: "涨粉" },
+  { key: "views", label: "曝光" },
+  { key: "posts", label: "发帖" },
+  { key: "replies", label: "评论" },
+] as const;
+type MetricKey = "growth" | "views" | "posts" | "replies";
+const RANGES = [
+  { key: 1, label: "今日" },
+  { key: 7, label: "近 7 天" },
+  { key: 30, label: "近 30 天" },
+] as const;
+
+/** 按指标×时间档取值：涨粉取快照差值，曝光/发帖/评论取帖子窗口合计（多维时间榜口径矩阵） */
+function metricValue(m: MemberStats, metric: MetricKey, range: 1 | 7 | 30): number {
+  if (metric === "growth") return range === 1 ? (m.growth1d ?? 0) : range === 7 ? m.growth7d : m.growth30d;
+  if (metric === "views") return range === 1 ? (m.viewsTodayGain ?? 0) : range === 7 ? (m.views7d ?? 0) : (m.views30d ?? 0);
+  if (metric === "posts") return range === 1 ? (m.postsToday ?? 0) : range === 7 ? (m.posts7d ?? 0) : (m.posts30d ?? 0);
+  return range === 1 ? (m.repliesToday ?? 0) : range === 7 ? (m.replies7d ?? 0) : (m.replies30d ?? 0);
+}
+
 function GrowthSection({
   members,
+  metric,
+  onMetricChange,
   range,
   onRangeChange,
 }: {
   members: MemberStats[];
-  range: 7 | 30;
-  onRangeChange: (r: 7 | 30) => void;
+  metric: MetricKey;
+  onMetricChange: (m: MetricKey) => void;
+  range: 1 | 7 | 30;
+  onRangeChange: (r: 1 | 7 | 30) => void;
 }) {
-  const sorted = [...members].sort((a, b) =>
-    range === 7 ? b.growth7d - a.growth7d : b.growth30d - a.growth30d
-  );
+  const sorted = [...members].sort((a, b) => metricValue(b, metric, range) - metricValue(a, metric, range));
 
   return (
     <>
       {/* 本周王者叙事：近 7 天涨粉最多（周冠军 / 月冠军的轻量版） */}
-      {range === 7 && sorted[0] && (
+      {range === 7 && metric === "growth" && sorted[0] && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-400/10 to-transparent px-4 py-3">
           <span className="text-sm font-semibold text-mist">本周王者</span>
           <Link to="/members/$id" params={{ id: sorted[0].id }} className="flex items-center gap-2 hover:underline">
@@ -308,24 +345,40 @@ function GrowthSection({
           </Link>
         </div>
       )}
-      <div className="mb-2 flex justify-end gap-1">
-        {([30, 7] as const).map((r) => (
-          <button
-            key={r}
-            onClick={() => onRangeChange(r)}
-            className={cn(
-              "h-8 rounded-full px-3 text-xs font-semibold transition-colors cursor-pointer select-none",
-              range === r ? "bg-white text-paper" : "text-mist hover:text-ink"
-            )}
-          >
-            近 {r} 天
-          </button>
-        ))}
+      <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+        <div className="flex gap-1 rounded-full border border-line bg-soft-surface p-1">
+          {METRICS.map((mt) => (
+            <button
+              key={mt.key}
+              onClick={() => onMetricChange(mt.key)}
+              className={cn(
+                "h-7 cursor-pointer select-none rounded-full px-3 text-xs font-semibold transition-colors",
+                metric === mt.key ? "bg-white text-paper" : "text-mist hover:text-ink"
+              )}
+            >
+              {mt.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 rounded-full border border-line bg-soft-surface p-1">
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              onClick={() => onRangeChange(r.key)}
+              className={cn(
+                "h-7 cursor-pointer select-none rounded-full px-3 text-xs font-semibold transition-colors",
+                range === r.key ? "bg-white text-paper" : "text-mist hover:text-ink"
+              )}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
       </div>
       <ol className="space-y-3">
         {sorted.map((m, i) => (
           <RevealItem key={m.id} y={16}>
-            <GrowthMember member={m} rank={i + 1} range={range} podium={PODIUM[i]} />
+            <GrowthMember member={m} rank={i + 1} metric={metric} range={range} podium={PODIUM[i]} />
           </RevealItem>
         ))}
       </ol>
@@ -337,15 +390,19 @@ function GrowthSection({
 function GrowthMember({
   member: m,
   rank,
+  metric,
   range,
   podium,
 }: {
   member: MemberStats;
   rank: number;
-  range: 7 | 30;
+  metric: MetricKey;
+  range: 1 | 7 | 30;
   podium?: (typeof PODIUM)[number];
 }) {
   const name = m.displayName ?? m.handle;
+  const primary = metricValue(m, metric, range);
+  const alternatives = RANGES.filter((r) => r.key !== range);
   return (
     <div
       className={
@@ -381,18 +438,20 @@ function GrowthMember({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-6">
-        <div className={cn("text-right", range !== 7 && "hidden sm:block")}>
-          <div className={cn("font-bold tabular-nums", range === 7 ? "text-signal" : "text-mist")}>
-            +{fmt(m.growth7d)}
+        <div className="text-right">
+          <div className={cn("text-lg font-bold tabular-nums", range === 1 ? "text-signal" : "text-mist")}>
+            {metric === "growth" && primary > 0 ? "+" : ""}{fmt(primary)}
           </div>
-          <div className="text-xs text-mist">近 7 天</div>
+          <div className="text-xs text-mist">{RANGES.find((r) => r.key === range)?.label}</div>
         </div>
-        <div className={cn("text-right", range !== 30 && "hidden sm:block")}>
-          <div className={cn("font-bold tabular-nums", range === 30 ? "text-signal" : "text-mist")}>
-            +{fmt(m.growth30d)}
+        {alternatives.map((r) => (
+          <div key={r.key} className="hidden text-right sm:block">
+            <div className="font-semibold tabular-nums text-mist">
+              {metric === "growth" && metricValue(m, metric, r.key) > 0 ? "+" : ""}{fmt(metricValue(m, metric, r.key))}
+            </div>
+            <div className="text-xs text-mist">{r.label}</div>
           </div>
-          <div className="text-xs text-mist">近 30 天</div>
-        </div>
+        ))}
       </div>
     </div>
   );

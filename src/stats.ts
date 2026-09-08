@@ -58,6 +58,16 @@ export interface MemberStats {
   mentionCount30d?: number;
   /** 今日曝光增量：近 24h 内刷新过的帖子 views 相比上次抓取的增量合计（queries 层填充） */
   viewsTodayGain?: number;
+  /** 今日粉丝增量（最近一天快照差值，queries 层填充，多维时间榜用） */
+  growth1d?: number;
+  /** 近 7 天帖子总浏览（queries 层填充） */
+  views7d?: number;
+  /** 今日发帖数 / 今日评论总数（queries 层填充，多维时间榜用） */
+  postsToday?: number;
+  repliesToday?: number;
+  /** 近 7 / 30 天评论总数（queries 层填充） */
+  replies7d?: number;
+  replies30d?: number;
 }
 
 /** 预聚合字段（来自 daily_stats）：直传绕过窗口重算 */

@@ -5,7 +5,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { env } from "cloudflare:workers";
-import { getDashboardStats, getMemberDetail, getTopPosts, getFanOverview, getTopEngagementMembers } from "./queries";
+import { getDashboardStats, getMemberDetail, getTopPosts, getFanOverview, getTopEngagementMembers, getAnnualReport, getCommunitySignals, getDailyArchive } from "./queries";
 import type { DashboardStats, MemberDetail, PostItem } from "./stats";
 
 export const fetchDashboard = createServerFn({ method: "GET" }).handler(
@@ -17,6 +17,17 @@ export const fetchReportExtras = createServerFn({ method: "GET" }).handler(async
   const [fanRows, topEngagement] = await Promise.all([getFanOverview(env as Env), getTopEngagementMembers(env as Env)]);
   return { fanRows, topEngagement };
 });
+
+/** 年度影响力报告（/annual 页面用） */
+export const fetchAnnualReport = createServerFn({ method: "GET" }).handler(async () => getAnnualReport(env as Env));
+
+/** 社群信号（共同关注 / 社群热议，内容页策展） */
+export const fetchCommunitySignals = createServerFn({ method: "GET" }).handler(async () => getCommunitySignals(env as Env));
+
+/** 社群日报归档（/daily?date=YYYY-MM-DD 的历史快照） */
+export const fetchDailyArchive = createServerFn({ method: "GET" })
+  .validator((date: string) => date)
+  .handler(async ({ data }) => getDailyArchive(env as Env, data));
 
 export const fetchMemberDetail = createServerFn({ method: "GET" })
   .validator((id: string) => id)

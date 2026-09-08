@@ -162,6 +162,34 @@ ${footer(`近30天 ${growthText(stats.growth30d)}`)}
 </svg>`;
 }
 
+/** 榜单 OG 卡入参（总排行 Top5 卡面所需子集） */
+export interface BoardOgStats {
+  memberCount: number;
+  members: Array<{ rank: number; name: string; followers: number | null }>;
+}
+
+/** 榜单 OG 卡：总排行 Top5，分享到 X/微信时一眼看到「谁是头部」 */
+export function boardOgSvg(stats: BoardOgStats, logo: OgLogo | null): string {
+  const rows = stats.members
+    .map((m, i) => {
+      const y = 300 + i * 62;
+      return `<text x="${PAD}" y="${y}" font-size="28" font-weight="700" fill="${i === 0 ? SIGNAL : MIST}">${m.rank}</text>
+<text x="${PAD + 60}" y="${y}" font-size="34" font-weight="700" fill="${INK}">${esc(truncate(m.name, 720, 34))}</text>
+<text x="${OG_W - PAD}" y="${y}" text-anchor="end" font-size="32" font-weight="700" fill="${SIGNAL}">${m.followers != null ? fmt(m.followers) : "—"}</text>`;
+    })
+    .join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${OG_W}" height="${OG_H}" viewBox="0 0 ${OG_W} ${OG_H}" role="img" aria-label="KOSX 社群影响力排行">
+<defs>${linearGradient}</defs>
+<g font-family="${FONT}">
+${frame(SIGNAL, logo)}
+<text x="${PAD}" y="180" font-size="58" font-weight="700" fill="${INK}">社群影响力排行</text>
+<text x="${PAD}" y="230" font-size="28" fill="${MIST}">${stats.memberCount} 位成员 · 按粉丝量</text>
+${rows}
+${footer("KOSX 万粉影响力计划")}
+</g>
+</svg>`;
+}
+
 /** 周报 OG 卡入参（WeeklyReport 的卡面所需子集） */
 export interface ReportOgStats {
   displayName: string | null;

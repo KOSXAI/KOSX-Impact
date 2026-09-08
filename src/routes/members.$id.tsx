@@ -141,6 +141,8 @@ function MemberPage() {
     { label: "列表收录", value: counters.listedCount, delta: counters.delta30d.listedCount },
     { label: "点赞", value: counters.favouritesCount, delta: counters.delta30d.favouritesCount },
   ];
+  // 加入天数（成长档案摘要）
+  const daysJoined = Math.max(0, Math.floor((Date.now() - Date.parse(member.joinedAt)) / 86_400_000));
 
   return (
     <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
@@ -550,6 +552,28 @@ function MemberPage() {
             </section>
           </Reveal>
 
+          {/* 成长档案：加入天数 / 已领称号 / 当前段位 / 首次登阶——成长回顾摘要（可分享） */}
+          <Reveal>
+            <section className="rounded-2xl border border-line bg-surface p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-bold">成长档案</h2>
+                <button
+                  type="button"
+                  onClick={() => setShareOpen(true)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3.5 text-xs font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+                >
+                  <Share2 className="size-3.5" /> 分享成长卡
+                </button>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <Recap label="加入天数" value={daysJoined > 0 ? `${daysJoined} 天` : "刚加入"} />
+                <Recap label="已领称号" value={`${milestones.length} 枚`} />
+                <Recap label="当前段位" value={member.tierName} />
+                <Recap label="首次登阶" value={milestones.length > 0 ? fmtDate(milestones[0].achievedAt) : "—"} />
+              </div>
+            </section>
+          </Reveal>
+
           <Reveal>
             <div className="border-t border-line pt-6 text-sm text-mist">
               这是你的账号？
@@ -562,6 +586,10 @@ function MemberPage() {
               <span className="mx-2">·</span>
               <Link to="/reports/$memberId" params={{ memberId: member.id }} className="font-semibold text-ink underline underline-offset-4 hover:text-mist">
                 内容周报
+              </Link>
+              <span className="mx-2">·</span>
+              <Link to="/compare" search={{ a: member.id, b: "" }} className="font-semibold text-ink underline underline-offset-4 hover:text-mist">
+                发起对比
               </Link>
             </div>
           </Reveal>
@@ -596,6 +624,16 @@ function Stat({
         />
       </CardContent>
     </Card>
+  );
+}
+
+/** 成长档案摘要块（回顾卡的单个数据点） */
+function Recap({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-soft-surface px-4 py-3">
+      <div className="text-xs text-mist">{label}</div>
+      <div className="mt-1 truncate text-lg font-bold">{value}</div>
+    </div>
   );
 }
 

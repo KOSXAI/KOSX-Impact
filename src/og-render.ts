@@ -6,8 +6,7 @@
  */
 import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import wasmModule from "@resvg/resvg-wasm/index_bg.wasm?module";
-import { memberOgSvg, siteOgSvg, reportOgSvg, trackOgSvg } from "./og";
-import type { OgLogo, SiteOgStats } from "./og";
+import { memberOgSvg, siteOgSvg, reportOgSvg, trackOgSvg, boardOgSvg, type OgLogo, type SiteOgStats, type BoardOgStats } from "./og";
 import { getDashboardStats, getMemberDetail } from "./queries";
 import { computeWeeklyReport } from "./weekly";
 import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
@@ -119,6 +118,22 @@ export async function renderSiteOgPng(env: Env, origin: string): Promise<Respons
     };
     const logo = await loadLogoMemo(env, origin);
     return new Response(await renderOgPng(env, siteOgSvg(pick, logo), origin), {
+      headers: { "Content-Type": "image/png" },
+    });
+  }, { browserTtl: 21600 });
+}
+
+/** 榜单 OG 卡（/og/leaderboard.png）：总排行 Top5，榜单页分享预览 */
+export async function renderLeaderboardOgPng(env: Env, origin: string): Promise<Response> {
+  const bust = await readCacheBust(env);
+  return cachedResponse(new Request(`${SITE_URL}/og/leaderboard.png?v=1&cb=${bust}`), 21600, async () => {
+    const stats = await getDashboardStats(env);
+    const logo = await loadLogoMemo(env, origin);
+    const pick: BoardOgStats = {
+      memberCount: stats.members.length,
+      members: stats.members.slice(0, 5).map((m, i) => ({ rank: i + 1, name: m.displayName ?? m.handle, followers: m.latestFollowers })),
+    };
+    return new Response(await renderOgPng(env, boardOgSvg(pick, logo), origin), {
       headers: { "Content-Type": "image/png" },
     });
   }, { browserTtl: 21600 });
