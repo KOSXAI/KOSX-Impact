@@ -42,7 +42,9 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 │   ├── members.json          # 成员名册：追踪名单的事实来源（通过 PR 修改）
 │   └── members.schema.json   # 名册的 JSON Schema
 ├── docs/
-│   └── socialdata-pricing.md  # SocialData 定价/限流/监控选型参考（官方核对版）
+├── docs/
+│   ├── architecture.md          # 功能架构：顶层菜单 → 各页功能树 + 设计原则（改版先看）
+│   └── socialdata-pricing.md   # SocialData 定价/限流/监控选型参考（官方核对版）
 ├── migrations/               # D1 数据库迁移（SQL）
 ├── scripts/                  # 校验脚本（名册格式等）与 OG 字体生成（build-og-fonts.mjs）
 ├── public/
