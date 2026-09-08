@@ -76,6 +76,27 @@ function MembersSquarePage() {
   const [bucket, setBucket] = useState<FollowersBucket>("all");
   const [sortKey, setSortKey] = useState<SortKey>("followers");
   const [copied, setCopied] = useState(false);
+  const [favOnly, setFavOnly] = useState(false);
+  // 本地收藏（浏览器存储，无需登录）：广场可「只看收藏」
+  const [favs, setFavs] = useState<string[]>(() => {
+    try {
+      const raw = typeof localStorage !== "undefined" ? localStorage.getItem("kosx:favs") : null;
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const toggleFav = (id: string) => {
+    setFavs((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try {
+        localStorage.setItem("kosx:favs", JSON.stringify(next));
+      } catch {
+        /* 隐私模式等写不进去就静默 */
+      }
+      return next;
+    });
+  };
 
   // 筛选选项的计数（从全体成员聚合，随筛选单选/多选状态不重置）
   const tagCounts = useMemo(() => {
@@ -92,12 +113,13 @@ function MembersSquarePage() {
     return counts;
   }, [members]);
 
-  const hasFilter = selTracks.length > 0 || selTags.length > 0 || bucket !== "all" || sortKey !== "followers";
+  const hasFilter = selTracks.length > 0 || selTags.length > 0 || bucket !== "all" || sortKey !== "followers" || favOnly;
   const reset = () => {
     setSelTracks([]);
     setSelTags([]);
     setBucket("all");
     setSortKey("followers");
+    setFavOnly(false);
   };
 
   // 赛道/标签多选为「命中任一」；粉丝量单选；排序默认粉丝量降序（与排行榜口径一致）
@@ -106,13 +128,14 @@ function MembersSquarePage() {
     if (selTracks.length > 0) list = list.filter((m) => selTracks.some((t) => m.tracks.includes(t)));
     if (selTags.length > 0) list = list.filter((m) => selTags.some((t) => m.tags.includes(t)));
     if (bucket !== "all") list = list.filter((m) => BUCKET_MATCH[bucket](m.latestFollowers ?? 0));
+    if (favOnly) list = list.filter((m) => favs.includes(m.id));
     const sorted = [...list];
     if (sortKey === "growth30d") sorted.sort((a, b) => b.growth30d - a.growth30d);
     else if (sortKey === "active") sorted.sort((a, b) => (b.posts30d ?? 0) - (a.posts30d ?? 0));
     else if (sortKey === "joined") sorted.sort((a, b) => b.joinedAt.localeCompare(a.joinedAt));
     else sorted.sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
     return sorted;
-  }, [members, selTracks, selTags, bucket, sortKey]);
+  }, [members, selTracks, selTags, bucket, sortKey, favOnly, favs]);
 
   const copyAll = async () => {
     const text = filtered.map((m) => `@${m.handle}`).join(" ");
@@ -190,6 +213,12 @@ function MembersSquarePage() {
               </FilterChip>
             ))}
           </FilterRow>
+          <FilterRow label="收藏">
+            <FilterChip active={favOnly} onClick={() => setFavOnly((v) => !v)}>
+              ♥ 只看收藏
+              <b className="tabular-nums">{favs.length}</b>
+            </FilterChip>
+          </FilterRow>
         </section>
       </Reveal>
 
@@ -232,7 +261,7 @@ function MembersSquarePage() {
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ type: "spring", stiffness: 360, damping: 30 }}
             >
-              <MiniMemberCard m={m} />
+              <MiniMemberCard m={m} faved={favs.includes(m.id)} onToggleFav={toggleFav} />
             </motion.div>
           ))}
         </motion.div>
@@ -269,58 +298,76 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
 }
 
 /** 迷你名片：横幅 + 头像 + 昵称 + @handle + 粉丝量 + 赛道/标签 + Bio（纯真实数据，无称号等派生信息） */
-function MiniMemberCard({ m }: { m: MemberStats }) {
+function MiniMemberCard({ m, faved, onToggleFav }: { m: MemberStats; faved: boolean; onToggleFav: (id: string) => void }) {
   const name = m.displayName ?? m.handle;
   return (
-    <Link
-      to="/members/$id"
-      params={{ id: m.id }}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-signal/40 hover:shadow-lg hover:shadow-black/50"
-    >
-      <div className="relative h-16 sm:h-20">
-        {m.bannerUrl ? (
-          <BannerImage src={m.bannerUrl} />
-        ) : (
-          <div aria-hidden="true" className="bg-gradient-to-r size-full from-signal/15 via-surface to-surface" />
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-signal/40 hover:shadow-lg hover:shadow-black/50">
+      {/* 收藏钮：与整卡 Link 是兄弟，不嵌套（避免 a 内嵌 button） */}
+      <button
+        type="button"
+        onClick={() => onToggleFav(m.id)}
+        aria-pressed={faved}
+        aria-label={faved ? "取消收藏" : "收藏"}
+        title={faved ? "取消收藏" : "收藏"}
+        className={cn(
+          "absolute right-2.5 top-2.5 z-20 inline-flex size-8 cursor-pointer select-none items-center justify-center rounded-full border backdrop-blur-sm transition-all duration-150 active:scale-90",
+          faved
+            ? "border-signal/50 bg-signal/20 text-signal shadow-[0_0_10px_rgba(255,106,0,0.25)]"
+            : "border-white/15 bg-black/25 text-white/80 hover:bg-black/40 hover:text-white"
         )}
-        <div aria-hidden="true" className="from-surface via-surface/30 absolute inset-0 bg-gradient-to-t to-transparent" />
-      </div>
-      <div className="relative z-10 flex flex-1 flex-col px-4 pb-4">
-        {/* z-10：横幅容器是定位元素会盖住静态兄弟，头像压边必须抬高一层 */}
-        <div className="-mt-6">
-          <Avatar url={m.profileImage} name={name} className="ring-surface size-12 ring-4" />
+      >
+        <span aria-hidden="true" className={cn("text-base leading-none", faved ? "" : "opacity-70")}>{faved ? "♥" : "♡"}</span>
+      </button>
+      <Link
+        to="/members/$id"
+        params={{ id: m.id }}
+        className="flex h-full flex-col"
+      >
+        <div className="relative h-16 sm:h-20">
+          {m.bannerUrl ? (
+            <BannerImage src={m.bannerUrl} />
+          ) : (
+            <div aria-hidden="true" className="bg-gradient-to-r size-full from-signal/15 via-surface to-surface" />
+          )}
+          <div aria-hidden="true" className="from-surface via-surface/30 absolute inset-0 bg-gradient-to-t to-transparent" />
         </div>
-        <div className="mt-2 flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-sm font-semibold leading-tight">{name}</span>
-          {m.verified && <BadgeCheck className="size-4 shrink-0 text-sky-400" aria-label="X 认证账号" />}
-        </div>
-        <div className="mt-0.5 truncate text-xs text-mist">@{m.handle}</div>
-        <div className="mt-2 flex items-baseline gap-1">
-          <span className="text-xl font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</span>
-          <span className="text-xs text-mist">粉丝</span>
-        </div>
-        {m.tracks.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {m.tracks.slice(0, 2).map((t) => (
-              <span
-                key={t}
-                className={cn(
-                  "rounded-full border px-2 py-0.5 text-xs font-medium",
-                  t === "AI工具" ? "border-signal/40 bg-signal/10 text-signal" : "border-line bg-soft-surface text-ink"
-                )}
-              >
-                {t}
-              </span>
-            ))}
+        <div className="relative z-10 flex flex-1 flex-col px-4 pb-4">
+          {/* z-10：横幅容器是定位元素会盖住静态兄弟，头像压边必须抬高一层 */}
+          <div className="-mt-6">
+            <Avatar url={m.profileImage} name={name} className="ring-surface size-12 ring-4" />
           </div>
-        )}
-        {m.tags.length > 0 && (
-          <div className="mt-1.5 truncate text-xs text-mist">
-            {m.tags.slice(0, 3).map((t) => `#${t}`).join("  ")}
+          <div className="mt-2 flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-semibold leading-tight">{name}</span>
+            {m.verified && <BadgeCheck className="size-4 shrink-0 text-sky-400" aria-label="X 认证账号" />}
           </div>
-        )}
-        {m.bio && <p className="text-mist mt-2 line-clamp-2 text-xs leading-relaxed">{m.bio}</p>}
-      </div>
-    </Link>
+          <div className="mt-0.5 truncate text-xs text-mist">@{m.handle}</div>
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-xl font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</span>
+            <span className="text-xs text-mist">粉丝</span>
+          </div>
+          {m.tracks.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {m.tracks.slice(0, 2).map((t) => (
+                <span
+                  key={t}
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-xs font-medium",
+                    t === "AI工具" ? "border-signal/40 bg-signal/10 text-signal" : "border-line bg-soft-surface text-ink"
+                  )}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+          {m.tags.length > 0 && (
+            <div className="mt-1.5 truncate text-xs text-mist">
+              {m.tags.slice(0, 3).map((t) => `#${t}`).join("  ")}
+            </div>
+          )}
+          {m.bio && <p className="text-mist mt-2 line-clamp-2 text-xs leading-relaxed">{m.bio}</p>}
+        </div>
+      </Link>
+    </div>
   );
 }

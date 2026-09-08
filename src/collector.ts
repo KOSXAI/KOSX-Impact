@@ -266,11 +266,24 @@ async function writeRecentPosts(
   nowIso: string
 ): Promise<number> {
   if (posts.length === 0) return 0;
+  // 幂等 upsert（不用 REPLACE——REPLACE 删旧重建会丢 views_prev）：已存在的行把旧 views 挪进 views_prev
   const stmt = env.DB.prepare(
-    `INSERT OR REPLACE INTO posts
-       (tweet_id, member_id, created_at, views_count, like_count, reply_count,
-        retweet_count, quote_count, bookmark_count, text, lang, recorded_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`
+    `INSERT INTO posts
+       (tweet_id, member_id, created_at, views_count, views_prev,
+        like_count, reply_count, retweet_count, quote_count, bookmark_count,
+        text, lang, recorded_at)
+     VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+     ON CONFLICT(tweet_id) DO UPDATE SET
+       views_count = excluded.views_count,
+       views_prev = posts.views_count,
+       like_count = excluded.like_count,
+       reply_count = excluded.reply_count,
+       retweet_count = excluded.retweet_count,
+       quote_count = excluded.quote_count,
+       bookmark_count = excluded.bookmark_count,
+       text = excluded.text,
+       lang = excluded.lang,
+       recorded_at = excluded.recorded_at`
   );
   const writes = posts.map((p) =>
     stmt.bind(

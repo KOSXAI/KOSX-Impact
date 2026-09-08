@@ -219,6 +219,44 @@ function renderRobots(): Response {
   });
 }
 
+/** llms.txt：给 AI 爬虫的全站结构索引（LLM 友好的站点说明） */
+function renderLlmsTxt(): Response {
+  const text = `# KOSX 影响力平台（impact.kosx.ai）
+
+> KOSX 万粉影响力计划：追踪并展示 KOSX 成员在 X 平台上的成长数据——粉丝量、增长速度、
+> 称号大关、社群总影响力，把成员的影响力汇聚成一张属于 KOSX 的影响力网络。
+> 站点语言为简体中文。数据来自成员账号的公开信息，每天更新一次；数据口径见「关于」页。
+
+## 页面
+
+- [首页](https://impact.kosx.ai/)：社群规模、今日动态（登阶 / 涨粉先锋 / 今日曝光增量）、
+  社群全景（称号分布 / 总量趋势 / 社群互推）、赛道速览、内容热点、品牌声量与情绪分布。
+- [榜单](https://impact.kosx.ai/leaderboard)：总排行 / 成长榜 / 新锐潜力 / 影响力 / 被提及 / 勤快 / 登阶记录，
+  每个榜可带时间档参数（?tab=growth&range=7）。
+- [成员广场](https://impact.kosx.ai/members)：按赛道 / 标签 / 粉丝量筛选全部成员，复制 @ 清单批量关注。
+- [赛道](https://impact.kosx.ai/tracks)：AI工具 / 财经 / 开发者 / 增长 / 出海 五个赛道 + 综合兜底，
+  每个赛道独立页（seo 收录 + 批量关注 + 分享）。
+- [内容](https://impact.kosx.ai/posts)：近 30 天精华帖与全站历史 Top 帖、内容洞察（爆款 / 标签云 / 停更）。
+- [社群日报](https://impact.kosx.ai/daily)：每日战报——今日登阶 / 涨粉冠军 / 赛道表现 / 最爆内容 / 品牌声量。
+- [关于](https://impact.kosx.ai/about)：数据口径、称号段位、影响力指数公式。
+- [RSS 更新源](https://impact.kosx.ai/feed.xml)：登阶与爆款内容更新。
+
+## 成员档案页
+
+每位成员有独立档案页 https://impact.kosx.ai/members/{id}：粉丝曲线、赛道名次、
+称号之路、影响力指数、粉丝画像（样本）、相似账号与同赛道伙伴、内容密码（黄金时段 / 爆款涨粉归因）。
+
+## 数据口径
+
+- 数据来自 X 公开信息，每天更新一次（快照随整点滚动采集，被提及每日 09:30 同步，粉丝画像月度刷新）。
+- 「今日曝光增量」= 帖子近 24h 刷新后的浏览增量合计；「帖均曝光」= 近 30 天总浏览 / 发帖数。
+- 粉丝样本重叠为采样方向性参考，非精确重叠。
+`;
+  return new Response(text, {
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+  });
+}
+
 function renderSitemap(): Response {
   const today = new Date().toISOString().slice(0, 10);
   const urls = [
@@ -228,6 +266,7 @@ function renderSitemap(): Response {
     { loc: `${SITE_URL}/tracks`, changefreq: "daily", priority: "0.8" },
     { loc: `${SITE_URL}/posts`, changefreq: "daily", priority: "0.7" },
     { loc: `${SITE_URL}/daily`, changefreq: "daily", priority: "0.7" },
+    { loc: `${SITE_URL}/report`, changefreq: "weekly", priority: "0.6" },
     { loc: `${SITE_URL}/about`, changefreq: "monthly", priority: "0.3" },
     // 赛道页（5 正式赛道；综合过渡桶不出独立页）
     ...TRACKS.map((t) => ({ loc: `${SITE_URL}/tracks/${t.slug}`, changefreq: "daily", priority: "0.8" })),
@@ -306,6 +345,7 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
   }
   if (pathname === "/robots.txt") return renderRobots();
   if (pathname === "/sitemap.xml") return renderSitemap();
+  if (pathname === "/llms.txt") return renderLlmsTxt();
   if (pathname === "/feed.xml") return renderFeed(env);
   if (pathname.startsWith("/card/")) {
     const id = pathname.slice("/card/".length).replace(/\.svg$/, "").split("/")[0];

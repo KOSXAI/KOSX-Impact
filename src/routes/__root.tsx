@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { TopLoadingBar } from "@/components/TopLoadingBar";
+import { Toaster } from "@/components/ui/toast";
 import { SITE_URL } from "@/lib/site";
 import "@/styles.css";
 
@@ -30,6 +32,8 @@ function RootComponent() {
         <HeadContent />
       </head>
       <body className="flex min-h-dvh flex-col bg-background text-foreground antialiased">
+        <TopLoadingBar />
+        <Toaster />
         {/* flex-1：内容不足一屏时页脚也贴底 */}
         <div className="flex-1">
           <Outlet />

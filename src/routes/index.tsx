@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard } from "@/data.functions";
-import type { MemberStats } from "@/stats";
+import type { DashboardStats, MemberStats } from "@/stats";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
@@ -93,6 +93,31 @@ function DashboardPage() {
                 <TrendChart data={stats.trend} />
               </div>
             )}
+            {/* 社群互推：近 30 天帖子正文相互 @ 的关系边（影响力网络的第一块真实数据） */}
+            {stats.mutualEdges && stats.mutualEdges.length > 0 && (
+              <div className="mt-6 border-t border-line pt-6">
+                <h3 className="text-sm font-semibold text-mist">社群互推</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {stats.mutualEdges.slice(0, 10).map((e) => {
+                    const from = stats.members.find((m) => m.id === e.from);
+                    const to = stats.members.find((m) => m.id === e.to);
+                    if (!from || !to) return null;
+                    return (
+                      <span
+                        key={`${e.from}-${e.to}`}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist tabular-nums"
+                        title={`${from.handle} 在近 30 天提到 ${to.handle} ${e.count} 次`}
+                      >
+                        <span className="font-semibold text-ink">{from.displayName ?? from.handle}</span>
+                        <span aria-hidden="true">→</span>
+                        <span className="font-semibold text-ink">{to.displayName ?? to.handle}</span>
+                        <b className="text-signal">×{e.count}</b>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </section>
         </Reveal>
 
@@ -129,10 +154,40 @@ function DashboardPage() {
                   </div>
                 );
               })()}
+              {/* 声量迷你趋势：最近 14 天按日计数 */}
+              {stats.mentionsTrend && stats.mentionsTrend.length > 0 && (
+                <div className="mt-4 flex h-10 items-end gap-1 border-b border-line pb-px">
+                  {(() => {
+                    const max = Math.max(...stats.mentionsTrend!.map((t) => t.count), 1);
+                    return stats.mentionsTrend!.map((t) => (
+                      <div key={t.date} className="group relative flex-1" title={`${t.date} · ${t.count} 条`}>
+                        <div
+                          className="w-full rounded-t-sm bg-signal/60 transition-colors group-hover:bg-signal"
+                          style={{ height: `${Math.max(8, (t.count / max) * 100)}%` }}
+                        />
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
               <MentionsSection mentions={stats.mentions} />
             </section>
           </Reveal>
         )}
+
+        {/* 社群能量报告：社群能量全景入口 */}
+        <Reveal delay={0.1}>
+          <Link
+            to="/report"
+            className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-signal/25 bg-gradient-to-r from-signal/10 to-transparent px-6 py-5 transition-colors hover:border-signal/50"
+          >
+            <div>
+              <h2 className="text-xl font-bold">社群能量报告</h2>
+              <p className="mt-1 text-sm text-mist">总影响力 · 赛道分布 · 粉丝质量 · 声量 Top</p>
+            </div>
+            <span className="rounded-full border border-signal/40 bg-signal/10 px-4 py-1.5 text-sm font-semibold text-signal">查看报告 →</span>
+          </Link>
+        </Reveal>
       </div>
     </>
   );
@@ -188,6 +243,10 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
   const todayClimbs = stats.recentMilestones.filter((m) => m.achievedAt.slice(0, 10) === today);
   const growthChamp = [...stats.members].sort((a, b) => b.growth7d - a.growth7d)[0];
   const hotPosts = (stats.insights.viralPosts.length ? stats.insights.viralPosts : stats.topPosts).slice(0, 3);
+  const gainRank = [...stats.members]
+    .filter((m) => (m.viewsTodayGain ?? 0) > 0)
+    .sort((a, b) => (b.viewsTodayGain ?? 0) - (a.viewsTodayGain ?? 0))
+    .slice(0, 3);
   const trackRows = TRACKS.map((t) => {
     const ms = stats.members.filter((m) => m.tracks.includes(t.name));
     const top = [...ms].sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0))[0];
@@ -220,6 +279,18 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
               </span>
               <span className="shrink-0 text-sm font-bold text-signal tabular-nums">+{fmt(growthChamp.growth7d)}</span>
             </Link>
+          )}
+          {gainRank.length > 0 && (
+            <div className="space-y-2.5 border-t border-line pt-2.5">
+              <div className="text-xs font-semibold text-mist">今日曝光增量</div>
+              {gainRank.map((m) => (
+                <Link key={m.id} to="/members/$id" params={{ id: m.id }} className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+                  <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-7 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
+                  <span className="shrink-0 text-sm font-bold text-signal tabular-nums">+{fmt(m.viewsTodayGain ?? 0)}</span>
+                </Link>
+              ))}
+            </div>
           )}
         </div>
       </section>

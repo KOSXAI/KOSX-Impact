@@ -41,7 +41,7 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
       <ChartContainer config={chartConfig} className="h-full w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={daily.points} margin={{ top: 12, right: 16, bottom: 4, left: 8 }}>
-            <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" />
+            <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" strokeOpacity={0.4} />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
             <YAxis
               domain={daily.domain}
@@ -54,7 +54,7 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
               content={<ChartTooltipContent hideLabel />}
               formatter={(v) => (Number(v) > 0 ? `+${fmt(Number(v))}` : fmt(Number(v)))}
             />
-            <Bar dataKey="delta" fill="var(--color-delta)" radius={[3, 3, 0, 0]} maxBarSize={28} />
+            <Bar dataKey="delta" fill="var(--color-delta)" radius={[4, 4, 0, 0]} maxBarSize={28} />
           </BarChart>
         </ResponsiveContainer>
       </ChartContainer>
@@ -68,11 +68,11 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
         <AreaChart data={points} margin={{ top: 12, right: 16, bottom: 4, left: 8 }}>
           <defs>
             <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-total)" stopOpacity={0.28} />
-              <stop offset="100%" stopColor="var(--color-total)" stopOpacity={0.02} />
+              <stop offset="0%" stopColor="var(--color-total)" stopOpacity={0.32} />
+              <stop offset="100%" stopColor="var(--color-total)" stopOpacity={0.01} />
             </linearGradient>
           </defs>
-          <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" />
+          <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" strokeOpacity={0.4} />
           <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
           <YAxis
             domain={["dataMin - 10%", "dataMax + 12%"]}
@@ -86,10 +86,11 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
             dataKey="total"
             type="monotone"
             stroke="var(--color-total)"
-            strokeWidth={2}
+            strokeWidth={2.5}
             fill="url(#trendFill)"
-            dot={{ r: 2.5 }}
-            activeDot={{ r: 4 }}
+            dot={{ r: 2.5, fill: "var(--color-total)", strokeWidth: 0 }}
+            activeDot={{ r: 5, fill: "var(--paper)", stroke: "var(--color-total)", strokeWidth: 2 }}
+            style={{ filter: "drop-shadow(0 2px 6px rgba(255, 106, 0, 0.45))" }}
           />
         </AreaChart>
       </ResponsiveContainer>

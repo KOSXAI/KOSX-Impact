@@ -20,7 +20,8 @@ import { SITE_URL } from "./lib/site";
 const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage, tracks, tags, verified, bio, banner_url AS bannerUrl`;
 const SNAPSHOT_FIELDS = `member_id AS memberId, followers, recorded_at AS recordedAt`;
 const POST_FIELDS = `tweet_id AS tweetId, created_at AS createdAt, text,
-  views_count AS views, like_count AS likes, reply_count AS replies,
+  views_count AS views, views_prev AS viewsPrev, recorded_at AS postRecordedAt,
+  like_count AS likes, reply_count AS replies,
   retweet_count AS retweets, quote_count AS quotes, bookmark_count AS bookmarks`;
 
 type MemberRow = {
@@ -41,6 +42,8 @@ type PostRow = {
   createdAt: string;
   text: string | null;
   views: number | null;
+  viewsPrev: number | null;
+  postRecordedAt: string;
   likes: number | null;
   replies: number | null;
   retweets: number | null;
@@ -208,7 +211,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     const postsByMember = new Map<string, PostRow[]>();
     for (const r of post30dRows as never as Array<PostRow & { memberId: string }>) {
       const list = postsByMember.get(r.memberId) ?? [];
-      list.push({ tweetId: r.tweetId, createdAt: r.createdAt, text: r.text, views: r.views, likes: r.likes, replies: r.replies, retweets: r.retweets, quotes: r.quotes, bookmarks: r.bookmarks });
+      list.push({ tweetId: r.tweetId, createdAt: r.createdAt, text: r.text, views: r.views, viewsPrev: r.viewsPrev, postRecordedAt: r.postRecordedAt, likes: r.likes, replies: r.replies, retweets: r.retweets, quotes: r.quotes, bookmarks: r.bookmarks });
       postsByMember.set(r.memberId, list);
     }
 
@@ -233,6 +236,20 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       }
     }
 
+    // 品牌声量趋势：最近 14 天按日计数（首页声量卡迷你图）
+    const mentionsTrend: Array<{ date: string; count: number }> = [];
+    {
+      // collected_at 为「YYYY-MM-DD HH:MM:SS」空格分隔，先取前 10 位再比较，避免 T 分隔的 ISO 串字典序错位
+      const cutoffMentionT = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
+      const { results: mtRows } = await env.DB.prepare(
+        `SELECT substr(collected_at, 1, 10) AS d, COUNT(*) AS n FROM mentions
+         WHERE substr(collected_at, 1, 10) >= ?1 GROUP BY d ORDER BY d`
+      ).bind(cutoffMentionT).all();
+      for (const r of mtRows as never as Array<{ d: string; n: number }>) {
+        mentionsTrend.push({ date: r.d, count: r.n });
+      }
+    }
+
     const memberStats = memberList.map((m, i) => {
       const rows = (snapshotBatches[i]?.results ?? []) as never as SnapshotRow[];
       // 窗口内是倒序取的，统计层期望正序
@@ -246,6 +263,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     // 帖子互动 Top：纯函数层返回空数组，这里用真实查询覆盖
     stats.topPosts = topPosts;
     stats.mentions = mentions;
+    stats.mentionsTrend = mentionsTrend;
 
     // 影响力指数：近 30 天帖子 + 最新快照列表收录数 + verified（逐成员）
     const rowById = new Map(memberStats.map((m) => [m.id, m]));
@@ -275,6 +293,44 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       }
       ms.engagementMedian = rates.length ? median(rates) : null;
       ms.mentionCount30d = mentionCounts.get(ms.id) ?? 0;
+      // 今日曝光增量：近 24h 内刷新过、且 views 相比上次抓取上涨的帖子增量合计
+      const refreshSince = new Date(Date.now() - 26 * 3600_000).toISOString();
+      ms.viewsTodayGain = posts
+        .filter((p) => p.postRecordedAt >= refreshSince && p.views != null && p.viewsPrev != null && p.views > p.viewsPrev)
+        .reduce((s, p) => s + ((p.views ?? 0) - (p.viewsPrev ?? 0)), 0);
+    }
+
+    // 社群互推图谱：近 30 天帖子正文里 @到其他成员的边（转推/引用/提及，排除本人自提）
+    {
+      const handleToId = new Map<string, string>();
+      for (const m of memberStats) handleToId.set(m.handle.toLowerCase(), m.id);
+      const regexCache = new Map<string, RegExp>();
+      const edgeMap = new Map<string, number>();
+      for (const [fromId, posts] of postsByMember) {
+        for (const p of posts) {
+          if (!p.text) continue;
+          const text = p.text.toLowerCase();
+          for (const [handle, toId] of handleToId) {
+            if (toId === fromId) continue;
+            let re = regexCache.get(handle);
+            if (!re) {
+              re = new RegExp(`@${handle}(?![\\w])`);
+              regexCache.set(handle, re);
+            }
+            if (re.test(text)) {
+              const key = `${fromId}\u0000${toId}`;
+              edgeMap.set(key, (edgeMap.get(key) ?? 0) + 1);
+            }
+          }
+        }
+      }
+      const mutualEdges = [...edgeMap.entries()]
+        .map(([key, count]) => {
+          const [from, to] = key.split("\u0000");
+          return { from, to, count };
+        })
+        .sort((a, b) => b.count - a.count);
+      stats.mutualEdges = mutualEdges.slice(0, 12);
     }
 
     // 帖均曝光 vs 同量级粉丝段中位：先按粉丝段分桶算中位，再逐成员给倍数（样本不足该段不产出）
@@ -358,6 +414,26 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     });
   });
   return (await res.json()) as DashboardStats;
+}
+
+/** 粉丝质量聚合（社群能量报告 /report 用）：fan_profiles 全量样本指标 */
+export async function getFanOverview(env: Env): Promise<Array<{ memberId: string; sampleSize: number; pctFollowers10k: number; verifiedPct: number }>> {
+  const { results } = await env.DB.prepare(
+    `SELECT member_id AS memberId, sample_size AS sampleSize,
+            pct_followers_10k AS pctFollowers10k, verified_pct AS verifiedPct
+     FROM fan_profiles`
+  ).all();
+  return results as never as Array<{ memberId: string; sampleSize: number; pctFollowers10k: number; verifiedPct: number }>;
+}
+
+/** 帖子互动顶部：互动率中位数 >0 的成员里取近 30 天强互动的成员（社群能量报告维度，轻量查询） */
+export async function getTopEngagementMembers(env: Env): Promise<Array<{ memberId: string; n: number }>> {
+  const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const { results } = await env.DB.prepare(
+    `SELECT member_id AS memberId, COUNT(*) AS n FROM posts
+     WHERE created_at >= ?1 AND views_count >= 1000 GROUP BY member_id ORDER BY n DESC LIMIT 8`
+  ).bind(cutoff).all();
+  return results as never as Array<{ memberId: string; n: number }>;
 }
 
 /** 成员详情（/api/members/:id 与成员页 SSR 共用，缓存键 ${SITE_URL}/api/members/:id&cb=数据版本） */
@@ -471,6 +547,35 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
         .map((n) => ({ id: n.id, handle: n.handle, displayName: n.displayName, profileImage: n.profileImage, followers: n.followers })),
     };
 
+    // 同粉丝圈：fan_profiles 粉丝样本重叠度最高的其他成员（采样重叠，方向性参考）
+    let fanCircle: MemberDetail["fanCircle"] = undefined;
+    if (fanProfile && fanProfile.topHandles.length > 0) {
+      const myHandles = new Set(fanProfile.topHandles.map((h) => h.handle.toLowerCase()));
+      const { results: fanCircleRows } = await env.DB.prepare(
+        `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage,
+                fp.top_handles AS topHandlesRaw,
+                (SELECT s.followers FROM snapshots s WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS followers
+         FROM fan_profiles fp JOIN members m ON m.id = fp.member_id
+         WHERE m.status = 'active' AND m.id != ?1`
+      ).bind(memberRow.id).all();
+      const candidates = (fanCircleRows as never as Array<{
+        id: string; handle: string; displayName: string | null; profileImage: string | null; topHandlesRaw: string | null; followers: number | null;
+      }>).map((r) => {
+        const others = parseJsonArray<{ handle: string }>(r.topHandlesRaw)
+          .map((h) => (h.handle ?? "").toLowerCase())
+          .filter(Boolean);
+        const overlap = others.filter((h) => myHandles.has(h)).length;
+        return { id: r.id, handle: r.handle, displayName: r.displayName, profileImage: r.profileImage, followers: r.followers, overlap };
+      });
+      const maxOverlap = Math.max(0, ...candidates.map((c) => c.overlap));
+      if (maxOverlap >= 2) {
+        fanCircle = candidates
+          .filter((c) => c.overlap >= Math.max(2, Math.floor(maxOverlap * 0.4)))
+          .sort((a, b) => b.overlap - a.overlap || (b.followers ?? 0) - (a.followers ?? 0))
+          .slice(0, 5);
+      }
+    }
+
     const snapshotRows = snapshots as never as Array<
       { recordedAt: string } & Record<string, number | null> & { followers: number }
     >;
@@ -540,6 +645,7 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
       fanProfile,
       similarAccounts,
       neighbors,
+      fanCircle,
     };
     return new Response(JSON.stringify(detail), { headers: { "Content-Type": "application/json" } });
   });

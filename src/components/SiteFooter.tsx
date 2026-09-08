@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { ArrowUpRight } from "lucide-react";
@@ -14,9 +15,9 @@ function GitHubIcon({ className }: { className?: string }) {
 }
 
 /**
- * 全站统一页脚（挂在根布局，所有页面共用）：
- * 左侧品牌名 + 版权行，右侧官网/GitHub 与「加入追踪」主按钮（提交弹窗在此）。
- * 说明性文案一律不放——页脚只做两件事：标识身份、给加入入口。
+ * 全站统一页脚（挂在根布局，所有页面共用）——站点身份与站外入口的归口：
+ * 左侧品牌名 + 版权行，右侧 官网/GitHub/关于 与「加入追踪」主按钮（提交弹窗在此）。
+ * 说明性文案一律不放；顶栏只做内容导航，站外链接与站点入口一律在此。
  */
 export function SiteFooter() {
   const [joinOpen, setJoinOpen] = useState(false);
@@ -29,6 +30,12 @@ export function SiteFooter() {
             <div className="mt-0.5 text-xs text-mist">© 2026 KOSX.ai</div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/about"
+              className="inline-flex items-center gap-0.5 text-sm font-semibold text-mist transition-colors hover:text-ink"
+            >
+              关于
+            </Link>
             <a
               href={OFFICIAL_SITE_URL}
               target="_blank"

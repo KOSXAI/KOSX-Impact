@@ -3,6 +3,7 @@ import { Dialog, DialogCloseX, DialogContent, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
+import { toast } from "@/components/ui/toast";
 import { fmt } from "@/lib/format";
 import { titleOf } from "@/milestones";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -70,6 +71,7 @@ export function ShareDialog({
     try {
       await navigator.clipboard.writeText(text);
       flash("text");
+      toast.success("分享文案已复制到剪贴板");
     } catch {
       // 剪贴板被拒（权限/非安全上下文）：静默，用户可手动选中复制
     }
@@ -79,6 +81,7 @@ export function ShareDialog({
     try {
       await navigator.clipboard.writeText(pageUrl);
       flash("link");
+      toast.success("主页链接已复制到剪贴板");
     } catch {
       // 同上：静默
     }
@@ -91,6 +94,7 @@ export function ShareDialog({
       const blob = await fetch(ogUrl).then((r) => r.blob());
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       flash("image");
+      toast.success("影响力预览图已复制到剪贴板");
     } catch {
       // 浏览器不支持复制图片（如部分 Firefox）：提示走下载
       setImgFail(true);

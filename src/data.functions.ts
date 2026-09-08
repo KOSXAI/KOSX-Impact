@@ -5,12 +5,18 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { env } from "cloudflare:workers";
-import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
+import { getDashboardStats, getMemberDetail, getTopPosts, getFanOverview, getTopEngagementMembers } from "./queries";
 import type { DashboardStats, MemberDetail, PostItem } from "./stats";
 
 export const fetchDashboard = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardStats> => getDashboardStats(env as Env)
 );
+
+/** 社群能量报告数据：粉丝画像质量聚合 + 强互动成员（/report 页面用） */
+export const fetchReportExtras = createServerFn({ method: "GET" }).handler(async () => {
+  const [fanRows, topEngagement] = await Promise.all([getFanOverview(env as Env), getTopEngagementMembers(env as Env)]);
+  return { fanRows, topEngagement };
+});
 
 export const fetchMemberDetail = createServerFn({ method: "GET" })
   .validator((id: string) => id)
@@ -18,4 +24,9 @@ export const fetchMemberDetail = createServerFn({ method: "GET" })
 
 export const fetchTopPosts = createServerFn({ method: "GET" }).handler(
   async (): Promise<PostItem[]> => getTopPosts(env as Env)
+);
+
+/** 全站历史 Top 帖：突破 30 天窗口的「社群最火」（posts 表保留窗口内全量数据） */
+export const fetchTopPostsAll = createServerFn({ method: "GET" }).handler(
+  async (): Promise<PostItem[]> => getTopPosts(env as Env, { days: 3650, limit: 20 })
 );

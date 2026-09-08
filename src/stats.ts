@@ -56,6 +56,8 @@ export interface MemberStats {
   engagementMedian?: number | null;
   /** 近 30 天被提及次数（member_mentions 表，queries 层填充；被提及榜数据源） */
   mentionCount30d?: number;
+  /** 今日曝光增量：近 24h 内刷新过的帖子 views 相比上次抓取的增量合计（queries 层填充） */
+  viewsTodayGain?: number;
 }
 
 /** 预聚合字段（来自 daily_stats）：直传绕过窗口重算 */
@@ -131,6 +133,10 @@ export interface DashboardStats {
   insights: CommunityInsights;
   /** 品牌声量：最近站外提及（queries 层填充） */
   mentions: MentionItem[];
+  /** 品牌声量趋势：最近 14 天按日计数（queries 层填充，首页迷你图） */
+  mentionsTrend?: Array<{ date: string; count: number }>;
+  /** 社群互推图谱：近 30 天帖子正文 @到其他成员的边（queries 层填充，首页网络区块） */
+  mutualEdges?: Array<{ from: string; to: string; count: number }>;
   /** 赛道能量统计（queries 层填充，5 正式赛道 + 综合兜底） */
   trackStats: TrackStats[];
 }
@@ -228,6 +234,15 @@ export interface MemberDetail {
     /** 同赛道其他成员（按粉丝量降序，最多 8 位，不含本人） */
     members: Array<{ id: string; handle: string; displayName: string | null; profileImage: string | null; followers: number | null }>;
   };
+  /** 同粉丝圈：粉丝样本重叠度最高的其他成员（fan_profiles 采样重叠，queries 层填充） */
+  fanCircle?: Array<{
+    id: string;
+    handle: string;
+    displayName: string | null;
+    profileImage: string | null;
+    followers: number | null;
+    overlap: number;
+  }>;
 }
 
 /** 单帖活跃度数据（浏览/赞/评论等互动数 + 内容摘要） */

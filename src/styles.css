@@ -102,6 +102,23 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--line);
+    border-radius: 9999px;
+    transition: background-color 0.2s ease;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted);
   }
   html {
     @apply bg-paper;
@@ -114,12 +131,35 @@
   }
 }
 
-/* 卡片 hover 抬升（微交互统一入口） */
+/* 卡片 hover 抬升与高光微交互（稳重高级，无缩放引发的文字虚焦抖动） */
 @utility card-lift {
   @apply transition-all duration-300 ease-out;
   &:hover {
-    @apply -translate-y-1 scale-[1.01];
+    @apply -translate-y-0.5 border-white/20 shadow-lg shadow-black/40;
   }
+}
+
+/* 顶部微高光卡片质感（类似 Linear/Apple 暗黑立体内折射） */
+@utility card-highlight {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+/* 品牌信号橙呼吸微光背景 */
+@utility glow-signal {
+  background-image: radial-gradient(circle at center, rgba(255, 106, 0, 0.12) 0%, transparent 70%);
+}
+
+/* 微弱科技网格背景（消除大面积纯黑 OLED 发干感） */
+@utility bg-subtle-grid {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+/* 图标微光底座（Squircle 连续曲率与顶部微折射内高光） */
+@utility icon-dock {
+  @apply rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-transparent shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)];
 }
 
 /* Tab 内容切换入场（轻上浮淡入，SSR 安全：纯 CSS 动画） */
@@ -171,5 +211,12 @@
   from {
     opacity: 0;
     transform: translateY(-24px);
+  }
+}
+
+/* 骨架屏流光扫光微动效 */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }

@@ -15,6 +15,15 @@ import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/leaderboard")({
+  // 视图状态进 URL：每个榜/时间档可分享、可被搜索引擎收录（多维时间榜）
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: (
+      ["leaderboard", "growth", "rising", "active", "mentions", "climbs", "influence"] as TabKey[]
+    ).includes(search.tab as TabKey)
+      ? (search.tab as TabKey)
+      : ("leaderboard" as TabKey),
+    range: search.range === "7" ? (7 as const) : (30 as const),
+  }),
   loader: () => fetchDashboard(),
   head: () => ({
     meta: [
@@ -52,6 +61,9 @@ const PODIUM = [
 
 function LeaderboardPage() {
   const stats = Route.useLoaderData();
+  const { tab, range } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const setTab = (t: TabKey) => navigate({ search: (prev) => ({ ...prev, tab: t }) });
   // 总排行：最新粉丝量从高到低（stats.members 已按此排序）
   const leaderboard = stats.members;
   // 成长榜：近 30 天增长优先，其次近 7 天、加入以来增长——小账号也有机会登顶
@@ -63,7 +75,6 @@ function LeaderboardPage() {
     (a, b) => (b.influence?.score ?? -1) - (a.influence?.score ?? -1)
   );
 
-  const [tab, setTab] = useState<TabKey>("leaderboard");
   // 新锐潜力榜：近 30 天有帖子、帖均曝光效率最高的潜力账号（粉丝量不大但内容被看见）
   const rising = stats.members
     .filter((m) => m.avgViewsPerPost != null && m.posts30d! >= 1)
@@ -127,7 +138,7 @@ function LeaderboardPage() {
 
         <main key={tab} className="tab-in mt-6">
           {tab === "leaderboard" && <LeaderboardList members={leaderboard} />}
-          {tab === "growth" && <GrowthSection members={growth} />}
+          {tab === "growth" && <GrowthSection members={growth} range={range} onRangeChange={(r) => navigate({ search: (prev) => ({ ...prev, range: r }) })} />}
           {tab === "rising" && <RisingList members={rising} />}
           {tab === "influence" && <InfluenceList members={influence} />}
           {tab === "mentions" && <MentionsList members={mentions} />}
@@ -269,22 +280,41 @@ function LeaderboardMember({
   );
 }
 
-/** 成长榜：近 7 天 / 近 30 天口径切换，按所选范围排序，小账号也有机会登顶 */
-function GrowthSection({ members }: { members: MemberStats[] }) {
-  const [range, setRange] = useState<7 | 30>(30);
+/** 成长榜：近 7 天 / 近 30 天口径切换（存 URL，可分享），按所选范围排序，小账号也有机会登顶 */
+function GrowthSection({
+  members,
+  range,
+  onRangeChange,
+}: {
+  members: MemberStats[];
+  range: 7 | 30;
+  onRangeChange: (r: 7 | 30) => void;
+}) {
   const sorted = [...members].sort((a, b) =>
     range === 7 ? b.growth7d - a.growth7d : b.growth30d - a.growth30d
   );
 
   return (
     <>
+      {/* 本周王者叙事：近 7 天涨粉最多（周冠军 / 月冠军的轻量版） */}
+      {range === 7 && sorted[0] && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-400/10 to-transparent px-4 py-3">
+          <span className="text-sm font-semibold text-mist">本周王者</span>
+          <Link to="/members/$id" params={{ id: sorted[0].id }} className="flex items-center gap-2 hover:underline">
+            <Avatar url={sorted[0].profileImage} name={sorted[0].displayName ?? sorted[0].handle} className="size-6 shrink-0" />
+            <span className="text-sm font-semibold">{sorted[0].displayName ?? sorted[0].handle}</span>
+            <span className="text-sm font-bold text-signal tabular-nums">+{fmt(sorted[0].growth7d)}</span>
+            <span className="text-xs text-mist">近 7 天</span>
+          </Link>
+        </div>
+      )}
       <div className="mb-2 flex justify-end gap-1">
         {([30, 7] as const).map((r) => (
           <button
             key={r}
-            onClick={() => setRange(r)}
+            onClick={() => onRangeChange(r)}
             className={cn(
-              "h-8 rounded-full px-3 text-xs font-semibold transition-colors",
+              "h-8 rounded-full px-3 text-xs font-semibold transition-colors cursor-pointer select-none",
               range === r ? "bg-white text-paper" : "text-mist hover:text-ink"
             )}
           >

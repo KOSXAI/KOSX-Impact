@@ -51,7 +51,7 @@ export default function RechartsGrowthChart({
     <ChartContainer config={chartConfig} className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 16, right: 16, bottom: 4, left: 8 }}>
-          <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" />
+          <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" strokeOpacity={0.4} />
           <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
           <YAxis
             domain={["dataMin - 10%", "dataMax + 15%"]}
@@ -68,15 +68,17 @@ export default function RechartsGrowthChart({
             y={goalY ?? undefined}
             strokeDasharray="4 4"
             stroke="var(--muted-foreground)"
+            strokeOpacity={0.6}
             label={{ value: goalLabel, position: "insideTopRight", fontSize: 12, fill: "var(--muted-foreground)" }}
           />
           <Line
             dataKey="followers"
             type="monotone"
             stroke="var(--color-followers)"
-            strokeWidth={2}
-            dot={data.length <= 30 ? { r: 2.5 } : false}
-            activeDot={{ r: 4 }}
+            strokeWidth={2.5}
+            dot={data.length <= 30 ? { r: 2.5, fill: "var(--color-followers)", strokeWidth: 0 } : false}
+            activeDot={{ r: 5, fill: "var(--paper)", stroke: "var(--color-followers)", strokeWidth: 2 }}
+            style={{ filter: "drop-shadow(0 2px 6px rgba(255, 106, 0, 0.45))" }}
           />
         </LineChart>
       </ResponsiveContainer>
