@@ -54,6 +54,8 @@ export interface MemberStats {
   efficiencyVsMedian?: number | null;
   /** 帖子互动率中位数（queries 层填充，0-1；无帖子为 null） */
   engagementMedian?: number | null;
+  /** 近 30 天被提及次数（member_mentions 表，queries 层填充；被提及榜数据源） */
+  mentionCount30d?: number;
 }
 
 /** 预聚合字段（来自 daily_stats）：直传绕过窗口重算 */

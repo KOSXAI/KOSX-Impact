@@ -32,7 +32,7 @@ export const Route = createFileRoute("/leaderboard")({
   component: LeaderboardPage,
 });
 
-type TabKey = "leaderboard" | "growth" | "rising" | "active" | "climbs" | "influence";
+type TabKey = "leaderboard" | "growth" | "rising" | "active" | "mentions" | "climbs" | "influence";
 
 /** 总排行 / 成长榜前三的荣誉样式：只保留行卡外壳（边框渐晕 + 名次渐变数字），不加榜位徽章抢内容的戏 */
 const PODIUM = [
@@ -70,12 +70,15 @@ function LeaderboardPage() {
     .sort((a, b) => (b.avgViewsPerPost ?? 0) - (a.avgViewsPerPost ?? 0));
   // 勤快榜：近 30 天发帖最多的成员
   const active = [...stats.members].sort((a, b) => (b.posts30d ?? 0) - (a.posts30d ?? 0) || (b.posts7d ?? 0) - (a.posts7d ?? 0));
+  // 被提及榜：近 30 天被讨论热度
+  const mentions = stats.members.filter((m) => (m.mentionCount30d ?? 0) > 0).sort((a, b) => (b.mentionCount30d ?? 0) - (a.mentionCount30d ?? 0));
 
   const tabs: Array<{ key: TabKey; label: string; count: number }> = [
     { key: "leaderboard", label: "总排行", count: leaderboard.length },
     { key: "growth", label: "成长榜", count: growth.length },
     { key: "rising", label: "新锐", count: rising.length },
     { key: "influence", label: "影响力", count: influence.length },
+    { key: "mentions", label: "被提及", count: mentions.length },
     { key: "active", label: "勤快", count: active.length },
     { key: "climbs", label: "登阶记录", count: stats.recentMilestones.length },
   ];
@@ -127,6 +130,7 @@ function LeaderboardPage() {
           {tab === "growth" && <GrowthSection members={growth} />}
           {tab === "rising" && <RisingList members={rising} />}
           {tab === "influence" && <InfluenceList members={influence} />}
+          {tab === "mentions" && <MentionsList members={mentions} />}
           {tab === "active" && <ActiveList members={active} />}
           {tab === "climbs" && <ClimbsList stats={stats} />}
         </main>
@@ -514,6 +518,76 @@ function ActiveMember({
           <div className="font-bold tabular-nums text-mist">≈{perWeek}/周</div>
           <div className="text-xs text-mist">周均</div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** 被提及榜：近 30 天被 X 上提及最多的成员（「被讨论热度」） */
+function MentionsList({ members }: { members: MemberStats[] }) {
+  if (members.length === 0) return <p className="text-mist">被提及数据采集中，热度马上就来。</p>;
+  return (
+    <ol className="space-y-3">
+      {members.map((m, i) => (
+        <RevealItem key={m.id} y={16}>
+          <MentionMember member={m} rank={i + 1} podium={PODIUM[i]} />
+        </RevealItem>
+      ))}
+    </ol>
+  );
+}
+
+function MentionMember({
+  member: m,
+  rank,
+  podium,
+}: {
+  member: MemberStats;
+  rank: number;
+  podium?: (typeof PODIUM)[number];
+}) {
+  const name = m.displayName ?? m.handle;
+  const count = m.mentionCount30d ?? 0;
+  return (
+    <div
+      className={
+        podium
+          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
+          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
+      }
+    >
+      <div
+        className={
+          podium
+            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
+            : "w-6 shrink-0 text-mist tabular-nums"
+        }
+      >
+        {rank}
+      </div>
+      <Avatar url={m.profileImage} name={name} className="size-10" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+            {name}
+          </Link>
+          <TitleBadge threshold={m.prevMilestone} />
+          <a
+            href={xProfileUrl(m.handle)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
+          >
+            @{m.handle}
+          </a>
+        </div>
+        <div className="mt-1 text-xs text-mist tabular-nums">
+          {m.latestFollowers != null ? `${fmt(m.latestFollowers)} 粉 · ` : ""}近 30 天
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-2xl font-bold text-signal tabular-nums">{count}</span>
+        <span className="text-xs text-mist">次被提及</span>
       </div>
     </div>
   );

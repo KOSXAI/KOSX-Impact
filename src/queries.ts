@@ -220,6 +220,19 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     ).all();
     const mentions: MentionItem[] = mentionRows as never as MentionItem[];
 
+    // 成员被提及热度：member_mentions 近 30 天按成员计数（被提及榜数据源）
+    const mentionCounts = new Map<string, number>();
+    {
+      const cutoffMention = new Date(Date.now() - 30 * 86_400_000).toISOString();
+      const { results: mmRows } = await env.DB.prepare(
+        `SELECT member_id AS memberId, COUNT(*) AS n FROM member_mentions
+         WHERE mentioned_at >= ?1 GROUP BY member_id`
+      ).bind(cutoffMention).all();
+      for (const r of mmRows as never as Array<{ memberId: string; n: number }>) {
+        mentionCounts.set(r.memberId, r.n);
+      }
+    }
+
     const memberStats = memberList.map((m, i) => {
       const rows = (snapshotBatches[i]?.results ?? []) as never as SnapshotRow[];
       // 窗口内是倒序取的，统计层期望正序
@@ -261,6 +274,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
         if (p.views && p.views > 0) rates.push(eng / p.views);
       }
       ms.engagementMedian = rates.length ? median(rates) : null;
+      ms.mentionCount30d = mentionCounts.get(ms.id) ?? 0;
     }
 
     // 帖均曝光 vs 同量级粉丝段中位：先按粉丝段分桶算中位，再逐成员给倍数（样本不足该段不产出）
