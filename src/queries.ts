@@ -452,6 +452,17 @@ export async function getTopEngagementMembers(env: Env): Promise<Array<{ memberI
   return results as never as Array<{ memberId: string; n: number }>;
 }
 
+/** 邀请裂变荣誉榜：谁带来了最多新成员（invite_events 聚合，queries 层；/report 展示） */
+export async function getInviteLeaders(env: Env): Promise<Array<{ inviterId: string; n: number; handle: string; displayName: string | null; profileImage: string | null }>> {
+  const { results } = await env.DB.prepare(
+    `SELECT ie.inviter_id AS inviterId, COUNT(*) AS n, m.handle, m.display_name AS displayName, m.profile_image AS profileImage
+     FROM invite_events ie JOIN members m ON m.id = ie.inviter_id
+     WHERE m.status = 'active'
+     GROUP BY ie.inviter_id ORDER BY n DESC LIMIT 8`
+  ).all();
+  return results as never as Array<{ inviterId: string; n: number; handle: string; displayName: string | null; profileImage: string | null }>;
+}
+
 /** 年度影响力报告（/annual 用）：本年至今的社群叙事——YTD 增长 / 月度总粉丝 / 年度登阶 / Top 涨粉与声量 / 年度最火内容 */
 export async function getAnnualReport(env: Env): Promise<{
   year: number;

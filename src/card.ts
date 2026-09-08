@@ -30,7 +30,11 @@ const W = 600;
 const H = 200;
 
 /** 单成员进度卡片（SVG）：段位徽章 + 距下一称号的进度，永远有下一站 */
-export function renderMemberCard(member: MemberStats): string {
+export function renderMemberCard(
+  member: MemberStats,
+  opts?: { variant?: "default" | "countdown" | "track"; trackRanks?: Array<{ track: string; rank: number; total: number }> }
+): string {
+  const variant = opts?.variant ?? "default";
   const name = member.displayName ?? member.handle;
   const current = member.latestFollowers ?? 0;
   const progress = member.progressToNext;
@@ -39,6 +43,35 @@ export function renderMemberCard(member: MemberStats): string {
   const prevTitle = member.prevMilestone > 0 ? titleOf(member.prevMilestone) : "新人村";
   const nextTitle = titleOf(member.nextMilestone);
   const tierFill = (TIER_STYLE[member.tierKey] ?? TIER_STYLE.seed).fill;
+
+  // 倒计时变体：强调「还差 N 粉 · 预计 X 天」
+  const dailyRate = member.growth7d > 0 ? member.growth7d / 7 : member.growth30d / 30;
+  const eta = dailyRate > 0 ? Math.ceil(toNext / dailyRate) : null;
+  const countdownBottom =
+    variant === "countdown"
+      ? `<text x="32" y="112" class="muted">距「${esc(nextTitle)}」还差</text>
+  <text x="32" y="150" class="num">${fmtN(toNext)} <tspan class="numsub">粉 · ${eta != null ? `预计 ${eta} 天` : "蓄力中"}</tspan></text>
+  <text x="32" y="172" class="trophy">${progress >= 80 ? "🔥 " : ""}冲刺「${esc(nextTitle)}」 · KOSX 万粉影响力计划</text>`
+      : `<text x="32" y="112" class="muted">称号 ${esc(prevTitle)} → ${esc(nextTitle)}</text>
+  <text x="32" y="128" class="muted">距「${esc(nextTitle)}」还差 <tspan class="signal">${fmtN(toNext)}</tspan></text>
+  <text x="32" y="172" class="trophy">迈向「${esc(nextTitle)}」 · KOSX 万粉影响力计划</text>`;
+
+  // 赛道变体：底部改为赛道 chips + 赛道内名次（opts.trackRanks 提供排名）
+  const trackChips = member.tracks
+    .slice(0, 3)
+    .map(
+      (t) => `<rect x="32" y="112" width="${esc(t).length * 13 + 18}" height="20" rx="10" fill="#2a2a2e"/><text x="41" y="125" class="chip">${esc(t)}</text>`
+    )
+    .join("");
+  const rankLine = opts?.trackRanks?.[0]
+    ? `赛道内 <tspan class="signal">第 ${opts.trackRanks[0].rank} 名 / ${opts.trackRanks[0].total} 人</tspan>`
+    : `粉丝 ${fmtN(current)}`;
+  const trackBottom = `${trackChips}
+  <text x="32" y="150" class="muted">${rankLine}</text>
+  <text x="32" y="172" class="trophy">KOSX ${esc(member.tierName)} · 万粉影响力计划</text>`;
+
+  const bottom =
+    variant === "track" ? trackBottom : variant === "countdown" ? countdownBottom : countdownBottom;
 
   const gradientId = `g${member.id.replace(/[^a-z0-9]/gi, "")}`;
 
@@ -58,6 +91,7 @@ export function renderMemberCard(member: MemberStats): string {
     .muted { font: 400 13px -apple-system, "PingFang SC", sans-serif; fill: #9a9a9f; }
     .signal { fill: #ff6a00; font-weight: 700; }
     .trophy { font: 600 13px -apple-system, "PingFang SC", sans-serif; fill: #ff6a00; }
+    .chip { font: 600 11px -apple-system, "PingFang SC", sans-serif; fill: #f7f7f5; }
     .track { fill: #2a2a2e; }
     .badge { font: 700 11px -apple-system, sans-serif; fill: #0a0a0a; }
     .badgebg { fill: ${tierFill}; }
@@ -73,9 +107,7 @@ export function renderMemberCard(member: MemberStats): string {
   <text x="${W - 32}" y="104" text-anchor="end" class="numsub">粉丝</text>
   <rect class="track" x="32" y="88" width="320" height="8" rx="4"/>
   <rect x="32" y="88" width="${barWidth}" height="8" rx="4" fill="url(#${gradientId})"/>
-  <text x="32" y="112" class="muted">称号 ${esc(prevTitle)} → ${esc(nextTitle)}</text>
-  <text x="32" y="128" class="muted">距「${esc(nextTitle)}」还差 <tspan class="signal">${fmtN(toNext)}</tspan></text>
-  <text x="32" y="172" class="trophy">迈向「${esc(nextTitle)}」 · KOSX 万粉影响力计划</text>
+  ${bottom}
   <text x="${W - 32}" y="172" text-anchor="end" class="handle">${SITE_URL.replace("https://", "")} · 加入于 ${fmtDate(member.joinedAt)}</text>
 </svg>`;
 }

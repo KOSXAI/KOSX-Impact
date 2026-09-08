@@ -41,6 +41,16 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // 邀请裂变：分享链接带 ?invite=成员id，落地即记住邀请人（新成员自助加入时上报一次）
+  useEffect(() => {
+    try {
+      const invite = new URLSearchParams(window.location.search).get("invite");
+      if (invite) localStorage.setItem("kosx:invited_by", invite);
+    } catch {
+      /* 隐私模式等写不进去就静默 */
+    }
+  }, []);
+
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-line/60 bg-paper/85 backdrop-blur-md">

@@ -5,7 +5,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { env } from "cloudflare:workers";
-import { getDashboardStats, getMemberDetail, getTopPosts, getFanOverview, getTopEngagementMembers, getAnnualReport, getCommunitySignals, getDailyArchive } from "./queries";
+import { getDashboardStats, getMemberDetail, getTopPosts, getFanOverview, getTopEngagementMembers, getAnnualReport, getCommunitySignals, getDailyArchive, getInviteLeaders } from "./queries";
 import type { DashboardStats, MemberDetail, PostItem } from "./stats";
 
 export const fetchDashboard = createServerFn({ method: "GET" }).handler(
@@ -28,6 +28,9 @@ export const fetchCommunitySignals = createServerFn({ method: "GET" }).handler(a
 export const fetchDailyArchive = createServerFn({ method: "GET" })
   .validator((date: string) => date)
   .handler(async ({ data }) => getDailyArchive(env as Env, data));
+
+/** 邀请裂变荣誉榜（/report 展示） */
+export const fetchInviteLeaders = createServerFn({ method: "GET" }).handler(async () => getInviteLeaders(env as Env));
 
 export const fetchMemberDetail = createServerFn({ method: "GET" })
   .validator((id: string) => id)

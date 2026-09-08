@@ -20,6 +20,19 @@ export const api = new Hono<{ Bindings: Env }>();
 // 健康检查：供 CI 与监控探活使用
 api.get("/api/health", (c) => c.json({ ok: true, now: new Date().toISOString() }));
 
+// 邀请裂变上报：新成员自助加入后，把分享链接里的 ?invite= 归因到邀请人（幂等，一人只计一次）
+api.post("/api/invite", async (c) => {
+  const body = (await c.req.json().catch(() => null)) as { inviterId?: string; invitedMemberId?: string } | null;
+  if (!body?.inviterId || !body?.invitedMemberId) return c.json({ error: "invalid" }, 400);
+  const inviter = await c.env.DB.prepare("SELECT id FROM members WHERE id = ? AND status = 'active'").bind(body.inviterId).first();
+  const invited = await c.env.DB.prepare("SELECT id FROM members WHERE id = ? AND status = 'active'").bind(body.invitedMemberId).first();
+  if (!inviter || !invited) return c.json({ error: "unknown_member" }, 422);
+  await c.env.DB.prepare(
+    "INSERT OR IGNORE INTO invite_events (inviter_id, invited_member_id, created_at) VALUES (?, ?, ?)"
+  ).bind(body.inviterId, body.invitedMemberId, new Date().toISOString()).run();
+  return c.json({ ok: true });
+});
+
 // 看板统计：社群总量 + 总排行 + 登阶记录（API 与首页 SSR 共用 queries.ts 的缓存）
 api.get("/api/dashboard", async (c) => {
   const stats = await getDashboardStats(c.env);
@@ -146,8 +159,12 @@ api.post("/api/refresh", async (c) => {
 // 注：路由用 :id 而非 :id.svg——Hono 不支持参数名里带点，.svg 后缀在 handler 内剔除
 // 卡片是嵌入在成员个人主页里的高频图，边缘缓存挡掉绝大部分回源
 // 高频图：浏览器也按 ttl 长缓存（browserTtl），不做 60 秒短缓存
-export async function renderMemberCardSvg(id: string, env: Env): Promise<Response> {
-  return cachedResponse(new Request(`${SITE_URL}/card/${id}`), 3600, async () => {
+export async function renderMemberCardSvg(
+  id: string,
+  env: Env,
+  variant: "default" | "countdown" | "track" = "default"
+): Promise<Response> {
+  return cachedResponse(new Request(`${SITE_URL}/card/${id}?v=${variant}`), 3600, async () => {
     const member = await env.DB.prepare("SELECT * FROM members WHERE id = ? AND status = 'active'").bind(id).first();
     if (!member) {
       return new Response(renderNotFoundCard(id), {
@@ -171,7 +188,31 @@ export async function renderMemberCardSvg(id: string, env: Env): Promise<Respons
       new Date().toISOString(),
       m.baseline_followers as number | null
     );
-    return new Response(renderMemberCard(stats), {
+    // 赛道/标签：members 表 JSON 文本 → 数组（赛道变体展示）
+    try {
+      const rawTracks = (m.tracks as string | null) ?? null;
+      if (rawTracks) stats.tracks = JSON.parse(rawTracks).filter((x: unknown) => typeof x === "string");
+    } catch {
+      /* 解析失败留空 */
+    }
+    let trackRanks: Array<{ track: string; rank: number; total: number }> | undefined;
+    if (variant === "track" && stats.tracks.length > 0) {
+      // 赛道内名次：全量成员 + 最新快照（低频卡片图，缓存 1h 可接受）
+      const { results: allRows } = await env.DB.prepare(
+        `SELECT m.id, m.tracks, (SELECT s.followers FROM snapshots s WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS f
+         FROM members m WHERE m.status = 'active'`
+      ).all();
+      const parsed = (allRows as never as Array<{ id: string; tracks: string | null; f: number | null }>).map((r) => ({
+        id: r.id,
+        f: r.f ?? 0,
+        tracks: (() => { try { return r.tracks ? (JSON.parse(r.tracks) as string[]) : []; } catch { return []; } })(),
+      }));
+      trackRanks = stats.tracks.map((track) => {
+        const inTrack = parsed.filter((x) => x.tracks.includes(track)).sort((a, b) => b.f - a.f);
+        return { track, rank: inTrack.findIndex((x) => x.id === id) + 1, total: inTrack.length };
+      });
+    }
+    return new Response(renderMemberCard(stats, { variant, trackRanks }), {
       headers: { "Content-Type": "image/svg+xml" },
     });
   }, { browserTtl: 3600 });
@@ -351,7 +392,8 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
   if (pathname.startsWith("/card/")) {
     const id = pathname.slice("/card/".length).replace(/\.svg$/, "").split("/")[0];
     if (!id) return new Response(renderNotFoundCard("unknown"), { status: 404, headers: { "Content-Type": "image/svg+xml" } });
-    return renderMemberCardSvg(id, env);
+    const variant = (url.searchParams.get("variant") ?? "default") as "default" | "countdown" | "track";
+    return renderMemberCardSvg(id, env, variant);
   }
   return null;
 }

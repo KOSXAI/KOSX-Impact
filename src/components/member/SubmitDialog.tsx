@@ -101,8 +101,24 @@ export function SubmitDialog({
     void router.invalidate();
   }
 
+  /** 邀请裂变归因：新成员加入成功时，把本地记住的邀请人上报一次（幂等，一人只计一次） */
+  function fireInvite(memberId: string) {
+    try {
+      const inviter = localStorage.getItem("kosx:invited_by");
+      if (!inviter) return;
+      void fetch("/api/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviterId: inviter, invitedMemberId: memberId }),
+      });
+    } catch {
+      /* 上报失败不影响加入流程 */
+    }
+  }
+
   function applySubmitResponse(result: SubmitResponse, joined: boolean, handle: string) {
     if (result.status === "done") {
+      if (joined) fireInvite(result.memberId);
       setPhase({ kind: "done", memberId: result.memberId, followersAfter: result.followersAfter, joined });
       refreshBoard();
     } else {
@@ -119,6 +135,7 @@ export function SubmitDialog({
 
   /** 队列被消费、新快照落地：转成功态并刷新看板 */
   function onQueuedResolved(memberId: string, followers: number | null, joined: boolean) {
+    if (joined) fireInvite(memberId);
     setPhase({ kind: "done", memberId, followersAfter: followers, joined });
     refreshBoard();
   }
