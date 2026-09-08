@@ -70,6 +70,14 @@ function parseJsonArray<T>(raw: string | null): T[] {
   }
 }
 
+/** 中位数（数值数组，空数组返回 0） */
+function median(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 /** posts 表行 → PostItem（拼 x.com 原文外链） */
 function mapPostRow(row: PostRow, handle: string): PostItem {
   return {
@@ -228,6 +236,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
     // 影响力指数：近 30 天帖子 + 最新快照列表收录数 + verified（逐成员）
     const rowById = new Map(memberStats.map((m) => [m.id, m]));
+    const cutoff7d = new Date(Date.now() - 7 * 86_400_000).toISOString();
     for (const ms of stats.members) {
       const row = rowById.get(ms.id)!;
       const latestSnap = row.snapshots[row.snapshots.length - 1] ?? null;
@@ -238,6 +247,48 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
         listedCount: latestSnap?.listedCount ?? null,
         posts30d: postsByMember.get(ms.id) ?? [],
       });
+
+      // 帖子内容指标：发帖量 / 总浏览 / 帖均曝光 / 互动率中位数（新锐榜 · 勤快榜 · 黄金时段数据源）
+      const posts = postsByMember.get(ms.id) ?? [];
+      const views30d = posts.reduce((s, p) => s + (p.views ?? 0), 0);
+      ms.posts30d = posts.length;
+      ms.posts7d = posts.filter((p) => p.createdAt >= cutoff7d).length;
+      ms.views30d = views30d;
+      ms.avgViewsPerPost = posts.length ? views30d / posts.length : null;
+      const rates: number[] = [];
+      for (const p of posts) {
+        const eng = (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0) + (p.quotes ?? 0) + (p.bookmarks ?? 0);
+        if (p.views && p.views > 0) rates.push(eng / p.views);
+      }
+      ms.engagementMedian = rates.length ? median(rates) : null;
+    }
+
+    // 帖均曝光 vs 同量级粉丝段中位：先按粉丝段分桶算中位，再逐成员给倍数（样本不足该段不产出）
+    {
+      const buckets = [
+        { label: "1k-5k", min: 1000, max: 5000 },
+        { label: "5k-10k", min: 5000, max: 10000 },
+        { label: "10k-50k", min: 10000, max: 50000 },
+        { label: "50k-100k", min: 50000, max: 100000 },
+        { label: "100k+", min: 100000, max: Infinity },
+      ];
+      const bucketMedian = new Map<string, number>();
+      for (const b of buckets) {
+        const vals = stats.members
+          .filter((m) => {
+            const f = m.latestFollowers ?? 0;
+            return f >= b.min && f < b.max && m.avgViewsPerPost != null;
+          })
+          .map((m) => m.avgViewsPerPost!);
+        if (vals.length >= 3) bucketMedian.set(b.label, median(vals));
+      }
+      for (const ms of stats.members) {
+        if (ms.avgViewsPerPost == null) continue;
+        const f = ms.latestFollowers ?? 0;
+        const b = buckets.find((x) => f >= x.min && f < x.max);
+        const med = b ? bucketMedian.get(b.label) : undefined;
+        ms.efficiencyVsMedian = med && med > 0 ? ms.avgViewsPerPost / med : null;
+      }
     }
 
     // 社群内容洞察：爆款帖汇总（浏览降序 Top8）+ 停更名单（天数降序）+ 话题标签云
@@ -380,6 +431,32 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     ).bind(memberRow.id).all();
     const similarAccounts = similarRows2 as never as SimilarAccount[];
 
+    // 赛道邻居：本成员在各赛道内的名次 + 同赛道其他成员（引流 / SEO 用，轻量单查询）
+    const { results: neighborRows } = await env.DB.prepare(
+      `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage, m.tracks,
+              (SELECT s.followers FROM snapshots s WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS followers
+       FROM members m WHERE m.status = 'active'`
+    ).all();
+    const myTracks = parseStrArray(memberRow.tracks);
+    const allNeighbors = (neighborRows as never as Array<{
+      id: string; handle: string; displayName: string | null; profileImage: string | null; tracks: string | null; followers: number | null;
+    }>).map((r) => ({ ...r, tracks: parseStrArray(r.tracks) }));
+    const trackRanks = myTracks.map((track) => {
+      const inTrack = allNeighbors
+        .filter((n) => n.tracks.includes(track))
+        .sort((a, b) => (b.followers ?? 0) - (a.followers ?? 0));
+      const rank = inTrack.findIndex((n) => n.id === memberRow.id) + 1;
+      return { track, rank, total: inTrack.length };
+    });
+    const neighbors = {
+      trackRanks,
+      members: allNeighbors
+        .filter((n) => n.id !== memberRow.id && n.tracks.some((t) => myTracks.includes(t)))
+        .sort((a, b) => (b.followers ?? 0) - (a.followers ?? 0))
+        .slice(0, 8)
+        .map((n) => ({ id: n.id, handle: n.handle, displayName: n.displayName, profileImage: n.profileImage, followers: n.followers })),
+    };
+
     const snapshotRows = snapshots as never as Array<
       { recordedAt: string } & Record<string, number | null> & { followers: number }
     >;
@@ -448,6 +525,7 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
         : null,
       fanProfile,
       similarAccounts,
+      neighbors,
     };
     return new Response(JSON.stringify(detail), { headers: { "Content-Type": "application/json" } });
   });

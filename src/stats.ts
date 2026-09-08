@@ -42,6 +42,18 @@ export interface MemberStats {
   verified?: boolean;
   /** 影响力指数（queries 层用近 30 天帖子计算后覆盖；纯函数层为 undefined） */
   influence?: Influence;
+  /** 近 30 天发帖数（queries 层从 posts 表填充；无帖子数据为 0） */
+  posts30d?: number;
+  /** 近 7 天发帖数（queries 层填充，勤快榜用） */
+  posts7d?: number;
+  /** 近 30 天帖子总浏览（queries 层填充） */
+  views30d?: number;
+  /** 帖均曝光 = views30d / posts30d（queries 层填充；无帖子为 null，新锐榜用） */
+  avgViewsPerPost?: number | null;
+  /** 帖均曝光相对同量级粉丝段的中位倍数（queries 层填充；样本不足为 null） */
+  efficiencyVsMedian?: number | null;
+  /** 帖子互动率中位数（queries 层填充，0-1；无帖子为 null） */
+  engagementMedian?: number | null;
 }
 
 /** 预聚合字段（来自 daily_stats）：直传绕过窗口重算 */
@@ -207,6 +219,13 @@ export interface MemberDetail {
   fanProfile: FanProfile | null;
   /** 相似账号推荐（排序稳定，按扫描时间） */
   similarAccounts: SimilarAccount[];
+  /** 赛道邻居：本成员在各赛道内的名次 + 同赛道成员（queries 层填充，引流/SEO 用） */
+  neighbors?: {
+    /** 每赛道内的名次（按粉丝量降序） */
+    trackRanks: Array<{ track: string; rank: number; total: number }>;
+    /** 同赛道其他成员（按粉丝量降序，最多 8 位，不含本人） */
+    members: Array<{ id: string; handle: string; displayName: string | null; profileImage: string | null; followers: number | null }>;
+  };
 }
 
 /** 单帖活跃度数据（浏览/赞/评论等互动数 + 内容摘要） */

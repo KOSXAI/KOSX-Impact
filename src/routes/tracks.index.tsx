@@ -3,7 +3,9 @@ import { fetchDashboard } from "@/data.functions";
 import type { TrackStats } from "@/stats";
 import { TRACKS, TRACK_OTHER } from "@/tracks";
 import { TrackSection } from "@/components/dashboard/TrackSection";
+import { MemberModuleNav } from "@/components/MemberModuleNav";
 import { Reveal } from "@/components/motion";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { ArrowUpRight, Blocks, CandlestickChart, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
@@ -54,7 +56,11 @@ function TracksPage() {
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <Reveal y={18}>
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">赛道</h1>
+        <MemberModuleNav />
+      </Reveal>
+
+      <Reveal y={18}>
+        <h1 className="mt-8 text-4xl font-bold tracking-tight sm:text-5xl">赛道</h1>
       </Reveal>
 
       {/* 赛道导航卡：直达每个赛道的独立页（SEO 收录 + 批量关注 + 分享） */}
@@ -69,40 +75,42 @@ function TracksPage() {
                 key={t.slug}
                 to="/tracks/$slug"
                 params={{ slug: t.slug }}
-                className="group rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-signal/40"
+                className="group block h-full select-none"
               >
-                <div className="flex items-center gap-3">
-                  <div className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-line bg-soft-surface">
-                    <Icon className="size-5 text-signal" aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 font-bold">
-                      {t.name}
-                      <ArrowUpRight
-                        className="size-3.5 text-mist transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-signal"
-                        aria-hidden="true"
-                      />
+                <SpotlightCard className="h-full p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-signal/40 hover:shadow-lg hover:shadow-black/50">
+                  <div className="flex items-center gap-3">
+                    <div className="icon-dock inline-flex size-10 shrink-0 items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
+                      <Icon className="size-5 text-signal" aria-hidden="true" />
                     </div>
-                    <div className="mt-0.5 truncate text-xs text-mist">{t.description}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        {t.name}
+                        <ArrowUpRight
+                          className="size-3.5 text-mist transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:text-signal"
+                          aria-hidden="true"
+                        />
+                      </div>
+                      <div className="mt-0.5 truncate text-xs text-mist">{t.description}</div>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-4 flex gap-x-5 gap-y-1 text-sm text-mist">
-                  <span>
-                    成员 <b className="text-ink tabular-nums">{stat.memberCount}</b>
-                  </span>
-                  <span>
-                    粉丝 <b className="text-ink tabular-nums">{fmt(stat.totalFollowers)}</b>
-                  </span>
-                  <span className="tabular-nums">
-                    30 天 <b className="text-signal">+{fmt(stat.growth30dTotal)}</b>
-                  </span>
-                </div>
+                  <div className="mt-4 flex gap-x-5 gap-y-1 text-sm text-mist">
+                    <span>
+                      成员 <b className="text-ink tabular-nums">{stat.memberCount}</b>
+                    </span>
+                    <span>
+                      粉丝 <b className="text-ink tabular-nums">{fmt(stat.totalFollowers)}</b>
+                    </span>
+                    <span className="tabular-nums">
+                      30 天 <b className="text-signal">+{fmt(stat.growth30dTotal)}</b>
+                    </span>
+                  </div>
+                </SpotlightCard>
               </Link>
             );
           })}
           <div className="flex flex-col justify-between rounded-2xl border border-dashed border-line bg-soft-surface p-5">
             <div className="flex items-center gap-3">
-              <div className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-line bg-surface">
+              <div className="icon-dock inline-flex size-10 shrink-0 items-center justify-center">
                 <Shapes className="size-5 text-mist" aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">

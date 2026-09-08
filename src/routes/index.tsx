@@ -3,14 +3,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard } from "@/data.functions";
 import type { MemberStats } from "@/stats";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
-import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { MentionsSection } from "@/components/dashboard/MentionsSection";
 import { SiteHeader } from "@/components/SiteHeader";
 import { MILESTONES, TITLE_FILL, titleOf } from "@/milestones";
+import { TRACKS } from "@/tracks";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fmt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,6 @@ function DashboardPage() {
   const latest = stats.recentMilestones[0];
   const justAchieved = latest && latest.achievedAt.slice(0, 10) >= new Date().toISOString().slice(0, 10);
   const totalClimbs = stats.members.reduce((sum, m) => sum + m.climbs, 0);
-  const [applyOpen, setApplyOpen] = useState(false);
 
   return (
     <>
@@ -54,7 +53,7 @@ function DashboardPage() {
             <StatCard label="社群粉丝" value={stats.totalFollowers} />
           </RevealItem>
           <RevealItem>
-            <StatCard label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" />
+            <StatCard label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" highlight badge="30D" />
           </RevealItem>
           <RevealItem>
             <StatCard label="万粉成员" value={stats.tenKMembers} />
@@ -64,18 +63,27 @@ function DashboardPage() {
           </RevealItem>
         </RevealGroup>
 
+        {/* 今日动态 / 赛道速览 / 内容热点：一屏的三个「现在」 */}
+        <Reveal delay={0.06}>
+          <TodayOverview stats={stats} />
+        </Reveal>
+
         {/* 社群全景：称号分布（悬浮/点按看明细）+ 冲线在即 + 总量趋势（数据点满 2 天自动出现折线） */}
         <Reveal delay={0.08}>
           <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-bold">社群全景</h2>
               {totalClimbs > 0 && (
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist"
-                  title="成员累计领下的称号数"
-                >
-                  🏅 已领 <b className="text-ink tabular-nums">{totalClimbs}</b> 枚称号
-                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-white/20 hover:text-ink">
+                      🏅 已领 <b className="text-ink tabular-nums">{totalClimbs}</b> 枚称号
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    全社群成员跨越各粉丝阶梯里程碑累计解锁的成就称号总数
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
             <TitleDistribution members={stats.members} />
@@ -103,34 +111,169 @@ function DashboardPage() {
           <Reveal delay={0.08}>
             <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">品牌声量</h2>
+              {(() => {
+                const counts: Record<string, number> = { positive: 0, neutral: 0, negative: 0 };
+                for (const mn of stats.mentions) if (mn.sentiment && counts[mn.sentiment] != null) counts[mn.sentiment]++;
+                const labels: Record<string, string> = { positive: "正面", neutral: "中性", negative: "负面" };
+                const dot: Record<string, string> = { positive: "bg-emerald-400", neutral: "bg-slate-400", negative: "bg-rose-400" };
+                return (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(["positive", "neutral", "negative"] as const)
+                      .filter((k) => counts[k] > 0)
+                      .map((k) => (
+                        <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-xs font-semibold text-mist tabular-nums">
+                          <span className={cn("size-2 rounded-full", dot[k])} aria-hidden="true" />
+                          {labels[k]} {counts[k]}
+                        </span>
+                      ))}
+                  </div>
+                );
+              })()}
               <MentionsSection mentions={stats.mentions} />
             </section>
           </Reveal>
         )}
-
-        <Reveal delay={0.1}>
-          <section className="mt-12 rounded-2xl border border-line bg-surface p-6 sm:p-8">
-            <h2 className="text-xl font-bold">加入这场远征</h2>
-            <div className="mt-5">
-              <Button onClick={() => setApplyOpen(true)}>加入追踪</Button>
-            </div>
-          </section>
-        </Reveal>
-
-        <SubmitDialog open={applyOpen} onOpenChange={setApplyOpen} />
       </div>
     </>
   );
 }
 
-function StatCard({ label, value, prefix = "" }: { label: string; value: number; prefix?: string }) {
+function StatCard({
+  label,
+  value,
+  prefix = "",
+  highlight = false,
+  badge,
+}: {
+  label: string;
+  value: number;
+  prefix?: string;
+  highlight?: boolean;
+  badge?: string;
+}) {
   return (
-    <Card className="card-lift h-full">
+    <Card className={cn("card-lift relative overflow-hidden h-full", highlight && "border-signal/30")}>
+      {highlight && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-signal/15 blur-xl"
+        />
+      )}
       <CardContent className="px-5 py-4">
-        <div className="text-sm text-mist">{label}</div>
-        <AnimatedNumber value={value} prefix={prefix} className="mt-1.5 block text-2xl font-bold tabular-nums sm:text-3xl" />
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-mist sm:text-sm">{label}</span>
+          {badge && (
+            <span className="rounded-full border border-signal/30 bg-signal/10 px-2 py-0.5 text-[10px] font-bold text-signal">
+              {badge}
+            </span>
+          )}
+        </div>
+        <AnimatedNumber
+          value={value}
+          prefix={prefix}
+          className={cn(
+            "mt-2 block text-2xl font-bold tracking-tight tabular-nums sm:text-3xl",
+            highlight ? "text-signal font-extrabold" : "text-ink"
+          )}
+        />
       </CardContent>
     </Card>
+  );
+}
+
+/** 今日动态 / 赛道速览 / 内容热点：三张「当下」卡，首页一眼看懂今天】
+ * 今日动态 = 今日登阶 + 涨粉先锋；赛道速览 = 5 赛道规模 + 各赛道榜首；内容热点 = 近 30 天最热帖子 Top3 */
+function TodayOverview({ stats }: { stats: DashboardStats }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const todayClimbs = stats.recentMilestones.filter((m) => m.achievedAt.slice(0, 10) === today);
+  const growthChamp = [...stats.members].sort((a, b) => b.growth7d - a.growth7d)[0];
+  const hotPosts = (stats.insights.viralPosts.length ? stats.insights.viralPosts : stats.topPosts).slice(0, 3);
+  const trackRows = TRACKS.map((t) => {
+    const ms = stats.members.filter((m) => m.tracks.includes(t.name));
+    const top = [...ms].sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0))[0];
+    return { name: t.name, count: ms.length, top };
+  }).filter((x) => x.count > 0);
+
+  return (
+    <div className="mt-8 grid gap-3 lg:grid-cols-3">
+      {/* 今日动态 */}
+      <section className="rounded-2xl border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold text-mist">今日动态</h2>
+        <div className="mt-3 space-y-2.5">
+          {todayClimbs.length > 0 ? (
+            todayClimbs.slice(0, 3).map((m) => (
+              <Link key={`${m.memberId}-${m.threshold}`} to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-2 rounded-xl border border-signal/20 bg-signal/8 px-3 py-2 transition-colors hover:border-signal/40">
+                <Avatar url={stats.members.find((x) => x.id === m.memberId)?.profileImage} name={m.displayName ?? m.handle} className="size-7 shrink-0" />
+                <span className="truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
+                <span className="ml-auto shrink-0 text-xs font-semibold text-signal">拿下「{titleOf(m.threshold)}」</span>
+              </Link>
+            ))
+          ) : (
+            <div className="rounded-xl border border-line bg-soft-surface px-3 py-2 text-sm text-mist">今天还没有新登阶，称号正在路上。</div>
+          )}
+          {growthChamp && (growthChamp.growth7d ?? 0) > 0 && (
+            <Link to="/members/$id" params={{ id: growthChamp.id }} className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+              <Avatar url={growthChamp.profileImage} name={growthChamp.displayName ?? growthChamp.handle} className="size-7 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">{growthChamp.displayName ?? growthChamp.handle}</span>
+                <span className="block text-xs text-mist">近 7 天涨粉先锋</span>
+              </span>
+              <span className="shrink-0 text-sm font-bold text-signal tabular-nums">+{fmt(growthChamp.growth7d)}</span>
+            </Link>
+          )}
+        </div>
+      </section>
+
+      {/* 赛道速览 */}
+      <section className="rounded-2xl border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold text-mist">赛道速览</h2>
+        <ul className="mt-3 space-y-2">
+          {trackRows.map((r) => (
+            <li key={r.name} className="flex items-center gap-2 text-sm">
+              <span className="w-12 shrink-0 font-semibold">{r.name}</span>
+              <span className="shrink-0 text-xs text-mist tabular-nums">{r.count} 人</span>
+              {r.top && (
+                <Link to="/members/$id" params={{ id: r.top.id }} className="min-w-0 flex-1 truncate text-right text-xs text-mist underline-offset-4 hover:text-ink hover:underline">
+                  榜首 @{r.top.handle}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
+        <Link to="/tracks" className="mt-3 inline-block text-xs font-semibold text-signal underline-offset-4 hover:underline">
+          进入赛道 →
+        </Link>
+      </section>
+
+      {/* 内容热点 */}
+      <section className="rounded-2xl border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold text-mist">内容热点</h2>
+        <ul className="mt-3 space-y-2">
+          {hotPosts.length > 0 ? (
+            hotPosts.map((p) => (
+              <li key={p.tweetId}>
+                <a href={p.url} target="_blank" rel="noreferrer" className="group flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+                  {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-7 shrink-0" />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs text-mist">
+                      {p.member ? (p.member.displayName ?? p.member.handle) : ""} · {p.text ? (p.text.length > 34 ? `${p.text.slice(0, 34)}…` : p.text) : ""}
+                    </span>
+                    <span className="block text-xs font-semibold tabular-nums">
+                      {p.views != null ? `${fmt(p.views)} 浏览` : `${fmt(p.likes ?? 0)} 赞`}
+                    </span>
+                  </span>
+                </a>
+              </li>
+            ))
+          ) : (
+            <li className="rounded-xl border border-line bg-soft-surface px-3 py-2 text-sm text-mist">帖子数据采集中，热点马上就来。</li>
+          )}
+        </ul>
+        <Link to="/posts" className="mt-3 inline-block text-xs font-semibold text-signal underline-offset-4 hover:underline">
+          全部内容 →
+        </Link>
+      </section>
+    </div>
   );
 }
 
@@ -248,6 +391,8 @@ function NextGateRace({ members }: { members: MemberStats[] }) {
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {racers.map(({ m, remaining }) => {
           const name = m.displayName ?? m.handle;
+          const dailyRate = m.growth30d > 0 ? m.growth30d / 30 : 0;
+          const etaDays = dailyRate > 0 ? Math.ceil(remaining / dailyRate) : null;
           return (
             <Link
               key={m.id}
@@ -266,7 +411,9 @@ function NextGateRace({ members }: { members: MemberStats[] }) {
               </div>
               <div className="shrink-0 text-right">
                 <div className="text-sm font-bold text-signal tabular-nums">还差 {fmt(remaining)}</div>
-                <div className="mt-0.5 text-xs text-mist">下一称号「{titleOf(m.nextMilestone)}」</div>
+                <div className="mt-0.5 text-xs text-mist">
+                  {etaDays != null ? `预计 ${etaDays} 天 · 「${titleOf(m.nextMilestone)}」` : `下一称号「${titleOf(m.nextMilestone)}」`}
+                </div>
               </div>
             </Link>
           );

@@ -11,6 +11,8 @@ import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerMember, t
 import { getSource } from "./sources";
 import { SocialDataError } from "./sources/socialdata";
 import { TRACKS } from "./tracks";
+import { titleOf } from "./milestones";
+import { badge } from "./lib/format";
 import { SITE_URL } from "./lib/site";
 
 export const api = new Hono<{ Bindings: Env }>();
@@ -225,6 +227,7 @@ function renderSitemap(): Response {
     { loc: `${SITE_URL}/members`, changefreq: "daily", priority: "0.8" },
     { loc: `${SITE_URL}/tracks`, changefreq: "daily", priority: "0.8" },
     { loc: `${SITE_URL}/posts`, changefreq: "daily", priority: "0.7" },
+    { loc: `${SITE_URL}/daily`, changefreq: "daily", priority: "0.7" },
     { loc: `${SITE_URL}/about`, changefreq: "monthly", priority: "0.3" },
     // 赛道页（5 正式赛道；综合过渡桶不出独立页）
     ...TRACKS.map((t) => ({ loc: `${SITE_URL}/tracks/${t.slug}`, changefreq: "daily", priority: "0.8" })),
@@ -237,6 +240,48 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${today}</lastmod><changef
   return new Response(xml, {
     headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
   });
+}
+
+/** RSS 源：登阶事件 + 爆款内容（订阅/更新提醒的零基础设施落法，供 RSS 阅读器抓取） */
+async function renderFeed(env: Env): Promise<Response> {
+  const stats = await getDashboardStats(env);
+  const items: Array<{ title: string; link: string; pubDate: string; description: string }> = [];
+  for (const m of stats.recentMilestones) {
+    items.push({
+      title: `${m.displayName ?? m.handle} 拿下称号「${titleOf(m.threshold)}」`,
+      link: `${SITE_URL}/members/${m.memberId}`,
+      pubDate: new Date(m.achievedAt).toUTCString(),
+      description: `KOSX 万粉影响力计划：${m.displayName ?? m.handle} 跨过 ${badge(m.threshold)} 粉大关。`,
+    });
+  }
+  for (const p of (stats.topPosts ?? []).slice(0, 10)) {
+    items.push({
+      title: `${p.member?.displayName ?? p.member?.handle ?? "成员"} 的爆款帖 · ${p.views != null ? badge(p.views) : ""} 浏览`,
+      link: p.url,
+      pubDate: new Date(p.createdAt).toUTCString(),
+      description: (p.text ?? "").slice(0, 160),
+    });
+  }
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>KOSX 万粉影响力计划 · 更新</title><link>${SITE_URL}/</link>
+<description>登阶记录与爆款内容</description>
+${items
+  .map(
+    (i) => `<item><title>${escapeXml(i.title)}</title><link>${i.link}</link><pubDate>${i.pubDate}</pubDate><description>${escapeXml(i.description)}</description></item>`
+  )
+  .join("\n")}
+</channel></rss>`;
+  return new Response(xml, {
+    headers: { "Content-Type": "application/rss+xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+  });
+}
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /** 非 React SSR 请求的统一分发：API / SVG 卡 / OG 图 / SEO 文件；未命中返回 null 交给 SSR */
@@ -261,6 +306,7 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
   }
   if (pathname === "/robots.txt") return renderRobots();
   if (pathname === "/sitemap.xml") return renderSitemap();
+  if (pathname === "/feed.xml") return renderFeed(env);
   if (pathname.startsWith("/card/")) {
     const id = pathname.slice("/card/".length).replace(/\.svg$/, "").split("/")[0];
     if (!id) return new Response(renderNotFoundCard("unknown"), { status: 404, headers: { "Content-Type": "image/svg+xml" } });

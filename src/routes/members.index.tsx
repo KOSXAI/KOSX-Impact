@@ -1,11 +1,14 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { motion } from "motion/react";
 import { fetchDashboard } from "@/data.functions";
 import type { MemberStats } from "@/stats";
 import { TRACKS, TRACK_OTHER } from "@/tracks";
 import { Avatar } from "@/components/member/Avatar";
 import { BannerImage } from "@/components/member/BannerImage";
+import { MemberModuleNav } from "@/components/MemberModuleNav";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
+import { toast } from "@/components/ui/toast";
 import { BadgeCheck, Blocks, CandlestickChart, Check, Copy, Globe, PenTool, Shapes, Sparkles, Users, type LucideIcon } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -37,6 +40,7 @@ const BUCKET_MATCH: Record<Exclude<FollowersBucket, "all">, (f: number) => boole
 const SORTS = [
   { key: "followers", label: "粉丝量" },
   { key: "growth30d", label: "近 30 天增长" },
+  { key: "active", label: "发帖频率" },
   { key: "joined", label: "新成员" },
 ] as const;
 type SortKey = (typeof SORTS)[number]["key"];
@@ -104,6 +108,7 @@ function MembersSquarePage() {
     if (bucket !== "all") list = list.filter((m) => BUCKET_MATCH[bucket](m.latestFollowers ?? 0));
     const sorted = [...list];
     if (sortKey === "growth30d") sorted.sort((a, b) => b.growth30d - a.growth30d);
+    else if (sortKey === "active") sorted.sort((a, b) => (b.posts30d ?? 0) - (a.posts30d ?? 0));
     else if (sortKey === "joined") sorted.sort((a, b) => b.joinedAt.localeCompare(a.joinedAt));
     else sorted.sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
     return sorted;
@@ -114,6 +119,7 @@ function MembersSquarePage() {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
+      toast.success(`已复制 ${filtered.length} 位博主 @清单，可前往 X 批量关注`);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* 剪贴板不可用时静默失败（桌面端受限环境） */
@@ -125,7 +131,11 @@ function MembersSquarePage() {
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-10 sm:py-14">
       <Reveal y={18}>
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+        <MemberModuleNav />
+      </Reveal>
+
+      <Reveal y={18}>
+        <div className="mt-8 flex flex-wrap items-start gap-x-4 gap-y-3">
           <div className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border border-line bg-soft-surface">
             <Users className="size-6 text-signal" aria-hidden="true" />
           </div>
@@ -212,13 +222,20 @@ function MembersSquarePage() {
           </button>
         </div>
       ) : (
-        <RevealGroup className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.04}>
+        <motion.div layout className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((m) => (
-            <RevealItem key={m.id} y={12}>
+            <motion.div
+              layout
+              key={m.id}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 360, damping: 30 }}
+            >
               <MiniMemberCard m={m} />
-            </RevealItem>
+            </motion.div>
           ))}
-        </RevealGroup>
+        </motion.div>
       )}
     </div>
   );
@@ -240,9 +257,9 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors",
+        "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-all duration-150 cursor-pointer select-none active:scale-95",
         active
-          ? "border-signal/40 bg-signal/10 font-semibold text-signal"
+          ? "border-signal/50 bg-signal/15 font-semibold text-signal shadow-[0_0_12px_rgba(255,106,0,0.18)]"
           : "border-line bg-soft-surface text-mist hover:border-signal/40 hover:text-ink"
       )}
     >
@@ -258,7 +275,7 @@ function MiniMemberCard({ m }: { m: MemberStats }) {
     <Link
       to="/members/$id"
       params={{ id: m.id }}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface transition-colors hover:border-signal/40"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-signal/40 hover:shadow-lg hover:shadow-black/50"
     >
       <div className="relative h-16 sm:h-20">
         {m.bannerUrl ? (

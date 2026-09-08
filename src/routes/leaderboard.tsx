@@ -1,12 +1,14 @@
 import { useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { motion } from "motion/react";
 import { fetchDashboard } from "@/data.functions";
 import type { DashboardStats, MemberStats } from "@/stats";
 import { GrowProgress, Reveal, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
 import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Flag, Clock3 } from "lucide-react";
+import { MemberModuleNav } from "@/components/MemberModuleNav";
+import { Flag, Clock3, Zap, Flame } from "lucide-react";
 import { TEN_K, titleOf } from "@/milestones";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
@@ -17,7 +19,7 @@ export const Route = createFileRoute("/leaderboard")({
   head: () => ({
     meta: [
       { title: `榜单 · ${SITE_NAME}` },
-      { name: "description", content: `${SITE_NAME} 四大榜单：总排行 / 成长榜 / 影响力 / 登阶记录。` },
+      { name: "description", content: `${SITE_NAME} 榜单：总排行 / 成长榜 / 新锐潜力 / 影响力 / 登阶记录。` },
       { property: "og:title", content: `榜单 · ${SITE_NAME}` },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
@@ -30,7 +32,7 @@ export const Route = createFileRoute("/leaderboard")({
   component: LeaderboardPage,
 });
 
-type TabKey = "leaderboard" | "growth" | "climbs" | "influence";
+type TabKey = "leaderboard" | "growth" | "rising" | "active" | "climbs" | "influence";
 
 /** 总排行 / 成长榜前三的荣誉样式：只保留行卡外壳（边框渐晕 + 名次渐变数字），不加榜位徽章抢内容的戏 */
 const PODIUM = [
@@ -62,10 +64,19 @@ function LeaderboardPage() {
   );
 
   const [tab, setTab] = useState<TabKey>("leaderboard");
+  // 新锐潜力榜：近 30 天有帖子、帖均曝光效率最高的潜力账号（粉丝量不大但内容被看见）
+  const rising = stats.members
+    .filter((m) => m.avgViewsPerPost != null && m.posts30d! >= 1)
+    .sort((a, b) => (b.avgViewsPerPost ?? 0) - (a.avgViewsPerPost ?? 0));
+  // 勤快榜：近 30 天发帖最多的成员
+  const active = [...stats.members].sort((a, b) => (b.posts30d ?? 0) - (a.posts30d ?? 0) || (b.posts7d ?? 0) - (a.posts7d ?? 0));
+
   const tabs: Array<{ key: TabKey; label: string; count: number }> = [
     { key: "leaderboard", label: "总排行", count: leaderboard.length },
     { key: "growth", label: "成长榜", count: growth.length },
+    { key: "rising", label: "新锐", count: rising.length },
     { key: "influence", label: "影响力", count: influence.length },
+    { key: "active", label: "勤快", count: active.length },
     { key: "climbs", label: "登阶记录", count: stats.recentMilestones.length },
   ];
 
@@ -77,27 +88,46 @@ function LeaderboardPage() {
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">榜单</h1>
         </Reveal>
 
-        {/* Tab 切换：总排行 / 成长榜 / 影响力 / 登阶记录 */}
-        <div className="mt-10 flex w-full items-center gap-1 rounded-full border border-line bg-soft-surface p-1 sm:inline-flex sm:w-auto">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={cn(
-                "h-10 flex-1 rounded-full px-4 text-sm font-semibold transition-colors sm:h-9 sm:flex-none sm:px-5",
-                tab === t.key ? "bg-white text-paper" : "text-mist hover:text-ink"
-              )}
-            >
-              {t.label}
-              <span className="ml-1.5 tabular-nums opacity-70">{t.count}</span>
-            </button>
-          ))}
+        {/* 博主模块三视图：榜单 / 广场 / 赛道 */}
+        <MemberModuleNav />
+
+        {/* Tab 切换：总排行 / 成长榜 / 新锐 / 影响力 / 勤快 / 登阶记录 */}
+        <div className="mt-4 flex w-full items-center gap-1 overflow-x-auto rounded-full border border-line bg-soft-surface p-1 sm:inline-flex sm:w-auto">
+          {tabs.map((t) => {
+            const isActive = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  "relative h-10 flex-1 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors duration-200 select-none cursor-pointer sm:h-9 sm:flex-none sm:px-5",
+                  isActive ? "text-paper" : "text-mist hover:text-ink"
+                )}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId="leaderboardActiveTab"
+                    className="absolute inset-0 rounded-full bg-white shadow-sm"
+                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                  />
+                )}
+                <span className="relative z-10">
+                  {t.label}
+                  <span className={cn("ml-1.5 tabular-nums transition-opacity", isActive ? "opacity-80 font-bold" : "opacity-60")}>
+                    {t.count}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         <main key={tab} className="tab-in mt-6">
           {tab === "leaderboard" && <LeaderboardList members={leaderboard} />}
           {tab === "growth" && <GrowthSection members={growth} />}
+          {tab === "rising" && <RisingList members={rising} />}
           {tab === "influence" && <InfluenceList members={influence} />}
+          {tab === "active" && <ActiveList members={active} />}
           {tab === "climbs" && <ClimbsList stats={stats} />}
         </main>
       </div>
@@ -328,6 +358,161 @@ function GrowthMember({
             +{fmt(m.growth30d)}
           </div>
           <div className="text-xs text-mist">近 30 天</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 新锐潜力榜：帖均曝光效率最高——粉丝量不大但内容被大量看见的潜力账号（回答「现在该关注谁」） */
+function RisingList({ members }: { members: MemberStats[] }) {
+  if (members.length === 0) return <p className="text-mist">还没有帖子数据，新锐正在路上。</p>;
+  return (
+    <ol className="space-y-3">
+      {members.map((m, i) => (
+        <RevealItem key={m.id} y={16}>
+          <RisingMember member={m} rank={i + 1} podium={PODIUM[i]} />
+        </RevealItem>
+      ))}
+    </ol>
+  );
+}
+
+function RisingMember({
+  member: m,
+  rank,
+  podium,
+}: {
+  member: MemberStats;
+  rank: number;
+  podium?: (typeof PODIUM)[number];
+}) {
+  const name = m.displayName ?? m.handle;
+  const eff = m.efficiencyVsMedian;
+  return (
+    <div
+      className={
+        podium
+          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
+          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
+      }
+    >
+      <div
+        className={
+          podium
+            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
+            : "w-6 shrink-0 text-mist tabular-nums"
+        }
+      >
+        {rank}
+      </div>
+      <Avatar url={m.profileImage} name={name} className="size-10" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+            {name}
+          </Link>
+          <TitleBadge threshold={m.prevMilestone} />
+          <a
+            href={xProfileUrl(m.handle)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
+          >
+            @{m.handle}
+          </a>
+          {eff != null && eff >= 1.2 && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-xs font-semibold text-amber-300">
+              <Zap className="size-3" aria-hidden="true" />
+              {eff >= 3 ? "曝光率爆棚" : `同量级 ${eff.toFixed(1)} 倍`}
+            </span>
+          )}
+        </div>
+        <div className="mt-1 text-xs text-mist tabular-nums">
+          近 30 天 {m.posts30d ?? 0} 帖 · 互动率 {(m.engagementMedian ?? 0) >= 0 ? `${((m.engagementMedian ?? 0) * 100).toFixed(1)}%` : "—"}
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-bold tabular-nums">{m.avgViewsPerPost != null ? fmt(Math.round(m.avgViewsPerPost)) : "—"}</span>
+          <span className="text-xs text-mist">帖均曝光</span>
+        </div>
+        <div className="text-xs text-mist tabular-nums">{m.latestFollowers != null ? `${fmt(m.latestFollowers)} 粉` : "首次采集排队中"}</div>
+      </div>
+    </div>
+  );
+}
+
+/** 勤快榜：近 30 天发帖最多的成员（更新频率 = 社群活力的日常证明） */
+function ActiveList({ members }: { members: MemberStats[] }) {
+  return (
+    <ol className="space-y-3">
+      {members.map((m, i) => (
+        <RevealItem key={m.id} y={16}>
+          <ActiveMember member={m} rank={i + 1} podium={PODIUM[i]} />
+        </RevealItem>
+      ))}
+    </ol>
+  );
+}
+
+function ActiveMember({
+  member: m,
+  rank,
+  podium,
+}: {
+  member: MemberStats;
+  rank: number;
+  podium?: (typeof PODIUM)[number];
+}) {
+  const name = m.displayName ?? m.handle;
+  const posts30d = m.posts30d ?? 0;
+  const perWeek = (posts30d / 4.3).toFixed(1);
+  return (
+    <div
+      className={
+        podium
+          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
+          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
+      }
+    >
+      <div
+        className={
+          podium
+            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
+            : "w-6 shrink-0 text-mist tabular-nums"
+        }
+      >
+        {rank}
+      </div>
+      <Avatar url={m.profileImage} name={name} className="size-10" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+            {name}
+          </Link>
+          <TitleBadge threshold={m.prevMilestone} />
+          <a
+            href={xProfileUrl(m.handle)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
+          >
+            @{m.handle}
+          </a>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-6">
+        <div className="text-right">
+          <div className="flex items-baseline justify-end gap-1">
+            <Flame className="size-4 text-signal" aria-hidden="true" />
+            <span className="font-bold tabular-nums">{posts30d}</span>
+          </div>
+          <div className="text-xs text-mist">近 30 天发帖</div>
+        </div>
+        <div className="text-right">
+          <div className="font-bold tabular-nums text-mist">≈{perWeek}/周</div>
+          <div className="text-xs text-mist">周均</div>
         </div>
       </div>
     </div>
