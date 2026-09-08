@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchDashboard, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals } from "@/data.functions";
+import { fetchDashboard, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals, fetchContentRecipe } from "@/data.functions";
 import type { PostItem } from "@/stats";
 import { Avatar } from "@/components/member/Avatar";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
@@ -13,13 +13,14 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/posts")({
   loader: async () => {
-    const [stats, posts, allPosts, signals] = await Promise.all([
+    const [stats, posts, allPosts, signals, recipe] = await Promise.all([
       fetchDashboard(),
       fetchTopPosts(),
       fetchTopPostsAll(),
       fetchCommunitySignals(),
+      fetchContentRecipe(),
     ]);
-    return { insights: stats.insights, posts, allPosts, signals };
+    return { insights: stats.insights, posts, allPosts, signals, recipe };
   },
   head: () => ({
     meta: [
@@ -48,7 +49,7 @@ function Metric({ icon, value, label }: { icon: React.ReactNode; value: number |
 }
 
 function PostsPage() {
-  const { insights, posts, allPosts, signals } = Route.useLoaderData();
+  const { insights, posts, allPosts, signals, recipe } = Route.useLoaderData();
   const [scope, setScope] = useState<"30d" | "all">("30d");
   const following = signals
     .filter((s) => s.kind === "following")
@@ -75,6 +76,47 @@ function PostsPage() {
             <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">内容洞察</h2>
               <InsightsSection insights={insights} />
+            </section>
+          </Reveal>
+        )}
+
+        {/* 内容配方：社群黄金时段 + 什么形态最吃香（近 30 天帖子聚合） */}
+        {recipe && (recipe.hours.length > 0 || recipe.forms.length > 0) && (
+          <Reveal delay={0.07}>
+            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+              <h2 className="text-xl font-bold">内容配方</h2>
+              <div className="mt-5 grid gap-6 lg:grid-cols-2">
+                {recipe.hours.length > 0 && (
+                  <div>
+                    <div className="text-sm font-semibold text-mist">社群黄金时段</div>
+                    <ul className="mt-3 space-y-2">
+                      {recipe.hours.map((h) => (
+                        <li key={h.hour} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2">
+                          <span className="w-14 shrink-0 font-bold tabular-nums">{String(h.hour).padStart(2, "0")}:00</span>
+                          <span className="text-xs text-mist tabular-nums">{h.count} 帖</span>
+                          <span className="ml-auto text-sm font-bold text-signal tabular-nums">{fmt(h.avgViews)}</span>
+                          <span className="text-xs text-mist">平均曝光</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {recipe.forms.length > 0 && (
+                  <div>
+                    <div className="text-sm font-semibold text-mist">什么形态最吃香</div>
+                    <ul className="mt-3 space-y-2">
+                      {recipe.forms.map((f) => (
+                        <li key={f.label} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2">
+                          <span className="w-16 shrink-0 font-bold">{f.label}</span>
+                          <span className="text-xs text-mist tabular-nums">{f.count} 帖</span>
+                          <span className="ml-auto text-sm font-bold tabular-nums">{fmt(f.avgViews)}</span>
+                          <span className="text-xs text-mist">平均曝光</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </section>
           </Reveal>
         )}

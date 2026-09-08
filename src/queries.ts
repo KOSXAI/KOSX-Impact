@@ -432,6 +432,46 @@ export async function getCommunitySignals(env: Env): Promise<Array<{ kind: strin
   return results as never as Array<{ kind: string; handle: string; name: string | null; count: number }>;
 }
 
+/** 内容配方（内容页「社群黄金时段 / 什么形态最吃香」）：近 30 天帖子按形态与北京时间小时桶聚合平均曝光 */
+export async function getContentRecipe(env: Env): Promise<{
+  forms: Array<{ label: string; count: number; avgViews: number }>;
+  hours: Array<{ hour: number; count: number; avgViews: number }>;
+}> {
+  const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const { results: rows } = await env.DB.prepare(
+    `SELECT text, views_count AS views, created_at AS createdAt FROM posts WHERE created_at >= ?1`
+  ).bind(cutoff).all();
+  const posts = rows as never as Array<{ text: string | null; views: number | null; createdAt: string }>;
+  const formMap = new Map<string, { count: number; views: number }>();
+  const hourMap = new Map<number, { count: number; views: number }>();
+  for (const p of posts) {
+    const v = p.views ?? 0;
+    const text = (p.text ?? "").toLowerCase();
+    const hasLink = /https?:\/\//.test(text);
+    const isLong = text.length > 120;
+    const form = hasLink ? "带链接" : isLong ? "长文本" : "短文本";
+    const f = formMap.get(form) ?? { count: 0, views: 0 };
+    f.count++;
+    f.views += v;
+    formMap.set(form, f);
+    const hour = (new Date(p.createdAt).getUTCHours() + 8) % 24;
+    const h = hourMap.get(hour) ?? { count: 0, views: 0 };
+    h.count++;
+    h.views += v;
+    hourMap.set(hour, h);
+  }
+  return {
+    forms: [...formMap.entries()]
+      .map(([label, d]) => ({ label, count: d.count, avgViews: d.count ? Math.round(d.views / d.count) : 0 }))
+      .sort((a, b) => b.count - a.count),
+    hours: [...hourMap.entries()]
+      .map(([hour, d]) => ({ hour, count: d.count, avgViews: d.count ? Math.round(d.views / d.count) : 0 }))
+      .filter((x) => x.count >= 2)
+      .sort((a, b) => b.avgViews - a.avgViews)
+      .slice(0, 5),
+  };
+}
+
 /** 粉丝质量聚合（社群能量报告 /report 用）：fan_profiles 全量样本指标 */
 export async function getFanOverview(env: Env): Promise<Array<{ memberId: string; sampleSize: number; pctFollowers10k: number; verifiedPct: number }>> {
   const { results } = await env.DB.prepare(
