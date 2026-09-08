@@ -6,10 +6,10 @@ import type { MemberStats } from "@/stats";
 import { TRACKS, TRACK_OTHER } from "@/tracks";
 import { Avatar } from "@/components/member/Avatar";
 import { BannerImage } from "@/components/member/BannerImage";
-import { MemberModuleNav } from "@/components/MemberModuleNav";
+import { MemberModuleHeader } from "@/components/member/MemberModuleHeader";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { toast } from "@/components/ui/toast";
-import { BadgeCheck, Blocks, CandlestickChart, Check, Copy, Globe, PenTool, Shapes, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Blocks, CandlestickChart, Check, Copy, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,8 @@ type SortKey = (typeof SORTS)[number]["key"];
 export const Route = createFileRoute("/members/")({
   loader: async () => {
     const stats = await fetchDashboard();
-    return { members: stats.members };
+    // trackStats 供模块页头门牌卡的「N 条赛道」计数
+    return { members: stats.members, trackStats: stats.trackStats };
   },
   head: () => {
     const title = `成员广场 · ${SITE_NAME}`;
@@ -70,7 +71,7 @@ export const Route = createFileRoute("/members/")({
 });
 
 function MembersSquarePage() {
-  const { members } = Route.useLoaderData();
+  const { members, trackStats } = Route.useLoaderData();
   const [selTracks, setSelTracks] = useState<string[]>([]);
   const [selTags, setSelTags] = useState<string[]>([]);
   const [bucket, setBucket] = useState<FollowersBucket>("all");
@@ -152,22 +153,14 @@ function MembersSquarePage() {
   const toggle = <T,>(cur: T[], v: T): T[] => (cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]);
 
   return (
-    <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-10 sm:py-14">
-      <Reveal y={18}>
-        <MemberModuleNav />
-      </Reveal>
-
-      <Reveal y={18}>
-        <div className="mt-8 flex flex-wrap items-start gap-x-4 gap-y-3">
-          <div className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border border-line bg-soft-surface">
-            <Users className="size-6 text-signal" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">成员广场</h1>
-            <p className="mt-1.5 text-sm text-mist sm:text-base">按赛道、标签、粉丝量筛选全部成员——每位博主的名片与真实数据。</p>
-          </div>
-        </div>
-      </Reveal>
+    <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
+      {/* 博主模块统一页头：标题 + 三视图门牌卡（榜单 / 广场 / 赛道） */}
+      <MemberModuleHeader
+        view="members"
+        stats={{ members, trackStats }}
+        title="成员广场"
+        description="按赛道、标签、粉丝量筛选全部成员——每位博主的名片与真实数据。"
+      />
 
       {/* 筛选栏：赛道 / 标签 / 粉丝量 / 排序 */}
       <Reveal delay={0.05}>

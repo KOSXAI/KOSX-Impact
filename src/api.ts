@@ -6,6 +6,7 @@ import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { renderMemberOgPng, renderSiteOgPng, renderReportOgPng, renderTrackOgPng, renderLeaderboardOgPng, ogNotFound } from "./og-render";
 import { computeMemberStats, computeDashboardStats } from "./stats";
 import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
+import { syncMemberMentions, syncCommunitySignals } from "./sync-signals";
 import { roster } from "./roster";
 import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
 import { getSource } from "./sources";
@@ -401,21 +402,30 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
 /**
  * Cron 分发（wrangler.jsonc triggers.crons）：
  * - `0 * * * *`（整点）：滚动分片采集 + 自助队列兜底（collect）
+ * - `30 9 * * *`（每日 09:30）：成员被提及 + 社群信号（共同关注/品味）——纯确定性计算，全在 Worker 内
  * - `5-59/10 * * * *`（错峰每 10 分钟）：只清自助更新队列——提交后数据最长 10 分钟落地，
  *   不必等下一个整点；错峰避开整点避免与采集撞车
  */
 export async function runScheduled(env: Env, ctx: ExecutionContext, cron: string): Promise<void> {
-  if (cron !== "0 * * * *") {
+  if (cron === "0 * * * *") {
     ctx.waitUntil(
-      drainRefreshQueue(env, getSource(env)).then((s) =>
-        console.log(`[refresh-queue] 兜底清空：成功 ${s.ok}，失败 ${s.failed}`)
+      collect(env, ctx).then((summary) =>
+        console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`)
+      )
+    );
+    return;
+  }
+  if (cron === "30 9 * * *") {
+    ctx.waitUntil(
+      Promise.all([syncMemberMentions(env), syncCommunitySignals(env)]).then(([mentions, signals]) =>
+        console.log(`[daily-signals] 被提及 ${mentions.total} 条（成员 ${mentions.ok}），共同关注 ${signals.following} 条，品味 ${signals.taste} 条`)
       )
     );
     return;
   }
   ctx.waitUntil(
-    collect(env, ctx).then((summary) =>
-      console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`)
+    drainRefreshQueue(env, getSource(env)).then((s) =>
+      console.log(`[refresh-queue] 兜底清空：成功 ${s.ok}，失败 ${s.failed}`)
     )
   );
 }

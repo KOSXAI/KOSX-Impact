@@ -3,7 +3,7 @@ import { fetchDashboard } from "@/data.functions";
 import type { TrackStats } from "@/stats";
 import { TRACKS, TRACK_OTHER } from "@/tracks";
 import { TrackSection } from "@/components/dashboard/TrackSection";
-import { MemberModuleNav } from "@/components/MemberModuleNav";
+import { MemberModuleHeader } from "@/components/member/MemberModuleHeader";
 import { Reveal } from "@/components/motion";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { ArrowUpRight, Blocks, CandlestickChart, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
@@ -55,17 +55,17 @@ function TracksPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
-      <Reveal y={18}>
-        <MemberModuleNav />
-      </Reveal>
-
-      <Reveal y={18}>
-        <h1 className="mt-8 text-4xl font-bold tracking-tight sm:text-5xl">赛道</h1>
-      </Reveal>
+      {/* 博主模块统一页头：标题 + 三视图门牌卡（榜单 / 广场 / 赛道） */}
+      <MemberModuleHeader
+        view="tracks"
+        stats={stats}
+        title="赛道"
+        description="按核心活动划分的主流赛道——每条赛道独立成页，配三重口径榜单与一键批量关注。"
+      />
 
       {/* 赛道导航卡：直达每个赛道的独立页（SEO 收录 + 批量关注 + 分享） */}
       <Reveal delay={0.06}>
-        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {TRACKS.map((t) => {
             const stat: TrackStats | undefined = trackStats.find((s) => s.slug === t.slug);
             if (!stat || stat.memberCount === 0) return null;

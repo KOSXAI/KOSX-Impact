@@ -3,11 +3,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { fetchDashboard } from "@/data.functions";
 import type { DashboardStats, MemberStats } from "@/stats";
-import { GrowProgress, Reveal, RevealItem } from "@/components/motion";
+import { GrowProgress, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
 import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
 import { SiteHeader } from "@/components/SiteHeader";
-import { MemberModuleNav } from "@/components/MemberModuleNav";
+import { LEADERBOARD_TABS, MemberModuleHeader } from "@/components/member/MemberModuleHeader";
 import { Flag, Clock3, Zap, Flame } from "lucide-react";
 import { TEN_K, titleOf } from "@/milestones";
 import { fmt, fmtDate, badge } from "@/lib/format";
@@ -90,29 +90,32 @@ function LeaderboardPage() {
   // 被提及榜：近 30 天被讨论热度
   const mentions = stats.members.filter((m) => (m.mentionCount30d ?? 0) > 0).sort((a, b) => (b.mentionCount30d ?? 0) - (a.mentionCount30d ?? 0));
 
-  const tabs: Array<{ key: TabKey; label: string; count: number }> = [
-    { key: "leaderboard", label: "总排行", count: leaderboard.length },
-    { key: "growth", label: "成长榜", count: growth.length },
-    { key: "rising", label: "新锐", count: rising.length },
-    { key: "influence", label: "影响力", count: influence.length },
-    { key: "mentions", label: "被提及", count: mentions.length },
-    { key: "active", label: "勤快", count: active.length },
-    { key: "climbs", label: "登阶记录", count: stats.recentMilestones.length },
-  ];
+  // 子榜口径（键/文案来自 MemberModuleHeader 的共享常量）× 各榜成员数
+  const tabCounts: Record<TabKey, number> = {
+    leaderboard: leaderboard.length,
+    growth: growth.length,
+    rising: rising.length,
+    influence: influence.length,
+    mentions: mentions.length,
+    active: active.length,
+    climbs: stats.recentMilestones.length,
+  };
+  const tabs = LEADERBOARD_TABS.map((t) => ({ ...t, count: tabCounts[t.key] }));
 
   return (
     <>
       <SiteHeader />
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
-        <Reveal y={18}>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">榜单</h1>
-        </Reveal>
+        {/* 博主模块统一页头：标题 + 三视图门牌卡（榜单 / 广场 / 赛道） */}
+        <MemberModuleHeader
+          view="leaderboard"
+          stats={stats}
+          title="榜单"
+          description="总排行、成长、新锐、影响力、被提及、勤快、登阶——七种口径看遍社群排名。"
+        />
 
-        {/* 博主模块三视图：榜单 / 广场 / 赛道 */}
-        <MemberModuleNav />
-
-        {/* Tab 切换：总排行 / 成长榜 / 新锐 / 影响力 / 勤快 / 登阶记录 */}
-        <div className="mt-4 flex w-full items-center gap-1 overflow-x-auto rounded-full border border-line bg-soft-surface p-1 sm:inline-flex sm:w-auto">
+        {/* 榜内子榜切换（模块门牌下的第二级） */}
+        <div className="mt-6 flex w-full items-center gap-1 overflow-x-auto rounded-full border border-line bg-soft-surface p-1 sm:inline-flex sm:w-auto">
           {tabs.map((t) => {
             const isActive = tab === t.key;
             return (
