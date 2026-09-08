@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Shapes, Trophy, Users, type LucideIcon } from "lucide-react";
 import type { DashboardStats } from "@/stats";
+import { TRACKS } from "@/tracks";
 import { Reveal } from "@/components/motion";
 import { cn } from "@/lib/utils";
 
@@ -43,10 +44,14 @@ export function MemberModuleHeader({
   description: string;
 }) {
   const { pathname } = useLocation();
+  // 赛道计数只算正式赛道（综合是过渡桶，不参与榜单排名，不算「一条赛道」）
+  const openTrackCount = TRACKS.filter(
+    (t) => (stats.trackStats.find((s) => s.slug === t.slug)?.memberCount ?? 0) > 0
+  ).length;
   const counts: Record<ViewKey, string> = {
     leaderboard: `${LEADERBOARD_TABS.length} 张榜`,
     members: `${stats.members.length} 位博主`,
-    tracks: `${stats.trackStats.filter((s) => s.memberCount > 0).length} 条赛道`,
+    tracks: `${openTrackCount} 条赛道`,
   };
   return (
     <div>
