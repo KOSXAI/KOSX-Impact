@@ -56,12 +56,7 @@ function TracksPage() {
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       {/* 博主模块统一页头：标题 + 三视图门牌卡（榜单 / 广场 / 赛道） */}
-      <MemberModuleHeader
-        view="tracks"
-        stats={stats}
-        title="赛道"
-        description="按核心活动划分的主流赛道——每条赛道独立成页，配三重口径榜单与一键批量关注。"
-      />
+      <MemberModuleHeader view="tracks" stats={stats} title="赛道" />
 
       {/* 赛道导航卡：直达每个赛道的独立页（SEO 收录 + 批量关注 + 分享） */}
       <Reveal delay={0.06}>

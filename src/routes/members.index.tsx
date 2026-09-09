@@ -155,12 +155,7 @@ function MembersSquarePage() {
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       {/* 博主模块统一页头：标题 + 三视图门牌卡（榜单 / 广场 / 赛道） */}
-      <MemberModuleHeader
-        view="members"
-        stats={{ members, trackStats }}
-        title="成员广场"
-        description="按赛道、标签、粉丝量筛选全部成员——每位博主的名片与真实数据。"
-      />
+      <MemberModuleHeader view="members" stats={{ members, trackStats }} title="成员广场" />
 
       {/* 筛选栏：赛道 / 标签 / 粉丝量 / 排序 */}
       <Reveal delay={0.05}>

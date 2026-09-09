@@ -55,7 +55,6 @@ function ComparePage() {
         <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
           <Reveal>
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">成员对比</h1>
-            <p className="mt-3 text-sm text-mist">选两位成员，同屏看数据。</p>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               <MemberPicker label="成员 A" value={left?.member.id} onPick={(id) => navigate({ search: (p) => ({ ...p, a: id }) })} members={members} />
               <MemberPicker label="成员 B" value={right?.member.id} onPick={(id) => navigate({ search: (p) => ({ ...p, b: id }) })} members={members} />

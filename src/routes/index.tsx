@@ -183,7 +183,6 @@ function DashboardPage() {
           >
             <div>
               <h2 className="text-xl font-bold">社群能量报告</h2>
-              <p className="mt-1 text-sm text-mist">总影响力 · 赛道分布 · 粉丝质量 · 声量 Top</p>
             </div>
             <span className="rounded-full border border-signal/40 bg-signal/10 px-4 py-1.5 text-sm font-semibold text-signal">查看报告 →</span>
           </Link>

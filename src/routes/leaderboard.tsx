@@ -107,12 +107,7 @@ function LeaderboardPage() {
       <SiteHeader />
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         {/* 博主模块统一页头：标题 + 三视图门牌卡（榜单 / 广场 / 赛道） */}
-        <MemberModuleHeader
-          view="leaderboard"
-          stats={stats}
-          title="榜单"
-          description="总排行、成长、新锐、影响力、被提及、勤快、登阶——七种口径看遍社群排名。"
-        />
+        <MemberModuleHeader view="leaderboard" stats={stats} title="榜单" />
 
         {/* 榜内子榜切换（模块门牌下的第二级） */}
         <div className="mt-6 flex w-full items-center gap-1 overflow-x-auto rounded-full border border-line bg-soft-surface p-1 sm:inline-flex sm:w-auto">
