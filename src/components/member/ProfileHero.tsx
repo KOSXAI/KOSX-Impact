@@ -119,7 +119,7 @@ export function ProfileHero({
             <a
               href={xProfileUrl(member.handle)}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-signal/40 hover:text-ink"
             >
               @{member.handle}
@@ -151,7 +151,7 @@ export function ProfileHero({
               <a
                 href={profile.url}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-signal/40 hover:text-ink"
               >
                 <ExternalLink className="size-3.5" aria-hidden="true" />

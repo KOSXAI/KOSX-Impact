@@ -122,7 +122,7 @@ export function ShareDialog({
         </div>
 
         <Button asChild className="w-full">
-          <a href={xHref} target="_blank" rel="noreferrer">
+          <a href={xHref} target="_blank" rel="noopener noreferrer">
             <XLogo className="size-4" />
             分享到 X
           </a>

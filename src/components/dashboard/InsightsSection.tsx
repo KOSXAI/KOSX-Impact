@@ -110,16 +110,19 @@ function ViralCard({ post: p }: { post: PostItem }) {
       <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{p.text ?? "（无正文）"}</p>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-mist">
         <span className="inline-flex items-center gap-1 font-semibold text-signal" title="浏览">
-          <Eye className="size-3.5" />
+          <Eye className="size-3.5" aria-hidden="true" />
           <span className="tabular-nums">{p.views ?? "—"}</span>
+          <span className="sr-only">浏览</span>
         </span>
         <span className="inline-flex items-center gap-1" title="点赞">
-          <Heart className="size-3.5" />
+          <Heart className="size-3.5" aria-hidden="true" />
           <span className="tabular-nums">{p.likes != null ? p.likes : "—"}</span>
+          <span className="sr-only">点赞</span>
         </span>
         <span className="inline-flex items-center gap-1" title="评论">
-          <MessageCircle className="size-3.5" />
+          <MessageCircle className="size-3.5" aria-hidden="true" />
           <span className="tabular-nums">{p.replies != null ? p.replies : "—"}</span>
+          <span className="sr-only">评论</span>
         </span>
       </div>
     </div>

@@ -98,7 +98,7 @@ KOSX 万粉影响力计划持续追踪和展示 KOSX 成员在 X 等公开平台
 ├── src/
 │   ├── server.ts             # Worker 入口：API/SVG 卡 + SSR + cron
 │   ├── api.ts                # Hono：JSON API / SVG 卡 / robots / sitemap
-│   ├── queries.ts            # 共享查询层（含边缘缓存）
+│   ├── queries/              # 共享查询层（dashboard/member/community/archive 五模块，含边缘缓存）
 │   ├── collector.ts          # 数据采集（名册同步 + 快照）
 │   ├── refresh-queue.ts      # 成员自助更新队列（CAS 节流）
 │   ├── routes/               # React 页面（总览 / 榜单 / 赛道 / 内容 / 成员 / 关于）

@@ -39,7 +39,7 @@ export function SiteFooter() {
             <a
               href={OFFICIAL_SITE_URL}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               title="KOSX 官网"
               className="inline-flex items-center gap-0.5 text-sm font-semibold text-mist transition-colors hover:text-ink"
             >
@@ -49,7 +49,7 @@ export function SiteFooter() {
             <a
               href={GITHUB_URL}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               title="KOSX-Impact 开源仓库"
               className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
             >

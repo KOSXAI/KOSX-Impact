@@ -1,17 +1,27 @@
 // 赛道/标签分类产物入库：读取人工/agent 判断的分类 JSON
 // （格式 {members:[{handle,tracks[],tags[],confidence,note}]}），校验后写入线上库 members 表。
 //
-// 校验规则（与 src/tracks.ts 的 TRACK_NAMES 白名单一致，此处硬编码副本避免跨模块 import TS）：
+// 校验规则（白名单从 src/tracks.ts 现场提取——单一事实来源，杜绝硬编码副本静默漂移；
+// 提取失败立即退出，绝不拿残缺白名单校验）：
 // - tracks 必须 ∈ 白名单（AI工具/财经/开发者/增长/出海/综合），1-3 个，去重
 // - tags 3-8 个，去重
 // - 跑偏项（枚举外赛道 / 结构不合法）拒绝并列出，不写库
 // - confidence < 0.7 的项照常写库，但输出低置信清单供人工复查
+// 校验有拒绝/未匹配时进程以非零码退出，提醒重跑前先修数据。
 //
 // 用法：node scripts/apply-tracks.mjs /path/to/output.json
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const TRACK_WHITELIST = ["AI工具", "财经", "开发者", "增长", "出海", "综合"];
+// 从 src/tracks.ts 提取全部赛道名（name: "X" 字段）：TRACKS 正式赛道 + TRACK_OTHER 综合
+const tracksSrc = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "..", "src", "tracks.ts"), "utf-8");
+const TRACK_WHITELIST = [...tracksSrc.matchAll(/name: "([^"]+)"/g)].map((m) => m[1]);
+if (TRACK_WHITELIST.length < 2) {
+  console.error(`从 src/tracks.ts 提取赛道名失败（仅得 ${TRACK_WHITELIST.length} 个），拒绝校验`);
+  process.exit(1);
+}
 const TRACK_MAX = 3;
 const TAGS_MIN = 3;
 const TAGS_MAX = 8;
@@ -113,3 +123,4 @@ if (lowConf.length) {
   for (const l of lowConf) console.log("  " + l);
 }
 console.log(`\n完成：写库 ${ok}，拒绝 ${rejected.length}，未匹配 ${notFound.length}，低置信 ${lowConf.length}`);
+if (rejected.length || notFound.length) process.exitCode = 1;

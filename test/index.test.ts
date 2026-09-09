@@ -3,12 +3,23 @@ import { beforeEach, describe, expect, it } from "vitest";
 import "../src/api-entry";
 
 beforeEach(async () => {
-  await env.DB.prepare("DELETE FROM refresh_queue").run();
-  await env.DB.prepare("DELETE FROM daily_stats").run();
-  await env.DB.prepare("DELETE FROM milestones").run();
-  await env.DB.prepare("DELETE FROM snapshots").run();
-  await env.DB.prepare("DELETE FROM members").run();
-  await env.DB.prepare("DELETE FROM site_meta").run();
+  // 全表清扫：后续用例会写 posts / mentions 等表，残留会串数据
+  for (const t of [
+    "refresh_queue",
+    "milestones",
+    "snapshots",
+    "posts",
+    "mentions",
+    "member_mentions",
+    "community_signal_counts",
+    "fan_profiles",
+    "similar_accounts",
+    "invite_events",
+    "members",
+    "site_meta",
+  ]) {
+    await env.DB.prepare(`DELETE FROM ${t}`).run();
+  }
 });
 
 async function seedMember() {
@@ -104,7 +115,8 @@ describe("API", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { status: string; memberId: string };
     expect(body.memberId).toBe("newbie_x");
-    expect(["done", "queued"]).toContain(body.status);
+    // 节流槽已预占：不会当场采集，必为 queued（done 分支由「抢到槽」路径覆盖）
+    expect(body.status).toBe("queued");
 
     const member = (await env.DB.prepare(
       "SELECT status, self_registered FROM members WHERE id = 'newbie_x'"

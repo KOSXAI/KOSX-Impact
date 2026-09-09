@@ -7,12 +7,13 @@ import { execSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ProxyAgent } from "undici";
+import { readSocialDataKey } from "./_lib.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const rosterDoc = JSON.parse(readFileSync(resolve(root, "data/members.json"), "utf-8"));
 const roster = rosterDoc.members;
-const apiKey = readFileSync(resolve(root, ".dev.vars"), "utf-8").match(/SOCIALDATA_API_KEY=(\S+)/)?.[1];
-if (!apiKey) throw new Error("SOCIALDATA_API_KEY not found in .dev.vars");
+const apiKey = readSocialDataKey();
+if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
 
 // 已有快照的成员（本地采集过），新成员不在其中
 const dbJson = execSync("wrangler d1 execute kosx-impact --remote --json --command 'SELECT DISTINCT member_id FROM snapshots'", {
@@ -29,8 +30,10 @@ if (pending.length === 0) {
   process.exit(0);
 }
 
-const proxy = process.env.HTTP_PROXY || "http://127.0.0.1:7890";
-const dispatcher = new ProxyAgent(proxy);
+// 代理只在显式设置 HTTP(S)_PROXY 时启用——不猜本机端口（换机器即挂）
+const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || null;
+const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
+if (proxyUrl) console.log(`走代理 ${proxyUrl}`);
 const now = new Date().toISOString();
 const sql = [];
 let nameBackfilled = 0;

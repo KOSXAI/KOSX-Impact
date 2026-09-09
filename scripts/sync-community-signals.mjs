@@ -3,34 +3,26 @@
 //   聚合出「成员们共同关注的外部大V」→ community_signal_counts(kind='following')
 // - taste：纯库读——扫描 posts 全文里的外部 @提及（剔除成员自身），聚合「社群最近热议什么」
 //   → community_signal_counts(kind='taste')，零额外 API
+// 任一成员拉取失败时进程以非零码退出：&& 链不会把半截数据灌进线上库。
 // 用法：先导出成员表（含 followers）+ 帖子全文：
 //   wrangler d1 execute kosx-impact --remote --command "SELECT m.id, m.handle, m.user_id, (SELECT followers FROM snapshots s WHERE s.member_id=m.id ORDER BY s.recorded_at DESC LIMIT 1) AS f FROM members m WHERE m.status='active'" --json > /tmp/member-followers.json
 //   wrangler d1 execute kosx-impact --remote --command "SELECT text FROM posts" --json > /tmp/posts-text.json
 // 再：node scripts/sync-community-signals.mjs && wrangler d1 execute kosx-impact --remote --file=/tmp/community-signals.sql
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readSocialDataKey, createThrottledGet, lit, BUMP_CACHE_BUST_SQL } from "./_lib.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const apiKey = readFileSync(resolve(root, ".dev.vars"), "utf-8").match(/SOCIALDATA_API_KEY=(\S+)/)?.[1];
-if (!apiKey) throw new Error("SOCIALDATA_API_KEY not found in .dev.vars");
+const apiKey = readSocialDataKey();
+if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
 
 const TOP_SAMPLE = 8; // following 采样头部 N 位成员，控成本
-const API_BASE = "https://api.socialdata.tools";
-let lastAt = 0;
-async function throttledFetch(path) {
-  const wait = lastAt + 500 - Date.now();
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastAt = Date.now();
-  const res = await fetch(`${API_BASE}${path}`, { headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${path}`);
-  return res.json();
-}
-const lit = (v) => (v == null ? "NULL" : `'${String(v).replace(/'/g, "''")}'`);
+const throttledFetch = createThrottledGet(apiKey, 500);
 const now = new Date().toISOString();
 const sql = [];
 
 // ---- following：共同关注 ----
+if (!existsSync("/tmp/member-followers.json")) {
+  throw new Error("缺少 /tmp/member-followers.json，先按文件头注释导出成员表");
+}
 const rawDump = JSON.parse(readFileSync("/tmp/member-followers.json", "utf-8"));
 let memberRows = [];
 for (const layer of Array.isArray(rawDump) ? rawDump : [rawDump]) {
@@ -74,7 +66,6 @@ console.log(`following 完成：${followingOk}/${members.length} 位成员，共
 // ---- taste：社群帖子中的外部提及（纯库读） ----
 if (existsSync("/tmp/posts-text.json")) {
   const posts = JSON.parse(readFileSync("/tmp/posts-text.json", "utf-8"));
-  const rows = Array.isArray(posts) ? posts[0]?.results ?? posts : posts[0]?.results ?? [];
   // 兼容 wrangler --json 包裹结构
   let arr = [];
   for (const layer of Array.isArray(posts) ? posts : [posts]) {
@@ -102,9 +93,12 @@ if (existsSync("/tmp/posts-text.json")) {
   console.log(`taste 完成：${tasteTop.length} 条外部热议账号`);
 }
 
-sql.push(`INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
-  ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1;`);
+sql.push(BUMP_CACHE_BUST_SQL);
 
 writeFileSync("/tmp/community-signals.sql", sql.join("\n\n") + "\n");
 console.log(`写入 /tmp/community-signals.sql（${sql.length} 条）`);
 console.log(`执行：wrangler d1 execute kosx-impact --remote --file=/tmp/community-signals.sql`);
+if (followingOk < members.length) {
+  console.log(`有 ${members.length - followingOk} 位成员拉取失败，产物不完整：检查失败清单后决定是否继续灌库`);
+  process.exitCode = 1;
+}

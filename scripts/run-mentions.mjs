@@ -4,9 +4,11 @@
 // 增量抓取：site_meta.last_mention_since 记录上次游标，只拉新增（上限 7 天窗口兜底）。
 // --advance：拉取完成后自动把本次运行时刻写入游标（增量模式专用；分析入库与拉取同批
 // 完成时用，避免下次重复拉同一窗口）。
+// 任一关键词失败时进程以非零码退出（产物仍写出，供排查）。
 // 用法：node scripts/run-mentions.mjs [keyword...] [--days 7] [--advance] [--out /tmp/mentions-raw.json]
+import { writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { readSocialDataKey, createThrottledGet, d1Query } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const take = (flag, def) => {
@@ -22,9 +24,7 @@ const wantKeywords = argv.filter((a, i) => !a.startsWith("--") && !FLAGS.has(arg
 const keywords = wantKeywords.length ? wantKeywords : KEYWORDS;
 const META_KEY = "last_mention_since";
 
-const devVars = existsSync(".dev.vars") ? readFileSync(".dev.vars", "utf-8") : "";
-const apiKey =
-  process.env.SOCIALDATA_API_KEY ?? devVars.match(/^SOCIALDATA_API_KEY=(.+)$/m)?.[1]?.trim();
+const apiKey = readSocialDataKey();
 if (!apiKey) {
   console.error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
   process.exit(1);
@@ -32,38 +32,17 @@ if (!apiKey) {
 
 // 增量游标：site_meta.last_mention_since（epoch 秒，由 agent 入库成功后推进）；
 // 无游标 / 异常旧游标回退窗口上限
-const readMeta = (key) => {
-  const out = execSync(
-    `wrangler d1 execute kosx-impact --remote --json --command "SELECT value FROM site_meta WHERE key = '${key}'"`,
-    { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
-  );
-  const rows = JSON.parse(out).flatMap((r) => r.results ?? []);
-  const v = rows[0]?.value;
-  return v && /^\d+$/.test(v) ? parseInt(v, 10) : null;
-};
+const prevSinceRow = d1Query(`SELECT value FROM site_meta WHERE key = '${META_KEY}'`)[0]?.value;
+const prevSince = prevSinceRow && /^\d+$/.test(String(prevSinceRow)) ? parseInt(prevSinceRow, 10) : null;
 
 const MAX_WINDOW = Math.floor((Date.now() - DAYS * 86_400_000) / 1000);
-const prevSince = readMeta(META_KEY);
 const since = prevSince != null ? Math.max(prevSince, MAX_WINDOW) : MAX_WINDOW;
 const collectedAt = new Date().toISOString();
 console.log(
   `搜索 ${keywords.length} 个关键词${prevSince != null ? `，增量起点 ${new Date(since * 1000).toISOString()}` : `，首次运行回退 ${DAYS} 天窗口`}`
 );
 
-const API_BASE = "https://api.socialdata.tools";
-const MIN_INTERVAL_MS = 650;
-
-let lastRequestAt = 0;
-async function get(path) {
-  const wait = lastRequestAt + MIN_INTERVAL_MS - Date.now();
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastRequestAt = Date.now();
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-  return res.json();
-}
+const get = createThrottledGet(apiKey, 650);
 
 const out = [];
 const failed = [];
@@ -101,7 +80,10 @@ writeFileSync(
 );
 const total = out.reduce((s, g) => s + g.tweets.length, 0);
 console.log(`\n共 ${total} 条增量提及，失败 ${failed.length} 个关键词；产物: ${OUT}`);
-if (failed.length) console.log("失败清单:\n" + failed.join("\n"));
+if (failed.length) {
+  console.log("失败清单:\n" + failed.join("\n"));
+  process.exitCode = 1;
+}
 
 // --advance：本次窗口已完整分析入库，推进游标（增量语义：下次只拉新提及）
 if (ADVANCE && failed.length === 0) {

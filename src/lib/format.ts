@@ -17,17 +17,10 @@ export function postExcerpt(text: string | null | undefined, max = 34): string |
 }
 
 export function badge(threshold: number): string {
-  if (threshold >= 100_000_000) {
-    const y = threshold / 100_000_000;
-    return `${Number.isInteger(y) ? y : y.toFixed(1)}亿`;
-  }
-  if (threshold >= 10000) {
-    const w = threshold / 10000;
-    return `${Number.isInteger(w) ? w : w.toFixed(1)}万`;
-  }
-  if (threshold >= 1000) {
-    const k = threshold / 1000;
-    return `${Number.isInteger(k) ? k : k.toFixed(1)}千`;
-  }
+  const short = (v: number): string =>
+    Number.isInteger(v) ? String(v) : v.toFixed(1).replace(/\.0$/, "");
+  if (threshold >= 100_000_000) return `${short(threshold / 100_000_000)}亿`;
+  if (threshold >= 10000) return `${short(threshold / 10000)}万`;
+  if (threshold >= 1000) return `${short(threshold / 1000)}千`;
   return String(threshold);
 }

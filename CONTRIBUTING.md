@@ -54,7 +54,7 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 │   ├── api.ts                # Hono：JSON API / SVG 卡 / OG 图 / robots / sitemap
 │   ├── og.ts                 # OG 分享卡 SVG 模板（纯函数，可单测）
 │   ├── og-render.ts          # OG 卡光栅化（resvg-wasm）与取数路由
-│   ├── queries.ts            # 共享查询层（API 与 SSR 共用，含边缘缓存）
+│   ├── queries/              # 共享查询层（dashboard/member/community/archive/shared，API 与 SSR 共用，含边缘缓存）
 │   ├── data.functions.ts     # TanStack server functions（路由 loader 取数）
 │   ├── routes/               # React 页面（看板 / 成员详情 / 关于）
 │   ├── components/           # React 组件（shadcn/ui + 图表）
@@ -70,7 +70,7 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 
 ## OG 分享卡
 
-成员页/首页/关于页的 `og:image` 指向动态 PNG（`/og/members/:id.png`、`/og/site.png`）——X、微信等平台不渲染 SVG 格式的 og:image，所以分享预览必须在服务端光栅化：`src/og.ts` 出 SVG 模板，`src/og-render.ts` 用 `@resvg/resvg-wasm` 转 PNG（1200×630）。缓存与读端点同模型：键带 `cache_bust`，与成员页 SSR 共用 `queries.ts` 取数缓存。
+成员页/首页/关于页的 `og:image` 指向动态 PNG（`/og/members/:id.png`、`/og/site.png`）——X、微信等平台不渲染 SVG 格式的 og:image，所以分享预览必须在服务端光栅化：`src/og.ts` 出 SVG 模板，`src/og-render.ts` 用 `@resvg/resvg-wasm` 转 PNG（1200×630）。缓存与读端点同模型：键带 `cache_bust`，与成员页 SSR 共用 `queries/` 取数缓存。
 
 中文字体是子集化的 Noto Sans SC（OFL 许可，`public/fonts/`）。改了卡面文案、新增段位名之后必须重新生成并提交产物：
 
@@ -100,7 +100,7 @@ npm run build:og-fonts
 ```bash
 npm install
 npm run db:migrate:local   # 首次或迁移变更后执行
-npm run dev                # http://localhost:8787
+npm run dev                # http://localhost:5173
 ```
 
 需要真实数据源时，把密钥写进 `.dev.vars`（已被 .gitignore 忽略，模板见 `.dev.vars.example`）：
@@ -116,6 +116,8 @@ SOCIALDATA_API_KEY=你的key
 | `npm run dev` | 本地启动（Vite + SSR），http://localhost:5173 |
 | `npm run build` | 构建前端与 Worker 产物 |
 | `npm run check` | 名册校验 + typecheck + 测试（提交前的本地检查，无远程 CI） |
+
+注：仓库暂未配置 ESLint——typescript-eslint 尚不支持 TypeScript 7，待其兼容后以 flat config（recommended + react-hooks）并入 check。
 | `npm run cf-typegen` | 重新生成 `worker-configuration.d.ts` |
 | `npm run db:migrate:local` | 应用 D1 迁移（本地） |
 

@@ -278,8 +278,11 @@ function renderLlmsTxt(): Response {
 - [成员广场](https://impact.kosx.ai/members)：按赛道 / 标签 / 粉丝量筛选全部成员，复制 @ 清单批量关注。
 - [赛道](https://impact.kosx.ai/tracks)：AI工具 / 财经 / 开发者 / 增长 / 出海 五个赛道 + 综合兜底，
   每个赛道独立页（seo 收录 + 批量关注 + 分享）。
-- [内容](https://impact.kosx.ai/posts)：近 30 天精华帖与全站历史 Top 帖、内容洞察（爆款 / 标签云 / 停更）。
-- [社群日报](https://impact.kosx.ai/daily)：每日战报——今日登阶 / 涨粉冠军 / 赛道表现 / 最爆内容 / 品牌声量。
+- [内容](https://impact.kosx.ai/posts)：近 30 天精华帖与全站历史 Top 帖、内容洞察（爆款 / 标签云 / 停更）、内容配方（黄金时段 / 形态）、社群品味。
+- [社群日报](https://impact.kosx.ai/daily)：每日战报——今日登阶 / 涨粉冠军 / 赛道表现 / 最爆内容 / 品牌声量；支持 ?date=YYYY-MM-DD 归档回看。
+- [成员周报](https://impact.kosx.ai/reports/{id})：单成员周报——本周增长、登阶进度、内容表现，支持分享。
+- [年度报告](https://impact.kosx.ai/annual)：年度影响力报告——年初至今增长、月度趋势、年度登阶与最火内容。
+- [成员对比](https://impact.kosx.ai/compare?a={idA}&b={idB})：两位成员的成长曲线 / 赛道 / 称号并列对比。
 - [关于](https://impact.kosx.ai/about)：数据口径、称号段位、影响力指数公式。
 - [RSS 更新源](https://impact.kosx.ai/feed.xml)：登阶与爆款内容更新。
 
@@ -299,56 +302,90 @@ function renderLlmsTxt(): Response {
   });
 }
 
-function renderSitemap(): Response {
-  const today = new Date().toISOString().slice(0, 10);
-  const urls = [
-    { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
-    { loc: `${SITE_URL}/leaderboard`, changefreq: "daily", priority: "0.9" },
-    { loc: `${SITE_URL}/members`, changefreq: "daily", priority: "0.8" },
-    { loc: `${SITE_URL}/tracks`, changefreq: "daily", priority: "0.8" },
-    { loc: `${SITE_URL}/posts`, changefreq: "daily", priority: "0.7" },
-    { loc: `${SITE_URL}/daily`, changefreq: "daily", priority: "0.7" },
-    { loc: `${SITE_URL}/report`, changefreq: "weekly", priority: "0.6" },
-    { loc: `${SITE_URL}/about`, changefreq: "monthly", priority: "0.3" },
-    // 赛道页（5 正式赛道；综合过渡桶不出独立页）
-    ...TRACKS.map((t) => ({ loc: `${SITE_URL}/tracks/${t.slug}`, changefreq: "daily", priority: "0.8" })),
-    ...roster.members.map((m) => ({ loc: `${SITE_URL}/members/${m.id}`, changefreq: "daily", priority: "0.8" })),
-  ];
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+/** sitemap：成员页直接查库（含自助注册成员——只按打包名册生成会让 77+ 成员对搜索引擎不可见），
+ *  lastmod 用各成员最新快照时间（恒为「今天」的 lastmod 会被 Google 判定不可信而忽略） */
+async function renderSitemap(env: Env): Promise<Response> {
+  const bust = await readCacheBust(env);
+  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.sitemap}&cb=${bust}`), 3600, async () => {
+    const { results: memberRows } = await env.DB.prepare(
+      `SELECT id,
+              (SELECT MAX(s.recorded_at) FROM snapshots s WHERE s.member_id = m.id) AS lastmod
+       FROM members m WHERE m.status = 'active' ORDER BY joined_at`
+    ).all();
+    const members = memberRows as never as Array<{ id: string; lastmod: string | null }>;
+    // 静态页与赛道页的最后变动时间 = 全站最新一次快照（数据一天一更，跟着数据走）
+    const dataDay = members.reduce<string | null>((max, m) => (m.lastmod && (!max || m.lastmod > max) ? m.lastmod : max), null)?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
+    const urls = [
+      { loc: `${SITE_URL}/`, lastmod: dataDay, changefreq: "daily", priority: "1.0" },
+      { loc: `${SITE_URL}/leaderboard`, lastmod: dataDay, changefreq: "daily", priority: "0.9" },
+      { loc: `${SITE_URL}/members`, lastmod: dataDay, changefreq: "daily", priority: "0.8" },
+      { loc: `${SITE_URL}/tracks`, lastmod: dataDay, changefreq: "daily", priority: "0.8" },
+      { loc: `${SITE_URL}/posts`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
+      { loc: `${SITE_URL}/daily`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
+      { loc: `${SITE_URL}/report`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },
+      { loc: `${SITE_URL}/annual`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },
+      { loc: `${SITE_URL}/about`, lastmod: dataDay, changefreq: "monthly", priority: "0.3" },
+      // 赛道页（5 正式赛道；综合过渡桶不出独立页）
+      ...TRACKS.map((t) => ({ loc: `${SITE_URL}/tracks/${t.slug}`, lastmod: dataDay, changefreq: "daily", priority: "0.8" })),
+      ...members.map((m) => ({
+        loc: `${SITE_URL}/members/${m.id}`,
+        lastmod: m.lastmod?.slice(0, 10) ?? dataDay,
+        changefreq: "daily",
+        priority: "0.8",
+      })),
+    ];
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${today}</lastmod><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`).join("\n")}
+${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`).join("\n")}
 </urlset>`;
-  return new Response(xml, {
-    headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+    return new Response(xml, {
+      headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+    });
   });
 }
 
 /** RSS 源：登阶事件 + 爆款内容（订阅/更新提醒的零基础设施落法，供 RSS 阅读器抓取） */
 async function renderFeed(env: Env): Promise<Response> {
   const stats = await getDashboardStats(env);
-  const items: Array<{ title: string; link: string; pubDate: string; description: string }> = [];
+  const items: Array<{ title: string; link: string; guid: string; pubDate: string; description: string }> = [];
+  // 回填历史登阶会产出同一成员同一时间戳的多条大关——合并成一条，避免订阅器刷屏
+  const climbs = new Map<string, typeof stats.recentMilestones>();
   for (const m of stats.recentMilestones) {
+    const key = `${m.memberId}@${m.achievedAt}`;
+    const arr = climbs.get(key) ?? [];
+    arr.push(m);
+    climbs.set(key, arr);
+  }
+  for (const arr of climbs.values()) {
+    const m0 = arr[0];
+    const titles = arr.map((x) => `「${titleOf(x.threshold)}」`).join("");
+    const thresholds = arr.map((x) => badge(x.threshold)).join("、");
     items.push({
-      title: `${m.displayName ?? m.handle} 拿下称号「${titleOf(m.threshold)}」`,
-      link: `${SITE_URL}/members/${m.memberId}`,
-      pubDate: new Date(m.achievedAt).toUTCString(),
-      description: `KOSX 万粉影响力计划：${m.displayName ?? m.handle} 跨过 ${badge(m.threshold)} 粉大关。`,
+      title: `${m0.displayName ?? m0.handle} 拿下称号${titles}`,
+      link: `${SITE_URL}/members/${m0.memberId}`,
+      guid: `${SITE_URL}/members/${m0.memberId}#m-${arr.map((x) => x.threshold).join("-")}`,
+      pubDate: new Date(m0.achievedAt).toUTCString(),
+      description: `KOSX 万粉影响力计划：${m0.displayName ?? m0.handle} 跨过 ${thresholds} 粉大关。`,
     });
   }
   for (const p of (stats.topPosts ?? []).slice(0, 10)) {
     items.push({
       title: `${p.member?.displayName ?? p.member?.handle ?? "成员"} 的爆款帖 · ${p.views != null ? badge(p.views) : ""} 浏览`,
       link: p.url,
+      guid: p.url,
       pubDate: new Date(p.createdAt).toUTCString(),
       description: (p.text ?? "").slice(0, 160),
     });
   }
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"><channel><title>KOSX 万粉影响力计划 · 更新</title><link>${SITE_URL}/</link>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>KOSX 万粉影响力计划 · 更新</title><link>${SITE_URL}/</link>
 <description>登阶记录与爆款内容</description>
+<language>zh-CN</language>
+<lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+<atom:link href="${SITE_URL}/feed.xml" rel="self" type="application/rss+xml"/>
 ${items
   .map(
-    (i) => `<item><title>${escapeXml(i.title)}</title><link>${i.link}</link><pubDate>${i.pubDate}</pubDate><description>${escapeXml(i.description)}</description></item>`
+    (i) => `<item><title>${escapeXml(i.title)}</title><link>${i.link}</link><guid isPermaLink="false">${escapeXml(i.guid)}</guid><pubDate>${i.pubDate}</pubDate><description>${escapeXml(i.description)}</description></item>`
   )
   .join("\n")}
 </channel></rss>`;
@@ -387,7 +424,7 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
     return slug ? renderTrackOgPng(env, slug, url.origin) : ogNotFound();
   }
   if (pathname === "/robots.txt") return renderRobots();
-  if (pathname === "/sitemap.xml") return renderSitemap();
+  if (pathname === "/sitemap.xml") return renderSitemap(env);
   if (pathname === "/llms.txt") return renderLlmsTxt();
   if (pathname === "/feed.xml") return renderFeed(env);
   if (pathname.startsWith("/card/")) {

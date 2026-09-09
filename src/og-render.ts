@@ -126,7 +126,7 @@ export async function renderSiteOgPng(env: Env, origin: string): Promise<Respons
 /** 榜单 OG 卡（/og/leaderboard.png）：总排行 Top5，榜单页分享预览 */
 export async function renderLeaderboardOgPng(env: Env, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}/og/leaderboard.png?v=1&cb=${bust}`), 21600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.ogLeaderboard}&cb=${bust}`), 21600, async () => {
     const stats = await getDashboardStats(env);
     const logo = await loadLogoMemo(env, origin);
     const pick: BoardOgStats = {

@@ -139,24 +139,6 @@
   }
 }
 
-/* 顶部微高光卡片质感（类似 Linear/Apple 暗黑立体内折射） */
-@utility card-highlight {
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
-}
-
-/* 品牌信号橙呼吸微光背景 */
-@utility glow-signal {
-  background-image: radial-gradient(circle at center, rgba(255, 106, 0, 0.12) 0%, transparent 70%);
-}
-
-/* 微弱科技网格背景（消除大面积纯黑 OLED 发干感） */
-@utility bg-subtle-grid {
-  background-size: 32px 32px;
-  background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-}
-
 /* 图标微光底座（Squircle 连续曲率与顶部微折射内高光） */
 @utility icon-dock {
   @apply rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-transparent shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)];

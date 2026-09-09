@@ -2,7 +2,9 @@ import { useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchMemberDetail } from "@/data.functions";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/StatCard";
 import { AnimatedNumber, Reveal, RevealGroup, RevealItem } from "@/components/motion";
+import { NotFound } from "@/components/NotFound";
 import { Avatar } from "@/components/member/Avatar";
 import { ProfileHero } from "@/components/member/ProfileHero";
 import { MilestoneJourney } from "@/components/member/MilestoneJourney";
@@ -52,10 +54,39 @@ export const Route = createFileRoute("/_shell/_creators/members/$id")({
             ]
           : []),
       ],
+      ...(loaderData
+        ? {
+            links: [{ rel: "canonical", href: `${SITE_URL}/members/${loaderData.member.id}` }],
+            // ProfilePage 结构化数据：搜索引擎直接理解「这是谁的档案、多少粉丝」
+            scripts: [
+              {
+                type: "application/ld+json",
+                children: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "ProfilePage",
+                  mainEntity: {
+                    "@type": "Person",
+                    name: loaderData.member.displayName ?? loaderData.member.handle,
+                    alternateName: `@${loaderData.member.handle}`,
+                    sameAs: [`https://x.com/${loaderData.member.handle}`],
+                    ...(loaderData.profile.bio?.trim() ? { description: loaderData.profile.bio.trim() } : {}),
+                    interactionStatistic: [
+                      {
+                        "@type": "InteractionCounter",
+                        interactionType: "https://schema.org/FollowAction",
+                        userInteractionCount: loaderData.member.latestFollowers ?? 0,
+                      },
+                    ],
+                  },
+                }),
+              },
+            ],
+          }
+        : {}),
     };
   },
   component: MemberPage,
-  notFoundComponent: () => <MemberNotFound id="" />,
+  notFoundComponent: () => <NotFound title="成员不存在" description="这位成员不在追踪名单里，去成员广场看看其他成员。" />,
 });
 
 function MemberPage() {
@@ -102,16 +133,16 @@ function MemberPage() {
         <main className="mt-10 space-y-12 sm:mt-14">
           <RevealGroup className="grid grid-cols-2 gap-3 lg:grid-cols-4" stagger={0.06}>
             <RevealItem>
-              <Stat label="当前粉丝" value={member.latestFollowers ?? 0} />
+              <StatCard label="当前粉丝" value={member.latestFollowers ?? 0} />
             </RevealItem>
             <RevealItem>
-              <Stat label="近 7 天增长" value={member.growth7d} prefix={member.growth7d > 0 ? "+" : ""} />
+              <StatCard label="近 7 天增长" value={member.growth7d} prefix={member.growth7d > 0 ? "+" : ""} />
             </RevealItem>
             <RevealItem>
-              <Stat label="近 30 天增长" value={member.growth30d} prefix={member.growth30d > 0 ? "+" : ""} />
+              <StatCard label="近 30 天增长" value={member.growth30d} prefix={member.growth30d > 0 ? "+" : ""} />
             </RevealItem>
             <RevealItem>
-              <Stat label="登阶成就" value={milestones.length} />
+              <StatCard label="登阶成就" value={milestones.length} />
             </RevealItem>
           </RevealGroup>
 
@@ -291,36 +322,4 @@ function MemberPage() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  prefix = "",
-  suffix = "",
-}: {
-  label: string;
-  value: number;
-  prefix?: string;
-  suffix?: string;
-}) {
-  return (
-    <Card className="card-lift h-full">
-      <CardContent className="px-5 py-4">
-        <div className="text-sm text-mist">{label}</div>
-        <AnimatedNumber
-          value={value}
-          prefix={prefix}
-          suffix={suffix}
-          className="mt-1.5 block text-2xl font-bold tabular-nums sm:text-3xl"
-        />
-      </CardContent>
-    </Card>
-  );
-}
 
-function MemberNotFound({ id }: { id: string }) {
-  return (
-    <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
-      <h1 className="text-3xl font-bold">成员不存在</h1>
-    </div>
-  );
-}

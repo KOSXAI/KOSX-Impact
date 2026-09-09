@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchMemberDetail } from "@/data.functions";
 import { computeWeeklyReport, weeklyShareText } from "@/weekly";
+import { NotFound } from "@/components/NotFound";
 import { Avatar } from "@/components/member/Avatar";
 import { GrowProgress } from "@/components/motion";
+import { StatCard } from "@/components/ui/StatCard";
 import { Check, Copy, Flag, Heart, MessageCircle, PauseCircle, Trophy, Eye } from "lucide-react";
 import { fmt, fmtDate } from "@/lib/format";
 import { titleOf } from "@/milestones";
@@ -13,7 +15,8 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
 export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
   loader: async ({ params }) => {
     const detail = await fetchMemberDetail({ data: params.memberId });
-    if (!detail) return { report: null };
+    // 不存在的成员直接 404（此前返回 200 + 「不在追踪名单」，属于软 404）
+    if (!detail) throw notFound();
     const report = computeWeeklyReport({
       member: detail.member,
       snapshots: detail.snapshots,
@@ -28,38 +31,37 @@ export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
   },
   head: ({ loaderData, params }) => {
     const r = loaderData?.report ?? null;
-    const name = r ? (r.displayName ?? `@${r.handle}`) : "成员周报";
+    const name = r ? (r.displayName ?? `@${r.handle}`) : "成员不存在";
     const title = `${name} 的内容周报 · ${SITE_NAME}`;
     return {
       meta: [
         { title },
-        { name: "description", content: `${name} 近 7 天的涨粉、登阶与最热内容周报，每周自动生成。` },
+        ...(r
+          ? [{ name: "description", content: `${name} 近 7 天的涨粉、登阶与最热内容周报，每周自动生成。` }]
+          : [{ name: "robots", content: "noindex, follow" }]),
         { property: "og:title", content: title },
-        { property: "og:description", content: `${name} 近 7 天的涨粉、登阶与最热内容。` },
+        { property: "og:description", content: r ? `${name} 近 7 天的涨粉、登阶与最热内容。` : "成员周报" },
         { property: "og:type", content: "website" },
-        { property: "og:url", content: `${SITE_URL}/reports/${params.memberId}` },
-        { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
-        { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
+        ...(r
+          ? [
+              { property: "og:url", content: `${SITE_URL}/reports/${params.memberId}` },
+              // 周报专属 OG 分享卡（PNG，端点已存在）
+              { property: "og:image", content: `${SITE_URL}/og/reports/${r.memberId}.png?v=1` },
+              { name: "twitter:card", content: "summary_large_image" },
+              { name: "twitter:image", content: `${SITE_URL}/og/reports/${r.memberId}.png?v=1` },
+            ]
+          : []),
       ],
+      ...(r ? { links: [{ rel: "canonical", href: `${SITE_URL}/reports/${r.memberId}` }] } : {}),
     };
   },
   component: ReportPage,
+  notFoundComponent: () => <NotFound title="这位成员不在追踪名单里" description="去成员广场看看其他成员的周报。" />,
 });
 
 function ReportPage() {
   const { report } = Route.useLoaderData();
   const [copied, setCopied] = useState(false);
-
-  if (!report) {
-    return (
-      <>
-        <main className="mx-auto max-w-3xl px-6 py-24 text-center">
-          <h1 className="text-2xl font-bold">这位成员不在追踪名单里</h1>
-        </main>
-      </>
-    );
-  }
 
   const name = report.displayName ?? `@${report.handle}`;
   const nextTitle = titleOf(report.nextMilestone);
@@ -77,7 +79,7 @@ function ReportPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-10 sm:py-14">
+      <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <Avatar url={report.profileImage} name={name} className="size-14 shrink-0 rounded-2xl" />
           <div className="min-w-0 flex-1">
@@ -86,7 +88,7 @@ function ReportPage() {
               <a
                 href={`https://x.com/${encodeURIComponent(report.handle)}`}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
               >
                 @{report.handle}
@@ -108,10 +110,10 @@ function ReportPage() {
 
         {/* 数据卡 */}
         <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <MetricCard label="本周增长" value={`+${fmt(report.growth)}`} hint={report.growthPct != null ? `+${Math.round(report.growthPct * 100)}%` : undefined} highlight={report.growth > 0} />
-          <MetricCard label="当前粉丝" value={fmt(report.followersEnd)} />
-          <MetricCard label="本周发帖" value={`${report.postCount} 条`} />
-          <MetricCard
+          <StatCard label="本周增长" value={`+${fmt(report.growth)}`} hint={report.growthPct != null ? `+${Math.round(report.growthPct * 100)}%` : undefined} highlight={report.growth > 0} />
+          <StatCard label="当前粉丝" value={fmt(report.followersEnd)} />
+          <StatCard label="本周发帖" value={`${report.postCount} 条`} />
+          <StatCard
             label="互动率中位数"
             value={report.engagementMedian != null ? `${Math.round(report.engagementMedian * 10000) / 100}%` : "—"}
           />
@@ -185,16 +187,19 @@ function ReportPage() {
                     <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{p.text ?? "（无正文）"}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-mist">
                       <span className="inline-flex items-center gap-1 font-semibold text-signal" title="浏览">
-                        <Eye className="size-3.5" />
+                        <Eye className="size-3.5" aria-hidden="true" />
                         <span className="tabular-nums">{p.views ?? "—"}</span>
+                        <span className="sr-only">浏览</span>
                       </span>
                       <span className="inline-flex items-center gap-1" title="点赞">
-                        <Heart className="size-3.5" />
+                        <Heart className="size-3.5" aria-hidden="true" />
                         <span className="tabular-nums">{p.likes ?? "—"}</span>
+                        <span className="sr-only">点赞</span>
                       </span>
                       <span className="inline-flex items-center gap-1" title="评论">
-                        <MessageCircle className="size-3.5" />
+                        <MessageCircle className="size-3.5" aria-hidden="true" />
                         <span className="tabular-nums">{p.replies ?? "—"}</span>
+                        <span className="sr-only">评论</span>
                       </span>
                     </div>
                   </li>
@@ -213,14 +218,3 @@ function ReportPage() {
   );
 }
 
-function MetricCard({ label, value, hint, highlight = false }: { label: string; value: string; hint?: string; highlight?: boolean }) {
-  return (
-    <div className="rounded-2xl border border-line bg-surface p-4">
-      <div className="text-sm text-mist">{label}</div>
-      <div className={cn("mt-1 text-2xl font-bold tabular-nums", highlight && "text-signal")}>
-        {value}
-        {hint && <span className="ml-1 text-sm font-semibold text-signal">{hint}</span>}
-      </div>
-    </div>
-  );
-}

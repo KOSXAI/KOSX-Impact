@@ -15,8 +15,12 @@ export const Route = createFileRoute("/_shell/about")({
       { property: "og:title", content: `关于 · ${SITE_NAME}` },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: `${SITE_URL}/about` },
       { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/about` }],
   }),
   component: AboutPage,
 });

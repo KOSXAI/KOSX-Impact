@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchAnnualReport } from "@/data.functions";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
+import { StatCard } from "@/components/ui/StatCard";
 import { titleOf } from "@/milestones";
 import { fmt } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -19,10 +20,14 @@ export const Route = createFileRoute("/_shell/_reports/annual")({
         { title },
         { name: "description", content: `${SITE_NAME} 年度报告：年度增长、月度趋势、登阶与最火内容。` },
         { property: "og:title", content: title },
+        { property: "og:description", content: `${SITE_NAME} 年度报告：年度增长、月度趋势、登阶与最火内容。` },
         { property: "og:type", content: "website" },
         { property: "og:url", content: `${SITE_URL}/annual` },
         { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
       ],
+      links: [{ rel: "canonical", href: `${SITE_URL}/annual` }],
     };
   },
   component: AnnualPage,
@@ -41,10 +46,10 @@ function AnnualPage() {
 
         <Reveal delay={0.06}>
           <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <AnnualStat label="社群总粉丝" value={r.totalFollowers} />
-            <AnnualStat label="追踪成员" value={r.memberCount} />
-            <AnnualStat label="本年新增" value={r.ytdGrowth} prefix="+" highlight />
-            <AnnualStat label="本年登阶" value={r.ytdClimbs} />
+            <StatCard label="社群总粉丝" value={r.totalFollowers} />
+            <StatCard label="追踪成员" value={r.memberCount} />
+            <StatCard label="本年新增" value={r.ytdGrowth} prefix="+" highlight />
+            <StatCard label="本年登阶" value={r.ytdClimbs} />
           </div>
         </Reveal>
 
@@ -115,7 +120,7 @@ function AnnualPage() {
                 {r.ytdClimbsList.map((m) => (
                   <li key={`${m.memberId}-${m.threshold}`}>
                     <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
-                      <Avatar url={null} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
+                      <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
                       <span className="shrink-0 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
                         「{titleOf(m.threshold)}」
@@ -137,7 +142,7 @@ function AnnualPage() {
               <ul className="mt-4 space-y-2.5">
                 {r.topPosts.map((p) => (
                   <li key={p.tweetId}>
-                    <a href={p.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
                       {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-8 shrink-0" />}
                       <span className="min-w-0 flex-1">
                         <span className="line-clamp-1 text-sm">{p.text ?? "帖子"}</span>
@@ -156,11 +161,3 @@ function AnnualPage() {
   );
 }
 
-function AnnualStat({ label, value, prefix = "", highlight = false }: { label: string; value: number; prefix?: string; highlight?: boolean }) {
-  return (
-    <div className={`card-lift rounded-2xl border p-4 ${highlight ? "border-signal/30" : "border-line"} bg-surface`}>
-      <div className="text-xs font-medium text-mist sm:text-sm">{label}</div>
-      <div className={`mt-1 text-2xl font-bold tabular-nums ${highlight ? "text-signal" : ""}`}>{prefix}{fmt(value)}</div>
-    </div>
-  );
-}

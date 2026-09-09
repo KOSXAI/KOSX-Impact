@@ -32,7 +32,6 @@ function stubSource(stats: Record<string, FollowerStats | Error>): FollowerSourc
 
 beforeEach(async () => {
   await env.DB.prepare("DELETE FROM refresh_queue").run();
-  await env.DB.prepare("DELETE FROM daily_stats").run();
   await env.DB.prepare("DELETE FROM milestones").run();
   await env.DB.prepare("DELETE FROM snapshots").run();
   await env.DB.prepare("DELETE FROM members").run();
@@ -102,7 +101,7 @@ describe("tryGrabRefreshSlot", () => {
 });
 
 describe("drainRefreshQueue", () => {
-  it("按 FIFO 消费 pending，走采集管线写快照/登阶/日统计并标记 done", async () => {
+  it("按 FIFO 消费 pending，走采集管线写快照/登阶并标记 done", async () => {
     await seedMember("alice", "alice_x", 900);
     await seedMember("bob", "bob_x", 1200);
     await enqueueRefresh(env, "bob", T0);
@@ -126,12 +125,6 @@ describe("drainRefreshQueue", () => {
       "SELECT threshold FROM milestones WHERE member_id = 'alice' ORDER BY threshold"
     ).all();
     expect(milestones).toEqual([{ threshold: 1000 }]);
-
-    const aliceDaily = (await env.DB.prepare(
-      "SELECT followers, growth FROM daily_stats WHERE member_id = 'alice'"
-    ).first()) as { followers: number; growth: number };
-    expect(aliceDaily.followers).toBe(1500);
-    expect(aliceDaily.growth).toBe(600);
 
     const job = (await env.DB.prepare(
       "SELECT status, followers_after FROM refresh_queue WHERE member_id = 'alice'"

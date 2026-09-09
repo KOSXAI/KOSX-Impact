@@ -7,7 +7,20 @@
  */
 const API_BASE = "https://api.socialdata.tools";
 
-async function throttledGet(env: Env, path: string): Promise<any> {
+interface SocialTweet {
+  id_str?: string;
+  tweet_created_at?: string;
+  full_text?: string | null;
+  user?: { screen_name?: string; name?: string } | null;
+  author_handle?: string | null;
+  author_name?: string | null;
+}
+interface SocialUser {
+  screen_name?: string;
+  name?: string | null;
+}
+
+async function throttledGet<T>(env: Env, path: string): Promise<T> {
   const key = env.SOCIALDATA_API_KEY;
   if (!key) throw new Error("缺少 SOCIALDATA_API_KEY");
   // 500ms 间隔 ≈ 120 req/min，远低于 SocialData 共享限流
@@ -40,22 +53,28 @@ export async function syncMemberMentions(env: Env): Promise<{ ok: number; total:
   for (const m of members as never as Array<{ id: string; handle: string }>) {
     try {
       const query = encodeURIComponent(`@${m.handle} -filter:replies`);
-      const page = await throttledGet(env, `/twitter/search?query=${query}&type=Latest`);
+      const page = await throttledGet<{ tweets?: SocialTweet[] }>(env, `/twitter/search?query=${query}&type=Latest`);
       const tweets = Array.isArray(page.tweets) ? page.tweets : [];
       const batch = [];
       for (const t of tweets) {
         if (!t.id_str) continue;
+        // mentioned_at 是 NOT NULL 列：缺 created_at 的脏行跳过，否则整个 batch 抛错、该成员本轮全丢
+        if (!t.tweet_created_at) {
+          console.error(`[sync-signals] ${m.handle} 提及 tweet ${t.id_str} 缺 tweet_created_at，跳过`);
+          continue;
+        }
         const author = (t.user?.screen_name || t.author_handle || "").toLowerCase();
         if (author === m.handle.toLowerCase()) continue; // 本人自提不算「被提及」
         batch.push(
-          stmt.bind(m.id, t.id_str, t.user?.screen_name || t.author_handle || null, t.user?.name || t.author_name || null, t.full_text ?? null, t.tweet_created_at ?? null, now)
+          stmt.bind(m.id, t.id_str, t.user?.screen_name || t.author_handle || null, t.user?.name || t.author_name || null, t.full_text ?? null, t.tweet_created_at, now)
         );
         total++;
       }
       if (batch.length) await env.DB.batch(batch);
       ok++;
-    } catch {
-      /* 单成员失败跳过，不阻塞整轮 */
+    } catch (error) {
+      /* 单成员失败跳过，不阻塞整轮；留一行日志避免静默丢数据 */
+      console.error(`[sync-signals] 成员 ${m.handle} 提及同步失败:`, error instanceof Error ? error.message : error);
     }
   }
   await bumpCacheBust(env);
@@ -78,7 +97,7 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
   const followingCount = new Map<string, { name: string | null; set: Set<string> }>();
   for (const m of top) {
     try {
-      const page = await throttledGet(env, `/twitter/user/${m.user_id}/following`);
+      const page = await throttledGet<{ users?: SocialUser[] }>(env, `/twitter/user/${m.user_id}/following`);
       const users = Array.isArray(page.users) ? page.users : [];
       for (const u of users) {
         const h = (u.screen_name || "").toLowerCase();

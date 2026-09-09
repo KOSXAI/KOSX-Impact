@@ -46,7 +46,7 @@ export function FanProfileCard({ fanProfile }: { fanProfile: FanProfile | null }
                   key={t.handle}
                   href={`https://x.com/${encodeURIComponent(t.handle)}`}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-signal/40 hover:text-ink"
                   title={`${t.name ?? t.handle} · ${fmt(t.followers)} 粉丝`}
                 >

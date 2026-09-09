@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { Link, Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TopLoadingBar } from "@/components/TopLoadingBar";
+import { NotFound } from "@/components/NotFound";
 import { Toaster } from "@/components/ui/toast";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import "@/styles.css";
 
 export const Route = createRootRoute({
@@ -13,10 +14,27 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "theme-color", content: "#0a0a0a" },
+      // 全站共享的站点级 meta（各页只写页面级 title/og，避免重复标签）
+      { property: "og:site_name", content: SITE_NAME },
     ],
     links: [
       // 官网 kosx.ai 同款 KOSX logo（白色 X 标，assets 与官网主题同一文件）
       { rel: "icon", href: "/kosx-icon.png", type: "image/png" },
+      // RSS 源声明：让浏览器/阅读器能自动发现订阅入口
+      { rel: "alternate", type: "application/rss+xml", title: `${SITE_NAME} · 更新`, href: `${SITE_URL}/feed.xml` },
+    ],
+    scripts: [
+      // 站点级 JSON-LD：告诉搜索引擎这是什么站点
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: SITE_NAME,
+          url: SITE_URL,
+          inLanguage: "zh-CN",
+        }),
+      },
     ],
   }),
   component: RootComponent,
@@ -49,15 +67,7 @@ function GlobalNotFound() {
   return (
     <>
       <SiteHeader />
-      <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
-        <h1 className="text-3xl font-bold">页面不存在</h1>
-        <Link
-          to="/"
-          className="mt-6 inline-flex h-9 items-center rounded-full border border-line bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
-        >
-          返回首页
-        </Link>
-      </div>
+      <NotFound title="页面不存在" description="你要找的页面不在这里，去首页或成员广场看看。" />
     </>
   );
 }

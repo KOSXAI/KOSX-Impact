@@ -1,8 +1,8 @@
 // 分析素材拉取（纯库读版，零 SocialData 调用）：从 members 表读档案、posts 表读最近帖子，
 // 输出供 agent 分析的 JSON。档案与帖子文本都是每日采集已入库的数据，无需重复调 API。
 // 用法：node scripts/fetch-analyze-input.mjs [handle...] [--out /tmp/analyze-input.json]
-import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { d1Query } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const take = (flag, def) => {
@@ -14,36 +14,26 @@ const wantHandles = argv.filter((a) => !a.startsWith("--") && a !== "--out" && a
 
 let members = [];
 if (wantHandles.length) {
-  const out = execSync(
-    `wrangler d1 execute kosx-impact --remote --json --command "SELECT id, handle FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => `'${h.replaceAll("'", "''")}'`).join(",")})"`,
-    { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
+  members = d1Query(
+    `SELECT id, handle FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => `'${h.replaceAll("'", "''")}'`).join(",")})`
   );
-  members = JSON.parse(out).flatMap((r) => r.results ?? []);
 } else {
-  const out = execSync(
-    `wrangler d1 execute kosx-impact --remote --json --command "SELECT id, handle FROM members WHERE status='active' ORDER BY handle"`,
-    { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
-  );
-  members = JSON.parse(out).flatMap((r) => r.results ?? []);
+  members = d1Query(`SELECT id, handle FROM members WHERE status='active' ORDER BY handle`);
 }
 console.log(`待拉取 ${members.length} 位成员素材（纯库读，零 SocialData 请求）`);
 
 const out = [];
 for (const m of members) {
   // 档案（members 表最新值，每日采集已入库）
-  const row = execSync(
-    `wrangler d1 execute kosx-impact --remote --json --command "SELECT m.display_name AS displayName, m.bio, m.location, m.url, m.verified, (SELECT followers FROM snapshots WHERE member_id = m.id ORDER BY recorded_at DESC LIMIT 1) AS followers FROM members m WHERE m.id = '${m.id.replaceAll("'", "''")}'"`,
-    { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
-  );
-  const rec = JSON.parse(row).flatMap((r) => r.results ?? [])[0] ?? {};
+  const rec =
+    d1Query(
+      `SELECT m.display_name AS displayName, m.bio, m.location, m.url, m.verified, (SELECT followers FROM snapshots WHERE member_id = m.id ORDER BY recorded_at DESC LIMIT 1) AS followers FROM members m WHERE m.id = '${m.id.replaceAll("'", "''")}'`
+    )[0] ?? {};
 
   // 最近帖子（posts 表 90 天全文，每日采集已入库）
-  const postsRes = JSON.parse(
-    execSync(
-      `wrangler d1 execute kosx-impact --remote --json --command "SELECT created_at AS createdAt, text FROM posts WHERE member_id = '${m.id.replaceAll("'", "''")}' ORDER BY created_at DESC LIMIT 20"`,
-      { encoding: "utf-8", maxBuffer: 20 * 1024 * 1024 }
-    )
-  ).flatMap((r) => r.results ?? []);
+  const postsRes = d1Query(
+    `SELECT created_at AS createdAt, text FROM posts WHERE member_id = '${m.id.replaceAll("'", "''")}' ORDER BY created_at DESC LIMIT 20`
+  );
 
   out.push({
     member_id: m.id,

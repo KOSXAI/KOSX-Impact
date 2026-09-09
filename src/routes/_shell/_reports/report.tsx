@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard, fetchReportExtras, fetchInviteLeaders } from "@/data.functions";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
+import { StatCard } from "@/components/ui/StatCard";
 import { toast } from "@/components/ui/toast";
 import { Download } from "lucide-react";
 import { fmt } from "@/lib/format";
@@ -26,7 +27,9 @@ export const Route = createFileRoute("/_shell/_reports/report")({
       { property: "og:url", content: `${SITE_URL}/report` },
       { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/report` }],
   }),
   component: ReportPage,
 });
@@ -100,10 +103,10 @@ function ReportPage() {
 
         <Reveal delay={0.06}>
           <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <ReportStat label="追踪成员" value={stats.members.length} />
-            <ReportStat label="社群总粉丝" value={stats.totalFollowers} />
-            <ReportStat label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" highlight />
-            <ReportStat label="万粉成员" value={stats.tenKMembers} />
+            <StatCard label="追踪成员" value={stats.members.length} />
+            <StatCard label="社群总粉丝" value={stats.totalFollowers} />
+            <StatCard label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" highlight />
+            <StatCard label="万粉成员" value={stats.tenKMembers} />
           </div>
         </Reveal>
 
@@ -142,10 +145,10 @@ function ReportPage() {
               <p className="mt-4 text-mist">粉丝画像采样进行中。</p>
             ) : (
               <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <ReportStat label="已采样画像" value={fanCount} />
-                <ReportStat label="样本总量" value={totalSample} />
-                <ReportStat label="平均 KOL 浓度" value={Math.round(avgKol)} suffix="%" highlight />
-                <ReportStat label="平均认证率" value={Math.round(avgVerified)} suffix="%" />
+                <StatCard label="已采样画像" value={fanCount} />
+                <StatCard label="样本总量" value={totalSample} />
+                <StatCard label="平均 KOL 浓度" value={Math.round(avgKol)} suffix="%" highlight />
+                <StatCard label="平均认证率" value={Math.round(avgVerified)} suffix="%" />
               </div>
             )}
           </section>
@@ -154,7 +157,7 @@ function ReportPage() {
         {/* 影响力与声量 Top */}
         <Reveal delay={0.12}>
           <div className="mt-8 grid gap-3 lg:grid-cols-2">
-            <section className="rounded-2xl border border-line bg-surface p-6">
+            <section className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">影响力 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {influenceTop.map((m, i) => (
@@ -169,7 +172,7 @@ function ReportPage() {
                 ))}
               </ul>
             </section>
-            <section className="rounded-2xl border border-line bg-surface p-6">
+            <section className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">被提及 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {mentionTop.map((m, i) => (
@@ -190,7 +193,7 @@ function ReportPage() {
         {/* 邀请裂变荣誉榜：谁带来了最多新成员 */}
         {inviteLeaders.length > 0 && (
           <Reveal delay={0.13}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6">
+            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">推荐荣誉榜</h2>
               <ul className="mt-4 space-y-2.5">
                 {inviteLeaders.map((m, i) => (
@@ -212,13 +215,3 @@ function ReportPage() {
   );
 }
 
-function ReportStat({ label, value, prefix = "", suffix = "", highlight = false }: { label: string; value: number; prefix?: string; suffix?: string; highlight?: boolean }) {
-  return (
-    <div className={`card-lift rounded-2xl border p-4 ${highlight ? "border-signal/30" : "border-line"} bg-surface`}>
-      <div className="text-xs font-medium text-mist sm:text-sm">{label}</div>
-      <div className={`mt-1 text-2xl font-bold tabular-nums ${highlight ? "text-signal" : ""}`}>
-        {prefix}{fmt(value)}{suffix}
-      </div>
-    </div>
-  );
-}

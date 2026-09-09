@@ -1,27 +1,10 @@
 import type { PostActivity as PostActivityData } from "@/stats";
 import { Card, CardContent } from "@/components/ui/card";
+import { Metric } from "@/components/ui/Metric";
 import { AnimatedNumber, Reveal } from "@/components/motion";
 import { ExternalLink, Eye, Heart, MessageCircle, Repeat2 } from "lucide-react";
-import { fmt, fmtDate } from "@/lib/format";
+import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-/** 互动小指标：图标 + 数值（浏览/赞/评论/转推），数值缺失显示 — */
-function Metric({
-  icon,
-  value,
-  label,
-}: {
-  icon: React.ReactNode;
-  value: number | null;
-  label: string;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1 text-mist" title={label}>
-      {icon}
-      <span className="tabular-nums">{value != null ? fmt(value) : "—"}</span>
-    </span>
-  );
-}
 
 /** 成员页「帖子活跃度」：近 20 帖的浏览/赞/评论合计 + 帖子列表（摘要 + 原文外链） */
 export function PostActivity({ activity }: { activity: PostActivityData }) {

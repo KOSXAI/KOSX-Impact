@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard, fetchDailyArchive } from "@/data.functions";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
+import { StatCard } from "@/components/ui/StatCard";
 import { titleOf } from "@/milestones";
 import { fmt, fmtDate, badge, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
@@ -12,7 +13,13 @@ import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
  * ?date=YYYY-MM-DD 查看历史归档（数据透明 / 可追溯）。
  */
 export const Route = createFileRoute("/_shell/_reports/daily")({
-  validateSearch: (search: Record<string, unknown>) => ({ date: typeof search.date === "string" ? search.date : "" }),
+  // date 只在「合法 YYYY-MM-DD」时进 URL：缺省不回填（避免 /daily 307 成 ?date=），
+  // 乱串参数直接忽略（回当天版），不给搜索引擎造出全 0 的可收录变体
+  validateSearch: (search: Record<string, unknown>) => {
+    const date = typeof search.date === "string" ? search.date : "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(`${date}T00:00:00Z`))) return { date };
+    return {};
+  },
   loader: async ({ location }) => {
     const date = (location.search as { date?: string }).date;
     if (date) return { archive: await fetchDailyArchive({ data: date }), stats: null as Awaited<ReturnType<typeof fetchDashboard>> | null };
@@ -22,6 +29,7 @@ export const Route = createFileRoute("/_shell/_reports/daily")({
     const title = loaderData?.archive
       ? `社群日报 ${loaderData.archive.date} · ${SITE_NAME}`
       : `社群日报 · ${SITE_NAME}`;
+    const url = loaderData?.archive ? `${SITE_URL}/daily?date=${loaderData.archive.date}` : `${SITE_URL}/daily`;
     return {
       meta: [
         { title },
@@ -29,10 +37,12 @@ export const Route = createFileRoute("/_shell/_reports/daily")({
         { property: "og:title", content: title },
         { property: "og:description", content: SLOGAN },
         { property: "og:type", content: "website" },
-        { property: "og:url", content: `${SITE_URL}/daily` },
+        { property: "og:url", content: url },
         { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
         { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
       ],
+      links: [{ rel: "canonical", href: url }],
     };
   },
   component: DailyPage,
@@ -42,7 +52,7 @@ function DailyPage() {
   const { archive, stats } = Route.useLoaderData();
   const navigate = Route.useNavigate();
 
-  if (archive) return <ArchiveView archive={archive} onBack={() => navigate({ search: { date: "" } })} />;
+  if (archive) return <ArchiveView archive={archive} onBack={() => navigate({ search: {} })} />;
   if (!stats) return null;
 
   const today = new Date().toISOString().slice(0, 10);
@@ -69,10 +79,10 @@ function DailyPage() {
 
         <Reveal delay={0.06}>
           <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <DailyStat label="追踪成员" value={stats.members.length} />
-            <DailyStat label="社群总粉丝" value={stats.totalFollowers} />
-            <DailyStat label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" highlight />
-            <DailyStat label="万粉成员" value={stats.tenKMembers} />
+            <StatCard label="追踪成员" value={stats.members.length} />
+            <StatCard label="社群总粉丝" value={stats.totalFollowers} />
+            <StatCard label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" highlight />
+            <StatCard label="万粉成员" value={stats.tenKMembers} />
           </div>
         </Reveal>
 
@@ -148,7 +158,7 @@ function DailyPage() {
             <ul className="mt-4 space-y-3">
               {hotPosts.map((p) => (
                 <li key={p.tweetId}>
-                  <a href={p.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-4 py-3 transition-colors hover:border-signal/40">
+                  <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-4 py-3 transition-colors hover:border-signal/40">
                     {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-9 shrink-0" />}
                     <div className="min-w-0 flex-1">
                       <div className="line-clamp-1 text-sm">{postExcerpt(p.text, 60) ?? "链接帖"}</div>
@@ -175,7 +185,7 @@ function DailyPage() {
               <ul className="mt-4 space-y-3">
                 {stats.mentions.slice(0, 8).map((mn) => (
                   <li key={mn.url ?? `${mn.authorHandle}-${mn.collectedAt}`}>
-                    <a href={mn.url ?? undefined} target="_blank" rel="noreferrer" className="flex items-start gap-3 rounded-xl border border-line bg-soft-surface px-4 py-3 transition-colors hover:border-signal/40">
+                    <a href={mn.url ?? undefined} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 rounded-xl border border-line bg-soft-surface px-4 py-3 transition-colors hover:border-signal/40">
                       <span className="min-w-0 flex-1">
                         <span className="line-clamp-2 text-sm">{mn.text}</span>
                         <span className="mt-1 block text-xs text-mist">
@@ -243,10 +253,10 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
 
         <Reveal delay={0.06}>
           <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <DailyStat label="当日成员" value={archive.memberCount} />
-            <DailyStat label="当日总粉丝" value={archive.totalFollowers} />
-            <DailyStat label="当日新增成员" value={archive.newJoins} highlight />
-            <DailyStat label="当日品牌提及" value={archive.mentionsCount} />
+            <StatCard label="当日成员" value={archive.memberCount} />
+            <StatCard label="当日总粉丝" value={archive.totalFollowers} />
+            <StatCard label="当日新增成员" value={archive.newJoins} highlight />
+            <StatCard label="当日品牌提及" value={archive.mentionsCount} />
           </div>
         </Reveal>
 
@@ -276,16 +286,6 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
   );
 }
 
-function DailyStat({ label, value, prefix = "", highlight = false }: { label: string; value: number; prefix?: string; highlight?: boolean }) {
-  return (
-    <div className={`card-lift rounded-2xl border p-4 ${highlight ? "border-signal/30" : "border-line"} bg-surface`}>
-      <div className="text-xs font-medium text-mist sm:text-sm">{label}</div>
-      <div className={`mt-1 text-2xl font-bold tabular-nums ${highlight ? "text-signal" : ""}`}>
-        {prefix}{fmt(value)}
-      </div>
-    </div>
-  );
-}
 
 function sentimentText(s: string): string {
   if (s === "positive") return "正面";

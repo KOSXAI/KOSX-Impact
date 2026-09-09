@@ -17,7 +17,7 @@ export function SimilarAccountsCard({ accounts }: { accounts: SimilarAccount[] }
                 <a
                   href={`https://x.com/${encodeURIComponent(a.handle)}`}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 font-semibold underline-offset-4 hover:underline"
                 >
                   {a.name ?? `@${a.handle}`}

@@ -74,7 +74,7 @@ export function SubmitDialog({
     setInput(defaultHandle ?? "");
     if (defaultHandle) void lookup(defaultHandle);
     else setPhase({ kind: "idle" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 刻意只依赖 open：defaultHandle 是初始值，跟着变会重置用户输入（仓库暂无 linter，注释替代 disable 标记）
   }, [open]);
 
   async function lookup(raw: string) {
@@ -272,7 +272,7 @@ function PreviewBody({ member, submitting, onSubmit }: { member: LookupPreview; 
           <a
             href={xProfileUrl(member.handle)}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
           >
             @{member.handle}
@@ -386,7 +386,7 @@ function QueuedBody({
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 刻意空依赖：轮询器一次启动常驻，读 ref 不需要进依赖（仓库暂无 linter，注释替代 disable 标记）
   }, []);
 
   const waiting = !throttled && !timedOut;

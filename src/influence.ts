@@ -68,11 +68,12 @@ export function computeInfluence(input: InfluenceInput): Influence {
   // 产能：近 30 天发帖数，≥30 帖满分
   const output = Math.min(150, (posts30d.length / 30) * 150);
 
-  // 质量系数：认证 +0.15，列表收录达一定规模 +0.05/0.10，互动率≥3% +0.10
+  // 质量系数：认证 +0.15，列表收录达一定规模 +0.15/0.05，互动率≥3% +0.10。
+  // 三项全加 = 1.40 恰好触顶——公示口径是 1.0–1.4（关于页），上限必须真实可达
   let qualityMultiplier = 1.0;
   if (verified) qualityMultiplier += 0.15;
   if (typeof listedCount === "number") {
-    if (listedCount >= 100) qualityMultiplier += 0.1;
+    if (listedCount >= 100) qualityMultiplier += 0.15;
     else if (listedCount >= 20) qualityMultiplier += 0.05;
   }
   if (engagementMedian !== null && engagementMedian >= 0.03) qualityMultiplier += 0.1;

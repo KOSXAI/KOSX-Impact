@@ -6,6 +6,7 @@ import {
   computeMemberStats,
   daysBetween,
 } from "../src/stats";
+import { badge } from "../src/lib/format";
 
 const NOW = "2026-09-04T00:00:00Z";
 
@@ -209,5 +210,41 @@ describe("computeCountDelta", () => {
   it("全史无有值快照 / 空快照返回 null", () => {
     expect(computeCountDelta(rows, 30, "favouritesCount")).toBeNull();
     expect(computeCountDelta([], 30, "posts")).toBeNull();
+  });
+});
+
+describe("computeMemberStats · baselineFollowers", () => {
+  const member = { id: "m1", handle: "alice", displayName: "Alice", joinedAt: "2026-08-01" };
+
+  it("传入基线时覆盖首快照：增长从基线起算", () => {
+    const snapshots = [
+      { followers: 1000, recordedAt: "2026-09-01T00:00:00Z" },
+      { followers: 1500, recordedAt: "2026-09-03T00:00:00Z" },
+    ];
+    const withBaseline = computeMemberStats(member, snapshots, NOW, 800);
+    expect(withBaseline.baselineFollowers).toBe(800);
+    expect(withBaseline.growth).toBe(700); // 800 → 1500
+    const without = computeMemberStats(member, snapshots, NOW);
+    expect(without.growth).toBe(500); // 首快照 1000 → 1500
+  });
+
+  it("基线缺失且无快照 → growth 0 / baseline null", () => {
+    const stats = computeMemberStats(member, [], NOW, null);
+    expect(stats.growth).toBe(0);
+    expect(stats.baselineFollowers).toBeNull();
+  });
+});
+
+describe("badge（大关档位缩写）", () => {
+  it("千/万/亿换算与边界", () => {
+    expect(badge(0)).toBe("0");
+    expect(badge(999)).toBe("999");
+    expect(badge(1000)).toBe("1千");
+    expect(badge(1500)).toBe("1.5千");
+    expect(badge(9999)).toBe("10千"); // 9.999 → 10（toFixed 四舍五入）
+    expect(badge(10_000)).toBe("1万");
+    expect(badge(25_000)).toBe("2.5万");
+    expect(badge(100_000_000)).toBe("1亿");
+    expect(badge(250_000_000)).toBe("2.5亿");
   });
 });

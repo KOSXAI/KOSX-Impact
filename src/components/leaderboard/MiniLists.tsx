@@ -1,13 +1,33 @@
 import { Link } from "@tanstack/react-router";
 import type { MemberStats } from "@/stats";
 import { RevealItem } from "@/components/motion";
-import { Avatar } from "@/components/member/Avatar";
 import { TitleBadge } from "@/components/member/TitleBadge";
 import { Clock3, Flame, Zap } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { xProfileUrl } from "@/lib/site";
-import { cn } from "@/lib/utils";
 import { PODIUM } from "./podium";
+import { MemberRankRow } from "./MemberRankRow";
+
+/** 行头公用段：成员名 + 称号徽章 + @handle（点进档案页） */
+function MemberIdentity({ m }: { m: MemberStats }) {
+  const name = m.displayName ?? m.handle;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+        {name}
+      </Link>
+      <TitleBadge threshold={m.prevMilestone} />
+      <a
+        href={xProfileUrl(m.handle)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
+      >
+        @{m.handle}
+      </a>
+    </div>
+  );
+}
 
 /** 新锐潜力榜：帖均曝光效率最高——粉丝量不大但内容被大量看见的潜力账号（回答「现在该关注谁」） */
 export function RisingList({ members }: { members: MemberStats[] }) {
@@ -35,56 +55,48 @@ function RisingMember({
   const name = m.displayName ?? m.handle;
   const eff = m.efficiencyVsMedian;
   return (
-    <div
-      className={
-        podium
-          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
-          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
+    <MemberRankRow
+      rank={rank}
+      podium={podium}
+      profileImage={m.profileImage}
+      name={name}
+      middle={
+        <div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+              {name}
+            </Link>
+            <TitleBadge threshold={m.prevMilestone} />
+            <a
+              href={xProfileUrl(m.handle)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
+            >
+              @{m.handle}
+            </a>
+            {eff != null && eff >= 1.2 && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-xs font-semibold text-amber-300">
+                <Zap className="size-3" aria-hidden="true" />
+                {eff >= 3 ? "曝光率爆棚" : `同量级 ${eff.toFixed(1)} 倍`}
+              </span>
+            )}
+          </div>
+          <div className="mt-1 text-xs text-mist tabular-nums">
+            近 30 天 {m.posts30d ?? 0} 帖 · 互动率 {m.engagementMedian != null ? `${(m.engagementMedian * 100).toFixed(1)}%` : "—"}
+          </div>
+        </div>
       }
-    >
-      <div
-        className={
-          podium
-            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
-            : "w-6 shrink-0 text-mist tabular-nums"
-        }
-      >
-        {rank}
-      </div>
-      <Avatar url={m.profileImage} name={name} className="size-10" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
-            {name}
-          </Link>
-          <TitleBadge threshold={m.prevMilestone} />
-          <a
-            href={xProfileUrl(m.handle)}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
-          >
-            @{m.handle}
-          </a>
-          {eff != null && eff >= 1.2 && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-xs font-semibold text-amber-300">
-              <Zap className="size-3" aria-hidden="true" />
-              {eff >= 3 ? "曝光率爆棚" : `同量级 ${eff.toFixed(1)} 倍`}
-            </span>
-          )}
+      trailing={
+        <div className="flex shrink-0 flex-col items-end gap-0.5">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-bold tabular-nums">{m.avgViewsPerPost != null ? fmt(Math.round(m.avgViewsPerPost)) : "—"}</span>
+            <span className="text-xs text-mist">帖均曝光</span>
+          </div>
+          <div className="text-xs text-mist tabular-nums">{m.latestFollowers != null ? `${fmt(m.latestFollowers)} 粉` : "首次采集排队中"}</div>
         </div>
-        <div className="mt-1 text-xs text-mist tabular-nums">
-          近 30 天 {m.posts30d ?? 0} 帖 · 互动率 {(m.engagementMedian ?? 0) >= 0 ? `${((m.engagementMedian ?? 0) * 100).toFixed(1)}%` : "—"}
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-0.5">
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-bold tabular-nums">{m.avgViewsPerPost != null ? fmt(Math.round(m.avgViewsPerPost)) : "—"}</span>
-          <span className="text-xs text-mist">帖均曝光</span>
-        </div>
-        <div className="text-xs text-mist tabular-nums">{m.latestFollowers != null ? `${fmt(m.latestFollowers)} 粉` : "首次采集排队中"}</div>
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -114,53 +126,28 @@ function ActiveMember({
   const posts30d = m.posts30d ?? 0;
   const perWeek = (posts30d / 4.3).toFixed(1);
   return (
-    <div
-      className={
-        podium
-          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
-          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
-      }
-    >
-      <div
-        className={
-          podium
-            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
-            : "w-6 shrink-0 text-mist tabular-nums"
-        }
-      >
-        {rank}
-      </div>
-      <Avatar url={m.profileImage} name={name} className="size-10" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
-            {name}
-          </Link>
-          <TitleBadge threshold={m.prevMilestone} />
-          <a
-            href={xProfileUrl(m.handle)}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
-          >
-            @{m.handle}
-          </a>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-6">
-        <div className="text-right">
-          <div className="flex items-baseline justify-end gap-1">
-            <Flame className="size-4 text-signal" aria-hidden="true" />
-            <span className="font-bold tabular-nums">{posts30d}</span>
+    <MemberRankRow
+      rank={rank}
+      podium={podium}
+      profileImage={m.profileImage}
+      name={name}
+      middle={<MemberIdentity m={m} />}
+      trailing={
+        <div className="flex shrink-0 items-center gap-6">
+          <div className="text-right">
+            <div className="flex items-baseline justify-end gap-1">
+              <Flame className="size-4 text-signal" aria-hidden="true" />
+              <span className="font-bold tabular-nums">{posts30d}</span>
+            </div>
+            <div className="text-xs text-mist">近 30 天发帖</div>
           </div>
-          <div className="text-xs text-mist">近 30 天发帖</div>
+          <div className="text-right">
+            <div className="font-bold tabular-nums text-mist">≈{perWeek}/周</div>
+            <div className="text-xs text-mist">周均</div>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="font-bold tabular-nums text-mist">≈{perWeek}/周</div>
-          <div className="text-xs text-mist">周均</div>
-        </div>
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -190,47 +177,26 @@ function MentionMember({
   const name = m.displayName ?? m.handle;
   const count = m.mentionCount30d ?? 0;
   return (
-    <div
-      className={
-        podium
-          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
-          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
+    <MemberRankRow
+      rank={rank}
+      podium={podium}
+      profileImage={m.profileImage}
+      name={name}
+      middle={
+        <div>
+          <MemberIdentity m={m} />
+          <div className="mt-1 text-xs text-mist tabular-nums">
+            {m.latestFollowers != null ? `${fmt(m.latestFollowers)} 粉 · ` : ""}近 30 天
+          </div>
+        </div>
       }
-    >
-      <div
-        className={
-          podium
-            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
-            : "w-6 shrink-0 text-mist tabular-nums"
-        }
-      >
-        {rank}
-      </div>
-      <Avatar url={m.profileImage} name={name} className="size-10" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
-            {name}
-          </Link>
-          <TitleBadge threshold={m.prevMilestone} />
-          <a
-            href={xProfileUrl(m.handle)}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
-          >
-            @{m.handle}
-          </a>
+      trailing={
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-2xl font-bold text-signal tabular-nums">{count}</span>
+          <span className="text-xs text-mist">次被提及</span>
         </div>
-        <div className="mt-1 text-xs text-mist tabular-nums">
-          {m.latestFollowers != null ? `${fmt(m.latestFollowers)} 粉 · ` : ""}近 30 天
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="text-2xl font-bold text-signal tabular-nums">{count}</span>
-        <span className="text-xs text-mist">次被提及</span>
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -267,75 +233,54 @@ function InfluenceMember({
     ["产能", inf?.breakdown.output ?? 0, 150],
   ];
   return (
-    <div
-      className={
-        podium
-          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
-          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
+    <MemberRankRow
+      rank={rank}
+      podium={podium}
+      profileImage={m.profileImage}
+      name={name}
+      middle={
+        <div>
+          <MemberIdentity m={m} />
+          {inf && (
+            <div className="mt-2 flex gap-2">
+              {parts.map(([label, v, max]) => (
+                <div key={label} className="flex-1" title={`${label} ${v} / ${max}`}>
+                  <div className="flex justify-between text-[10px] leading-none text-mist">
+                    <span>{label}</span>
+                    <span className="tabular-nums">{v}</span>
+                  </div>
+                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-line/70">
+                    <div className="h-full rounded-full bg-signal/70" style={{ width: `${Math.min(100, (v / max) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       }
-    >
-      <div
-        className={
-          podium
-            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
-            : "w-6 shrink-0 text-mist tabular-nums"
-        }
-      >
-        {rank}
-      </div>
-      <Avatar url={m.profileImage} name={name} className="size-10" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
-            {name}
-          </Link>
-          <TitleBadge threshold={m.prevMilestone} />
-          <a
-            href={xProfileUrl(m.handle)}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
+      trailing={
+        inf ? (
+          <div className="shrink-0 text-right">
+            <div className="flex items-baseline justify-end gap-1">
+              <span className="bg-gradient-to-br from-amber-300 to-amber-600 bg-clip-text text-2xl font-extrabold tabular-nums text-transparent">
+                {inf.score}
+              </span>
+              <span className="text-xs text-mist">/ 1000</span>
+            </div>
+            <div className="mt-0.5 text-xs text-mist tabular-nums" title={`质量系数 x${inf.qualityMultiplier.toFixed(2)}`}>
+              有效粉丝 {fmt(inf.effectiveFollowers)}
+            </div>
+          </div>
+        ) : (
+          <span
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-line bg-soft-surface px-2.5 py-1 text-xs font-semibold text-mist"
+            title="首次采集完成后自动上榜"
           >
-            @{m.handle}
-          </a>
-        </div>
-        {inf && (
-          <div className="mt-2 flex gap-2">
-            {parts.map(([label, v, max]) => (
-              <div key={label} className="flex-1" title={`${label} ${v} / ${max}`}>
-                <div className="flex justify-between text-[10px] leading-none text-mist">
-                  <span>{label}</span>
-                  <span className="tabular-nums">{v}</span>
-                </div>
-                <div className="mt-1 h-1 overflow-hidden rounded-full bg-line/70">
-                  <div className="h-full rounded-full bg-signal/70" style={{ width: `${Math.min(100, (v / max) * 100)}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      {inf ? (
-        <div className="shrink-0 text-right">
-          <div className="flex items-baseline justify-end gap-1">
-            <span className="bg-gradient-to-br from-amber-300 to-amber-600 bg-clip-text text-2xl font-extrabold tabular-nums text-transparent">
-              {inf.score}
-            </span>
-            <span className="text-xs text-mist">/ 1000</span>
-          </div>
-          <div className="mt-0.5 text-xs text-mist tabular-nums" title={`质量系数 x${inf.qualityMultiplier.toFixed(2)}`}>
-            有效粉丝 {fmt(inf.effectiveFollowers)}
-          </div>
-        </div>
-      ) : (
-        <span
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-line bg-soft-surface px-2.5 py-1 text-xs font-semibold text-mist"
-          title="首次采集完成后自动上榜"
-        >
-          <Clock3 className="size-3.5" aria-hidden="true" />
-          首次采集排队中
-        </span>
-      )}
-    </div>
+            <Clock3 className="size-3.5" aria-hidden="true" />
+            首次采集排队中
+          </span>
+        )
+      }
+    />
   );
 }

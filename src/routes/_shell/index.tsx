@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard } from "@/data.functions";
 import type { DashboardStats, MemberStats } from "@/stats";
-import { Card, CardContent } from "@/components/ui/card";
-import { AnimatedNumber, GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } from "@/components/motion";
+import { StatCard } from "@/components/ui/StatCard";
+import { GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { MentionsSection } from "@/components/dashboard/MentionsSection";
@@ -28,6 +28,7 @@ export const Route = createFileRoute("/_shell/")({
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/` }],
   }),
   component: DashboardPage,
 });
@@ -74,7 +75,7 @@ function DashboardPage() {
               {totalClimbs > 0 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-white/20 hover:text-ink">
+                    <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-white/20 hover:text-ink" tabIndex={0}>
                       🏅 已领 <b className="text-ink tabular-nums">{totalClimbs}</b> 枚称号
                     </span>
                   </TooltipTrigger>
@@ -138,7 +139,7 @@ function DashboardPage() {
                 const counts: Record<string, number> = { positive: 0, neutral: 0, negative: 0 };
                 for (const mn of stats.mentions) if (mn.sentiment && counts[mn.sentiment] != null) counts[mn.sentiment]++;
                 const labels: Record<string, string> = { positive: "正面", neutral: "中性", negative: "负面" };
-                const dot: Record<string, string> = { positive: "bg-emerald-400", neutral: "bg-slate-400", negative: "bg-rose-400" };
+                const dot: Record<string, string> = { positive: "bg-emerald-500", neutral: "bg-slate-400", negative: "bg-rose-500" };
                 return (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["positive", "neutral", "negative"] as const)
@@ -190,48 +191,6 @@ function DashboardPage() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  prefix = "",
-  highlight = false,
-  badge,
-}: {
-  label: string;
-  value: number;
-  prefix?: string;
-  highlight?: boolean;
-  badge?: string;
-}) {
-  return (
-    <Card className={cn("card-lift relative overflow-hidden h-full", highlight && "border-signal/30")}>
-      {highlight && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-signal/15 blur-xl"
-        />
-      )}
-      <CardContent className="px-5 py-4">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-mist sm:text-sm">{label}</span>
-          {badge && (
-            <span className="rounded-full border border-signal/30 bg-signal/10 px-2 py-0.5 text-[10px] font-bold text-signal">
-              {badge}
-            </span>
-          )}
-        </div>
-        <AnimatedNumber
-          value={value}
-          prefix={prefix}
-          className={cn(
-            "mt-2 block text-2xl font-bold tracking-tight tabular-nums sm:text-3xl",
-            highlight ? "text-signal font-extrabold" : "text-ink"
-          )}
-        />
-      </CardContent>
-    </Card>
-  );
-}
 
 /** 今日动态 / 赛道速览 / 内容热点：三张「当下」卡，首页一眼看懂今天】
  * 今日动态 = 今日登阶 + 涨粉先锋；赛道速览 = 5 赛道规模 + 各赛道榜首；内容热点 = 近 30 天最热帖子 Top3 */
@@ -320,7 +279,7 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
           {hotPosts.length > 0 ? (
             hotPosts.map((p) => (
               <li key={p.tweetId}>
-                <a href={p.url} target="_blank" rel="noreferrer" className="group flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+                <a href={p.url} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
                   {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-7 shrink-0" />}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs text-mist">

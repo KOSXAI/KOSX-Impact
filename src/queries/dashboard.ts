@@ -15,6 +15,7 @@ import {
   POST_FIELDS,
   mapPostRow,
   median,
+  TOP_POST_FIELDS,
   parseStrArray,
   type MemberRow,
   type PostRow,
@@ -35,16 +36,14 @@ export async function getTopPosts(
     3600,
     async () => {
       const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
-      // views 缺失时用 赞+评论+转推 估算排序（COALESCE 兜底），避免高互动帖被筛掉
+      // views 缺失时用 赞+评论+转推 估算排序（COALESCE 兜底，避免高互动帖被筛掉）；
+      // 各互动项自身也要 COALESCE——SQLite 里 NULL 参与加法会把整个兜底值毒化成 NULL
       const { results: rows } = await env.DB.prepare(
-        `SELECT p.tweet_id AS tweetId, p.created_at AS createdAt, p.text,
-                p.views_count AS views, p.like_count AS likes, p.reply_count AS replies,
-                p.retweet_count AS retweets, p.quote_count AS quotes, p.bookmark_count AS bookmarks,
-                m.id AS memberId, m.handle, m.display_name AS displayName, m.profile_image AS profileImage
+        `SELECT ${TOP_POST_FIELDS}
          FROM posts p
          JOIN members m ON m.id = p.member_id
          WHERE m.status = 'active' AND p.created_at >= ?1
-         ORDER BY COALESCE(p.views_count, p.like_count + p.reply_count + p.retweet_count) DESC LIMIT ?2`
+         ORDER BY COALESCE(p.views_count, COALESCE(p.like_count, 0) + COALESCE(p.reply_count, 0) + COALESCE(p.retweet_count, 0)) DESC LIMIT ?2`
       ).bind(cutoff, limit).all();
       const posts = (rows as never as Array<PostRow & {
         memberId: string;
@@ -91,10 +90,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
     // 全社群单帖浏览 Top 8（posts 表 + members 联查，带成员展示信息）
     const { results: topPostRows } = await env.DB.prepare(
-      `SELECT p.tweet_id AS tweetId, p.created_at AS createdAt, p.text,
-              p.views_count AS views, p.like_count AS likes, p.reply_count AS replies,
-              p.retweet_count AS retweets, p.quote_count AS quotes, p.bookmark_count AS bookmarks,
-              m.id AS memberId, m.handle, m.display_name AS displayName, m.profile_image AS profileImage
+      `SELECT ${TOP_POST_FIELDS}
        FROM posts p
        JOIN members m ON m.id = p.member_id
        WHERE m.status = 'active' AND p.views_count IS NOT NULL

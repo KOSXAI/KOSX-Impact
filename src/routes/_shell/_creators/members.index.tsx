@@ -67,7 +67,9 @@ export const Route = createFileRoute("/_shell/_creators/members/")({
         { property: "og:url", content: `${SITE_URL}/members` },
         { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
         { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
       ],
+      links: [{ rel: "canonical", href: `${SITE_URL}/members` }],
     };
   },
   component: MembersSquarePage,

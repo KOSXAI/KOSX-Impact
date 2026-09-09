@@ -44,6 +44,7 @@ export const Route = createFileRoute("/_shell/_creators/tracks/")({
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
       ],
+      links: [{ rel: "canonical", href: `${SITE_URL}/tracks` }],
     };
   },
   component: TracksPage,

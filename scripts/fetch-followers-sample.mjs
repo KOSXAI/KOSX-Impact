@@ -3,7 +3,8 @@
 // 需先调 profile 拿数字 ID（followers 端点只认 ID）；采样节流 650ms（~92 req/min < 120 共享上限）。
 // 用法：node scripts/fetch-followers-sample.mjs [--apply] [--size 200] [handle...]
 import { execSync } from "node:child_process";
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
+import { readSocialDataKey, createThrottledGet } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const APPLY = argv.includes("--apply");
@@ -11,17 +12,12 @@ const sizeIdx = argv.indexOf("--size");
 const SAMPLE_SIZE = sizeIdx >= 0 ? parseInt(argv[sizeIdx + 1], 10) : 200;
 const wantHandles = argv.filter((a) => !a.startsWith("--"));
 
-// API key：.dev.vars 或环境变量
-const devVars = existsSync(".dev.vars") ? readFileSync(".dev.vars", "utf-8") : "";
-const apiKey =
-  process.env.SOCIALDATA_API_KEY ??
-  devVars.match(/^SOCIALDATA_API_KEY=(.+)$/m)?.[1]?.trim();
+const apiKey = readSocialDataKey();
 if (!apiKey) {
   console.error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
   process.exit(1);
 }
 
-const API_BASE = "https://api.socialdata.tools";
 const MIN_INTERVAL_MS = 650;
 
 let members = [];
@@ -44,17 +40,7 @@ const skipped = members.filter((m) => !m.userId).map((m) => m.handle);
 console.log(`待采样 ${ready.length} 位（${members.length - ready.length} 位缺 user_id 跳过），目标 ${SAMPLE_SIZE} 粉丝/账号，节流 ${MIN_INTERVAL_MS}ms`);
 if (skipped.length) console.log("缺 user_id 跳过:", skipped.join(", "), "（下次采集自动补齐后重跑）");
 
-let lastRequestAt = 0;
-async function get(path) {
-  const wait = lastRequestAt + MIN_INTERVAL_MS - Date.now();
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastRequestAt = Date.now();
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-  return res.json();
-}
+const get = createThrottledGet(apiKey, MIN_INTERVAL_MS);
 
 /** 拉某成员粉丝样本：直接用库内 userId（每日采集已持久化），翻页直到 SAMPLE_SIZE */
 async function sampleFollowers(userId) {
@@ -146,6 +132,9 @@ if (APPLY && profiles.length) {
 }
 
 console.log(`\n成功 ${profiles.length} 位，失败 ${failed.length} 位`);
-if (failed.length) console.log("失败清单:\n" + failed.join("\n"));
+if (failed.length) {
+  console.log("失败清单:\n" + failed.join("\n"));
+  process.exitCode = 1;
+}
 console.log(`产物: /tmp/fan-profiles.json ${APPLY ? "（已入库）" : ""}`);
 writeFileSync("/tmp/fan-profiles.json", JSON.stringify({ profiles, failed, sampled_at: now }, null, 2));

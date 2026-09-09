@@ -22,6 +22,7 @@ export function TopLoadingBar() {
       {visible && (
         <motion.div
           key="top-loading-bar"
+          aria-hidden="true"
           initial={{ scaleX: 0, opacity: 0 }}
           animate={{ scaleX: 0.85, opacity: 1 }}
           exit={{ scaleX: 1, opacity: 0 }}

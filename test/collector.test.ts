@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyFollowerStats, collectWithSource } from "../src/collector";
+import { applyFollowerStats, collectWithSource, shardMembersForHour } from "../src/collector";
 import type { RosterFile } from "../src/roster";
 import type { FollowerSource, FollowerStats } from "../src/sources/types";
 
@@ -29,7 +29,6 @@ function stubSource(stats: Record<string, FollowerStats | Error>): FollowerSourc
 beforeEach(async () => {
   await env.DB.prepare("DELETE FROM snapshots").run();
   await env.DB.prepare("DELETE FROM milestones").run();
-  await env.DB.prepare("DELETE FROM daily_stats").run();
   await env.DB.prepare("DELETE FROM posts").run();
   await env.DB.prepare("DELETE FROM members").run();
 });
@@ -42,6 +41,27 @@ async function seedBaselines() {
     "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('alice', 900, '2026-08-30T00:00:00Z'), ('bob', 1200, '2026-08-30T00:00:00Z')"
   ).run();
 }
+
+describe("shardMembersForHour", () => {
+  const members = Array.from({ length: 48 }, (_, i) => ({ id: `member-${String(i).padStart(2, "0")}` }));
+
+  it("分片无重叠无遗漏：每个 id 恰好落进一个槽", () => {
+    const union = new Set<number>();
+    let total = 0;
+    for (let h = 0; h < 24; h++) {
+      const shard = shardMembersForHour(members, h);
+      total += shard.length;
+      for (const m of shard) union.add(members.indexOf(m));
+    }
+    expect(total).toBe(48);
+    expect(union.size).toBe(48); // 并集覆盖全体 = 无重叠无遗漏
+  });
+
+  it("负数小时取模归一（UTC 边界）", () => {
+    const h0 = shardMembersForHour(members, 0);
+    expect(shardMembersForHour(members, -24)).toEqual(h0);
+  });
+});
 
 describe("collectWithSource", () => {
   it("滚动采集：各成员在其小时槽被采集并写入当日快照", async () => {
@@ -93,20 +113,6 @@ describe("collectWithSource", () => {
       { tweetId: "t1", views: 100 },
       { tweetId: "t2", views: null },
     ]);
-  });
-
-  it("滚动采集：daily_stats 预聚合随采集写入", async () => {
-    await seedBaselines();
-    await collectWithSource(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: { followers: 1300 },
-    }), testRoster, undefined, 0);
-
-    const stats = (await env.DB.prepare(
-      "SELECT followers, growth, growth7d, growth30d FROM daily_stats WHERE member_id = 'alice'"
-    ).first()) as { followers: number; growth: number; growth7d: number; growth30d: number };
-    expect(stats.followers).toBe(1500);
-    expect(stats.growth).toBe(600); // 900 → 1500
   });
 
   it("跨过阈值时写入登阶事件", async () => {
@@ -215,11 +221,6 @@ describe("collectWithSource", () => {
     expect(snapshot.followers).toBe(1500);
     expect(snapshot.listed_count).toBe(37);
     expect(snapshot.favourites_count).toBe(4200);
-
-    const daily = (await env.DB.prepare(
-      "SELECT followers FROM daily_stats WHERE member_id = 'alice'"
-    ).first()) as { followers: number };
-    expect(daily.followers).toBe(1500);
 
     const member = (await env.DB.prepare(
       `SELECT display_name, bio, location, url, banner_url, x_created_at, verified

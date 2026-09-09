@@ -15,9 +15,10 @@ import { cn } from "@/lib/utils";
  * 属于博主模块的第三层视图（URL 直达可分享）。
  */
 export const Route = createFileRoute("/_shell/compare")({
+  // a/b 只在非空时进 URL：缺省不回填空串，避免裸路径 /compare 307 成 /compare?a=&b=
   validateSearch: (search: Record<string, unknown>) => ({
-    a: typeof search.a === "string" ? search.a : "",
-    b: typeof search.b === "string" ? search.b : "",
+    ...(typeof search.a === "string" && search.a ? { a: search.a } : {}),
+    ...(typeof search.b === "string" && search.b ? { b: search.b } : {}),
   }),
   loader: async ({ location }) => {
     const s = location.search as { a?: string; b?: string };
@@ -39,9 +40,14 @@ export const Route = createFileRoute("/_shell/compare")({
         { title },
         { name: "description", content: "KOSX 成员数据同屏对比：粉丝、增长、影响力、内容效率与被提及热度。" },
         { property: "og:title", content: title },
+        { property: "og:description", content: "KOSX 成员数据同屏对比：粉丝、增长、影响力、内容效率与被提及热度。" },
         { property: "og:type", content: "website" },
         { property: "og:url", content: `${SITE_URL}/compare` },
+        { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
       ],
+      links: [{ rel: "canonical", href: `${SITE_URL}/compare` }],
     };
   },
   component: ComparePage,
@@ -68,7 +74,7 @@ function ComparePage() {
         <div className="mt-10 grid grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-4">
           <PickerSlot member={left} onOpen={() => setPicking("a")} />
           <div className="flex items-center justify-center" aria-hidden="true">
-            <span className="flex size-10 items-center justify-center rounded-full border border-line bg-surface text-sm font-black text-mist">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-sm font-black text-mist">
               VS
             </span>
           </div>
@@ -153,7 +159,7 @@ function PickerSlot({ member, onOpen }: { member: Detail | null; onOpen: () => v
         <a
           href={xProfileUrl(member.member.handle)}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="text-sm text-mist hover:text-ink"
         >
           @{member.member.handle}
@@ -253,7 +259,7 @@ function MemberPickerDialog({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="搜索昵称或 @handle…"
-            className="flex-1 bg-transparent text-base text-ink outline-none placeholder:text-mist/50"
+            className="flex-1 bg-transparent text-base text-ink outline-none placeholder:text-mist/60"
           />
         </div>
         <div className="max-h-80 overflow-y-auto p-2">

@@ -1,10 +1,13 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals, fetchContentRecipe } from "@/data.functions";
 import type { PostItem } from "@/stats";
 import { Avatar } from "@/components/member/Avatar";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 import { Reveal } from "@/components/motion";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { Metric } from "@/components/ui/Metric";
+import { PODIUM } from "@/components/leaderboard/podium";
 import { ExternalLink, Eye, Heart, MessageCircle, Repeat2, Users, TrendingUp } from "lucide-react";
 import { fmt, fmtDate, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
@@ -33,19 +36,12 @@ export const Route = createFileRoute("/_shell/posts")({
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/posts` }],
   }),
   component: PostsPage,
 });
 
-/** 帖子行内指标：图标 + 数值 */
-function Metric({ icon, value, label }: { icon: React.ReactNode; value: number | null; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-mist" title={label}>
-      {icon}
-      <span className="tabular-nums">{value != null ? fmt(value) : "—"}</span>
-    </span>
-  );
-}
+/** 帖子行内指标：图标 + 数值（共享 Metric 组件，读屏可念出指标名） */
 
 function PostsPage() {
   const { insights, posts, allPosts, signals, recipe } = Route.useLoaderData();
@@ -134,7 +130,7 @@ function PostsPage() {
                     <ul className="mt-3 space-y-2">
                       {following.map((s) => (
                         <li key={s.handle}>
-                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
                             <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.name ?? `@${s.handle}`}</span>
                             <span className="truncate text-xs text-mist">@{s.handle}</span>
                             <b className="shrink-0 text-xs text-signal tabular-nums">{s.count} 人</b>
@@ -153,7 +149,7 @@ function PostsPage() {
                     <ul className="mt-3 space-y-2">
                       {taste.map((s) => (
                         <li key={s.handle}>
-                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
                             <span className="min-w-0 flex-1 truncate text-sm font-semibold">@{s.handle}</span>
                             <b className="shrink-0 text-xs text-signal tabular-nums">被提 {s.count} 次</b>
                           </a>
@@ -172,22 +168,22 @@ function PostsPage() {
           <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-bold">{scope === "30d" ? "精华帖" : "历史 Top 帖"}</h2>
-              <div className="flex gap-1 rounded-full border border-line bg-soft-surface p-1">
-                {([["30d", "近 30 天"], ["all", "全站历史"]] as const).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => setScope(key)}
-                    className={cn(
-                      "h-8 cursor-pointer select-none rounded-full px-4 text-sm font-semibold transition-colors",
-                      scope === key ? "bg-white text-paper" : "text-mist hover:text-ink"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                value={scope}
+                onChange={setScope}
+                options={[
+                  { key: "30d" as const, label: "近 30 天" },
+                  { key: "all" as const, label: "全站历史" },
+                ]}
+                size="md"
+                ariaLabel="精华帖时间范围"
+              />
             </div>
-            <PostList posts={scope === "30d" ? posts : scope === "all" && allPosts.length > 0 ? allPosts : posts} />
+            {scope === "all" && allPosts.length === 0 ? (
+              <p className="mt-5 text-mist">全站历史数据还在采集中，跑满一个采集周期后自动展示。</p>
+            ) : (
+              <PostList posts={scope === "30d" ? posts : allPosts} />
+            )}
           </section>
         </Reveal>
       </div>
@@ -197,17 +193,11 @@ function PostsPage() {
 
 function PostList({ posts }: { posts: PostItem[] }) {
   if (posts.length === 0) return <p className="mt-5 text-mist">还没有帖子数据。</p>;
-  const P = [
-    { rankNum: "from-amber-300 to-amber-600", ring: "border-amber-400/40 bg-gradient-to-r from-amber-400/15 to-transparent" },
-    { rankNum: "from-slate-300 to-slate-500", ring: "border-slate-400/30 bg-gradient-to-r from-slate-400/12 to-transparent" },
-    { rankNum: "from-orange-400 to-orange-700", ring: "border-orange-500/30 bg-gradient-to-r from-orange-500/12 to-transparent" },
-  ];
   return (
     <main className="mt-5 space-y-3">
       {posts.map((p, i) => {
         const name = p.member?.displayName ?? p.member?.handle ?? "?";
-        const isPodium = i < 3;
-        const podium = isPodium ? P[i] : undefined;
+        const podium = PODIUM[i];
         return (
           <Reveal key={p.tweetId} delay={Math.min(i * 0.04, 0.3)} y={14}>
             <article

@@ -4,6 +4,9 @@ import { TRACKS, TRACK_OTHER, trackOf } from "@/tracks";
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/member/Avatar";
 import { AnimatedNumber } from "@/components/motion";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { PODIUM } from "@/components/leaderboard/podium";
+import { MemberRankRow } from "@/components/leaderboard/MemberRankRow";
 import { ArrowUpRight, Blocks, CandlestickChart, Eye, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
 import { fmt, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -33,13 +36,13 @@ type SortKey = "followers" | "growth" | "posts";
  * 综合是过渡桶不参与榜单；顶部每赛道可直达赛道独立页。
  */
 export function TrackSection({ members, trackStats }: { members: MemberStats[]; trackStats: TrackStats[] }) {
-  const active = members.filter((m) => m.tracks.length > 0);
-  if (active.length === 0) return null;
-
+  // hooks 必须先于条件 return：赛道成员数从有到无时组件仍会重渲染，晚声明会崩 hooks 顺序
   const [sortKey, setSortKey] = useState<SortKey>("followers");
   const [selected, setSelected] = useState<string>(
-    () => [...TRACKS, TRACK_OTHER].find((t) => active.some((m) => m.tracks.includes(t.name)))?.name ?? TRACK_OTHER.name
+    () => [...TRACKS, TRACK_OTHER].find((t) => members.some((m) => m.tracks.includes(t.name)))?.name ?? TRACK_OTHER.name
   );
+  const active = members.filter((m) => m.tracks.length > 0);
+  if (active.length === 0) return null;
   const inTrack = active.filter((m) => m.tracks.includes(selected));
   const isOther = selected === TRACK_OTHER.name;
   const perTrack = trackStats.find((t) => t.name === selected);
@@ -101,20 +104,14 @@ export function TrackSection({ members, trackStats }: { members: MemberStats[]; 
 
       {/* 口径切换：存量 / 增长 / 帖子互动（综合过渡桶只出成员） */}
       {!isOther && (
-        <div className="mt-4 flex gap-1 rounded-full border border-line bg-soft-surface p-1 sm:inline-flex">
-          {sorts.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setSortKey(s.key)}
-              className={cn(
-                "h-8 flex-1 rounded-full px-3 text-xs font-semibold transition-colors sm:flex-none sm:px-4",
-                sortKey === s.key ? "bg-white text-paper" : "text-mist hover:text-ink"
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={sortKey}
+          onChange={setSortKey}
+          options={sorts}
+          size="md"
+          className="mt-4 flex w-full sm:w-auto"
+          ariaLabel="赛道排序口径"
+        />
       )}
 
       {sortKey === "posts" && !isOther ? (
@@ -122,7 +119,7 @@ export function TrackSection({ members, trackStats }: { members: MemberStats[]; 
       ) : (
         <ol className="mt-5 space-y-2.5">
           {sortedMembers.map((m, i) => (
-            <TrackRow key={m.id} member={m} rank={i + 1} metric={sortKey === "growth" ? m.growth7d : null} />
+            <TrackRow key={m.id} member={m} rank={i + 1} podium={PODIUM[i]} metric={sortKey === "growth" ? m.growth7d : null} />
           ))}
           {sortedMembers.length === 0 && <li className="text-sm text-mist">这个赛道还没有成员。</li>}
         </ol>
@@ -172,83 +169,80 @@ function TrackPostList({ trackName, posts }: { trackName: string; posts: TrackSt
   );
 }
 
-/** 赛道成员行卡：排名 + 头像 + 名字 + 轨道 chip + 标签 + 粉丝量或周增长 */
-function TrackRow({ member: m, rank, metric }: { member: MemberStats; rank: number; metric: number | null }) {
+/** 赛道成员行卡：排名 + 头像 + 名字 + 轨道 chip + 标签 + 粉丝量或周增长（前三名荣誉渐晕） */
+function TrackRow({
+  member: m,
+  rank,
+  podium,
+  metric,
+}: {
+  member: MemberStats;
+  rank: number;
+  podium?: (typeof PODIUM)[number];
+  metric: number | null;
+}) {
   const name = m.displayName ?? m.handle;
   const track = m.tracks.find((t) => t !== TRACK_OTHER.name) ?? m.tracks[0];
   const trackMeta = track ? trackOf(track) : undefined;
-  const isPodium = rank <= 3;
-  const P = [
-    { rankNum: "from-amber-300 to-amber-600", ring: "border-amber-400/40 bg-gradient-to-r from-amber-400/15 to-transparent" },
-    { rankNum: "from-slate-300 to-slate-500", ring: "border-slate-400/30 bg-gradient-to-r from-slate-400/12 to-transparent" },
-    { rankNum: "from-orange-400 to-orange-700", ring: "border-orange-500/30 bg-gradient-to-r from-orange-500/12 to-transparent" },
-  ];
-  const podium = isPodium ? P[rank - 1] : undefined;
   return (
-    <li
-      className={cn(
-        "flex items-center gap-3 px-4 py-3",
-        podium ? `card-lift rounded-2xl border ${podium.ring}` : "rounded-2xl border border-line bg-soft-surface"
-      )}
-    >
-      <div
-        className={cn(
-          "w-6 shrink-0 font-extrabold tabular-nums",
-          podium ? "bg-gradient-to-br bg-clip-text text-transparent" : "text-mist",
-          podium?.rankNum
-        )}
-      >
-        {rank}
-      </div>
-      <Avatar url={m.profileImage} name={name} className="size-10 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
-            {name}
-          </Link>
-          {trackMeta && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-mist"
-              title={trackMeta.description}
+    <MemberRankRow
+      bordered
+      rank={rank}
+      podium={podium}
+      profileImage={m.profileImage}
+      name={name}
+      middle={
+        <div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+              {name}
+            </Link>
+            {trackMeta && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-mist"
+                title={trackMeta.description}
+              >
+                <TrackIcon name={trackMeta.icon} className="size-3" aria-hidden="true" />
+                {trackMeta.name}
+              </span>
+            )}
+            <a
+              href={`https://x.com/${encodeURIComponent(m.handle)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
             >
-              <TrackIcon name={trackMeta.icon} className="size-3" aria-hidden="true" />
-              {trackMeta.name}
-            </span>
-          )}
-          <a
-            href={`https://x.com/${encodeURIComponent(m.handle)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
-          >
-            @{m.handle}
-          </a>
-        </div>
-        {m.tags.length > 0 && (
-          <div className="mt-1 truncate text-xs text-mist">
-            {m.tags.slice(0, 4).map((t) => `#${t}`).join("  ")}
+              @{m.handle}
+            </a>
           </div>
-        )}
-      </div>
-      <div className="shrink-0 text-right">
-        {metric !== null ? (
-          <>
-            <div className="text-lg font-bold text-signal tabular-nums">
-              <AnimatedNumber value={metric} prefix="+" />
+          {m.tags.length > 0 && (
+            <div className="mt-1 truncate text-xs text-mist">
+              {m.tags.slice(0, 4).map((t) => `#${t}`).join("  ")}
             </div>
-            <div className="text-xs text-mist">近 7 天</div>
-          </>
-        ) : (
-          <>
-            <div className="text-lg font-bold tabular-nums">
-              <AnimatedNumber value={m.latestFollowers ?? 0} />
-            </div>
-            <div className="text-xs text-mist tabular-nums">
-              {m.latestFollowers != null ? `还差 ${fmt(m.nextMilestone - m.latestFollowers)}` : "排队中"}
-            </div>
-          </>
-        )}
-      </div>
-    </li>
+          )}
+        </div>
+      }
+      trailing={
+        <div className="shrink-0 text-right">
+          {metric !== null ? (
+            <>
+              <div className="text-lg font-bold text-signal tabular-nums">
+                <AnimatedNumber value={metric} prefix="+" />
+              </div>
+              <div className="text-xs text-mist">近 7 天</div>
+            </>
+          ) : (
+            <>
+              <div className="text-lg font-bold tabular-nums">
+                <AnimatedNumber value={m.latestFollowers ?? 0} />
+              </div>
+              <div className="text-xs text-mist tabular-nums">
+                {m.latestFollowers != null ? `还差 ${fmt(m.nextMilestone - m.latestFollowers)}` : "排队中"}
+              </div>
+            </>
+          )}
+        </div>
+      }
+    />
   );
 }

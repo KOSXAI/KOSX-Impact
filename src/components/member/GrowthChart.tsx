@@ -9,7 +9,7 @@
 import { Suspense, lazy } from "react";
 import { ClientOnly } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { fmt } from "@/lib/format";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Snapshot = { followers: number; recordedAt: string };
 
@@ -32,14 +32,7 @@ export function GrowthChart({
   return (
     <div className={cn("aspect-[3/2] sm:aspect-[10/3]", className)}>
       <ClientOnly
-        fallback={
-          <div
-            className="bg-muted/50 flex h-full w-full items-center justify-center rounded-lg border"
-            aria-label="成长曲线加载中"
-          >
-            <span className="text-muted-foreground text-sm">图表加载中…</span>
-          </div>
-        }
+        fallback={<Skeleton className="h-full w-full rounded-lg" aria-label="成长曲线加载中" />}
       >
         <Suspense fallback={null}>
           <RechartsGrowthChart snapshots={snapshots} nextMilestone={nextMilestone} />

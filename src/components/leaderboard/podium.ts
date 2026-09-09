@@ -13,3 +13,5 @@ export const PODIUM = [
     rankNum: "from-orange-400 to-orange-700",
   },
 ] as const;
+
+export type PodiumStyle = (typeof PODIUM)[number];

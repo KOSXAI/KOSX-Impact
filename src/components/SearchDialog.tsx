@@ -12,8 +12,8 @@ interface SearchDialogProps {
 }
 
 type SearchItem =
-  | { type: "member"; id: string; title: string; subtitle: string; to: string }
-  | { type: "track"; id: string; title: string; subtitle: string; to: string };
+  | { type: "member"; id: string; title: string; subtitle: string }
+  | { type: "track"; id: string; title: string; subtitle: string };
 
 export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   const [query, setQuery] = useState("");
@@ -39,13 +39,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
     // 赛道项
     for (const t of TRACKS) {
       if (!q || t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)) {
-        list.push({
-          type: "track",
-          id: t.slug,
-          title: t.name,
-          subtitle: t.description,
-          to: `/tracks/${t.slug}`,
-        });
+        list.push({ type: "track", id: t.slug, title: t.name, subtitle: t.description });
       }
     }
 
@@ -53,27 +47,22 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
     for (const m of roster.members) {
       const name = m.displayName ?? m.handle;
       if (!q || name.toLowerCase().includes(q) || m.handle.toLowerCase().includes(q)) {
-        list.push({
-          type: "member",
-          id: m.id,
-          title: name,
-          subtitle: `@${m.handle}`,
-          to: `/members/${m.id}`,
-        });
+        list.push({ type: "member", id: m.id, title: name, subtitle: `@${m.handle}` });
       }
     }
 
     return list;
-  }, [query]);
+  }, [deferredQuery]);
 
   // 保证高亮索引在范围内
   useEffect(() => {
     setSelectedIndex(0);
-  }, [query]);
+  }, [deferredQuery]);
 
   const selectItem = (item: SearchItem) => {
     onOpenChange(false);
-    navigate({ to: item.to as any });
+    if (item.type === "member") navigate({ to: "/members/$id", params: { id: item.id } });
+    else navigate({ to: "/tracks/$slug", params: { slug: item.id } });
   };
 
   // 键盘导航
@@ -107,7 +96,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="搜索成员昵称、@handle 或赛道..."
-            className="flex-1 bg-transparent text-base text-ink placeholder:text-mist/50 outline-none"
+            className="flex-1 bg-transparent text-base text-ink placeholder:text-mist/60 outline-none"
           />
           <kbd className="hidden sm:inline-flex items-center rounded border border-line bg-soft-surface px-1.5 py-0.5 text-[10px] font-medium text-mist">
             ESC

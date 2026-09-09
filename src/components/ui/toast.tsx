@@ -40,6 +40,8 @@ export function Toaster() {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-5 z-[110] flex justify-center px-4">
+      {/* aria-live：复制成功等瞬态提示对读屏可见 */}
+      <div role="status" aria-live="polite" className="contents">
       <AnimatePresence>
         {current && (
           <motion.div
@@ -54,6 +56,7 @@ export function Toaster() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

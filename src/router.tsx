@@ -1,10 +1,13 @@
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+import { DefaultError } from "@/components/DefaultError";
 
 export function getRouter() {
   const router = createRouter({
     routeTree,
     scrollRestoration: true,
+    // loader / 渲染抛错时用中文错误页兜底，而非 TanStack 默认英文原始错误页
+    defaultErrorComponent: DefaultError,
     // 智能预加载：鼠标悬停链接 50ms 自动预拉取路由代码与数据，实现 0 毫秒秒开
     defaultPreload: "intent",
     defaultPreloadDelay: 50,

@@ -10,21 +10,26 @@ import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_shell/_creators/leaderboard")({
-  // 视图状态进 URL：每个榜/时间档可分享、可被搜索引擎收录（多维时间榜）
-  validateSearch: (search: Record<string, unknown>) => ({
-    tab: (
-      ["leaderboard", "growth", "rising", "active", "mentions", "climbs", "influence"] as TabKey[]
-    ).includes(search.tab as TabKey)
-      ? (search.tab as TabKey)
-      : ("leaderboard" as TabKey),
-    metric: (["growth", "views", "posts", "replies"] as const).includes(search.metric as never)
-      ? (search.metric as "growth" | "views" | "posts" | "replies")
-      : ("growth" as const),
-    range: (() => {
-      const rv = String(search.range ?? "");
-      return rv === "1" ? (1 as const) : rv === "7" ? (7 as const) : (30 as const);
-    })(),
-  }),
+  // 视图状态进 URL：每个榜/时间档可分享、可被搜索引擎收录（多维时间榜）。
+  // 缺省参数不回填默认值——回填会让裸路径 /leaderboard 307 跳成带参 URL，sitemap 收录的正是裸路径
+  validateSearch: (search: Record<string, unknown>) => {
+    const out: { tab?: TabKey; metric?: "growth" | "views" | "posts" | "replies"; range?: 1 | 7 | 30 } = {};
+    if (
+      (["leaderboard", "growth", "rising", "active", "mentions", "climbs", "influence"] as TabKey[]).includes(
+        search.tab as TabKey
+      )
+    ) {
+      out.tab = search.tab as TabKey;
+    }
+    if ((["growth", "views", "posts", "replies"] as const).includes(search.metric as never)) {
+      out.metric = search.metric as "growth" | "views" | "posts" | "replies";
+    }
+    const range = String(search.range ?? "");
+    if (range === "1") out.range = 1;
+    else if (range === "7") out.range = 7;
+    else if (range === "30") out.range = 30;
+    return out;
+  },
   loader: () => fetchDashboard(),
   head: () => ({
     meta: [
@@ -34,10 +39,11 @@ export const Route = createFileRoute("/_shell/_creators/leaderboard")({
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
       { property: "og:url", content: `${SITE_URL}/leaderboard` },
-      { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
+      { property: "og:image", content: `${SITE_URL}/og/leaderboard.png` },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
+      { name: "twitter:image", content: `${SITE_URL}/og/leaderboard.png` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/leaderboard` }],
   }),
   component: LeaderboardPage,
 });
@@ -46,7 +52,10 @@ type TabKey = "leaderboard" | "growth" | "rising" | "active" | "mentions" | "cli
 
 function LeaderboardPage() {
   const stats = Route.useLoaderData();
-  const { tab, range, metric } = Route.useSearch();
+  const search = Route.useSearch();
+  const tab = search.tab ?? "leaderboard";
+  const metric = search.metric ?? "growth";
+  const range = search.range ?? 30;
   const navigate = Route.useNavigate();
   const setTab = (t: TabKey) => navigate({ search: (prev) => ({ ...prev, tab: t }) });
   // 总排行：最新粉丝量从高到低（stats.members 已按此排序）
@@ -95,6 +104,7 @@ function LeaderboardPage() {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
+                aria-pressed={isActive}
                 className={cn(
                   "relative h-10 flex-1 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors duration-200 select-none cursor-pointer sm:h-9 sm:flex-none sm:px-5",
                   isActive ? "text-paper" : "text-mist hover:text-ink"

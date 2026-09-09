@@ -1,11 +1,12 @@
 /**
  * 归档与年度查询：getAnnualReport（/annual 年度影响力报告）与 getDailyArchive（/daily 社日归档）。
+ * 套 cachedQuery 边缘缓存：年度报告 1h；日报按日期分键（历史日期不可变，同样 1h）。
  */
+import { CACHE_KEYS, cachedQuery } from "../cache";
 import type { PostItem } from "../stats";
-import { mapPostRow, type PostRow } from "./shared";
+import { TOP_POST_FIELDS, mapPostRow, type PostRow } from "./shared";
 
-/** 年度影响力报告（/annual 用）：本年至今的社群叙事——YTD 增长 / 月度总粉丝 / 年度登阶 / Top 涨粉与声量 / 年度最火内容 */
-export async function getAnnualReport(env: Env): Promise<{
+export interface AnnualReport {
   year: number;
   totalFollowers: number;
   memberCount: number;
@@ -14,9 +15,16 @@ export async function getAnnualReport(env: Env): Promise<{
   topGrowers: Array<{ memberId: string; handle: string; displayName: string | null; profileImage: string | null; growth: number }>;
   topMentions: Array<{ memberId: string; handle: string; displayName: string | null; profileImage: string | null; count: number }>;
   topPosts: PostItem[];
-  ytdClimbsList: Array<{ memberId: string; handle: string; displayName: string | null; threshold: number; achievedAt: string }>;
+  ytdClimbsList: Array<{ memberId: string; handle: string; displayName: string | null; profileImage: string | null; threshold: number; achievedAt: string }>;
   ytdClimbs: number;
-}> {
+}
+
+/** 年度影响力报告（/annual 用）：本年至今的社群叙事——YTD 增长 / 月度总粉丝 / 年度登阶 / Top 涨粉与声量 / 年度最火内容 */
+export async function getAnnualReport(env: Env): Promise<AnnualReport> {
+  return cachedQuery(env, CACHE_KEYS.annualReport, 3600, () => buildAnnualReport(env));
+}
+
+async function buildAnnualReport(env: Env): Promise<AnnualReport> {
   const now = new Date();
   const year = now.getFullYear();
   const yearStart = new Date(Date.UTC(year, 0, 1)).toISOString();
@@ -59,20 +67,17 @@ export async function getAnnualReport(env: Env): Promise<{
 
   const { results: climbRows } = await env.DB.prepare(
     `SELECT ms.member_id AS memberId, ms.threshold, ms.achieved_at AS achievedAt,
-            m.handle, m.display_name AS displayName
+            m.handle, m.display_name AS displayName, m.profile_image AS profileImage
      FROM milestones ms JOIN members m ON m.id = ms.member_id
      WHERE ms.achieved_at >= ?1 AND m.status = 'active' ORDER BY ms.achieved_at DESC`
   ).bind(yearStart).all();
   const ytdClimbsList = (climbRows as never as Array<{
-    memberId: string; handle: string; displayName: string | null; threshold: number; achievedAt: string;
+    memberId: string; handle: string; displayName: string | null; profileImage: string | null; threshold: number; achievedAt: string;
   }>).slice(0, 10);
   const ytdClimbs = climbRows.length;
 
   const { results: topPostRows } = await env.DB.prepare(
-    `SELECT p.tweet_id AS tweetId, p.created_at AS createdAt, p.text,
-            p.views_count AS views, p.like_count AS likes, p.reply_count AS replies,
-            p.retweet_count AS retweets, p.quote_count AS quotes, p.bookmark_count AS bookmarks,
-            m.id AS memberId, m.handle, m.display_name AS displayName, m.profile_image AS profileImage
+    `SELECT ${TOP_POST_FIELDS}
      FROM posts p JOIN members m ON m.id = p.member_id
      WHERE m.status = 'active' AND p.views_count IS NOT NULL
      ORDER BY p.views_count DESC LIMIT 6`
@@ -96,8 +101,21 @@ export async function getAnnualReport(env: Env): Promise<{
   return { year, totalFollowers, memberCount: members.length, ytdGrowth, monthlyTrend, topGrowers, topMentions, topPosts, ytdClimbsList, ytdClimbs };
 }
 
+export interface DailyArchiveReport {
+  date: string;
+  memberCount: number;
+  totalFollowers: number;
+  climbs: Array<{ memberId: string; handle: string; displayName: string | null; threshold: number; achievedAt: string }>;
+  mentionsCount: number;
+  newJoins: number;
+}
+
 /** 社日归档：指定统计日（YYYY-MM-DD）的社群快照——当日总粉丝 / 当日登阶 / 当日提及（/daily?date=） */
-export async function getDailyArchive(env: Env, date: string) {
+export async function getDailyArchive(env: Env, date: string): Promise<DailyArchiveReport> {
+  return cachedQuery(env, CACHE_KEYS.dailyArchive(date), 3600, () => buildDailyArchive(env, date));
+}
+
+async function buildDailyArchive(env: Env, date: string): Promise<DailyArchiveReport> {
   const dayEnd = `${date}T23:59:59`;
   const { results: followerRows } = await env.DB.prepare(
     `SELECT s.member_id AS memberId, s.followers FROM snapshots s

@@ -30,7 +30,7 @@ export function ClimbsList({ stats }: { stats: DashboardStats }) {
                   <a
                     href={xProfileUrl(m.handle)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
                   >
                     @{m.handle}

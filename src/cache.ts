@@ -9,6 +9,7 @@
  * - Cache-Control 拆开共享/浏览器缓存：s-maxage 管 CDN，max-age 默认 60 秒管浏览器，
  *   用户刷新页面不会命中自己浏览器里的旧 JSON。
  */
+import { SITE_URL } from "./lib/site";
 
 export interface CachedResponseOptions {
   /**
@@ -26,8 +27,8 @@ export interface CachedResponseOptions {
  * 结构升级升 v、数据变化靠 cb 自动换键。
  */
 export const CACHE_KEYS = {
-  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v20：MemberStats 携带帖子内容指标 posts30d/posts7d/avgViewsPerPost/efficiencyVsMedian（新锐榜·勤快榜） */
-  dashboard: "/api/dashboard?v=20",
+  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v21：影响力指数质量系数口径对齐公示（大列表收录 +0.15） */
+  dashboard: "/api/dashboard?v=21",
   /** 成员列表（/api/members） */
   memberList: "/api/members?v=10",
   /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */
@@ -38,12 +39,31 @@ export const CACHE_KEYS = {
   ogReport: (memberId: string) => `/og/reports/${memberId}?v=1`,
   /** 赛道 OG 分享卡（PNG） */
   ogTrack: (slug: string) => `/og/tracks/${slug}?v=1`,
+  /** 榜单 OG 分享卡（PNG，榜单页 head 用） */
+  ogLeaderboard: "/og/leaderboard.png?v=1",
   /** 站点 OG 分享卡（PNG） */
   ogSite: "/og/site.png?v=1",
-  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v18：新增 neighbors（赛道内名次 + 同赛道伙伴） */
-  memberDetail: (id: string) => `/api/members/${id}?v=18`,
-  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v2：views 缺失 COALESCE 兜底排序 */
-  topPosts: "/api/top-posts?v=2",
+  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v19：随看板 v21 的影响力口径升级 */
+  memberDetail: (id: string) => `/api/members/${id}?v=19`,
+  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v3：兜底排序修复（NULL 互动项毒化加法和） */
+  topPosts: "/api/top-posts?v=3",
+  /** sitemap.xml（SSR 之外的 Worker 直出，键只作 Cache API 存储用） */
+  sitemap: "/sitemap.xml?v=2",
+  /** 以下为无独立 API 端点的查询层键（/q/ 前缀仅作缓存键，不构成可请求路径） */
+  /** 社群信号：共同关注 / 社群热议（内容页策展） */
+  communitySignals: "/q/community-signals?v=1",
+  /** 内容配方：黄金时段 + 形态（30 天 posts 全扫聚合，最重的未缓存查询） */
+  contentRecipe: "/q/content-recipe?v=1",
+  /** 粉丝质量聚合（社群能量报告） */
+  fanOverview: "/q/fan-overview?v=1",
+  /** 帖子互动头部（社群能量报告） */
+  topEngagement: "/q/top-engagement?v=1",
+  /** 邀请荣誉榜（社群能量报告） */
+  inviteLeaders: "/q/invite-leaders?v=1",
+  /** 年度影响力报告 */
+  annualReport: "/q/annual-report?v=1",
+  /** 社群日报归档（按日期分键） */
+  dailyArchive: (date: string) => `/q/daily/${date}?v=1`,
 } as const;
 
 export async function cachedResponse(
@@ -80,4 +100,18 @@ export async function readCacheBust(env: Env): Promise<number> {
     "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
   ).first()) as { bust: number | null } | null;
   return row?.bust ?? 1;
+}
+
+/**
+ * 查询层便捷封装（queries/ 各模块共用）：cache_bust 拼键 + JSON 序列化进出。
+ * 没有独立 API 端点的查询（社群信号 / 内容配方 / 归档等）也走同一套边缘缓存。
+ */
+export async function cachedQuery<T>(env: Env, key: string, ttl: number, build: () => Promise<T>): Promise<T> {
+  const bust = await readCacheBust(env);
+  const res = await cachedResponse(
+    new Request(`${SITE_URL}${key}&cb=${bust}`),
+    ttl,
+    async () => new Response(JSON.stringify(await build()), { headers: { "Content-Type": "application/json" } })
+  );
+  return (await res.json()) as T;
 }

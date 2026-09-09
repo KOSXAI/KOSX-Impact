@@ -3,7 +3,6 @@ import type { RosterFile } from "./roster";
 import { roster, syncRoster } from "./roster";
 import { getSource } from "./sources";
 import type { FollowerSource, FollowerStats, PostData } from "./sources/types";
-import { computeMemberStats } from "./stats";
 
 export interface CollectSummary {
   ok: number;
@@ -41,8 +40,8 @@ export function shardMembersForHour<T extends { id: string }>(members: T[], hour
  * 采集入口，由 Cron Trigger（wrangler.jsonc 中的 crons）调用：
  * 1. 同步成员名册（data/members.json 是追踪名单的事实来源）
  * 2. 取当前 UTC 小时的成员分片，逐个拉取粉丝量写快照
- * 3. 检测登阶（称号大关）、写 daily_stats 预聚合
- * 4. 记录同步结果、清读缓存
+ * 3. 检测登阶（称号大关）
+ * 4. 记录同步结果
  */
 export async function collect(env: Env, ctx?: ExecutionContext): Promise<CollectSummary> {
   return collectWithSource(env, getSource(env), roster, ctx);
@@ -83,7 +82,6 @@ export async function collectWithSource(
       const stats = await source.fetchStats(member.handle);
       await writeSnapshot(env, member.id, stats, nowIso);
       await checkMilestones(env, member.id, stats.followers, nowIso);
-      await writeDailyStats(env, member.id, stats.followers, nowIso);
       summary.ok++;
       // 帖子采集：profile 响应携带数字 ID（id_str），复用免额外调用
       if (stats.userId) {
@@ -106,11 +104,6 @@ export async function collectWithSource(
       console.error(`[collect] @${member.handle} 采集失败：`, error);
     }
   }
-
-  await env.DB.prepare(
-    `INSERT INTO site_meta (key, value) VALUES ('last_sync_at', ?1), ('last_sync_summary', ?2)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-  ).bind(nowIso, JSON.stringify(summary)).run();
 
   // 新数据可见性由 cache_bust 版本号保证（writeSnapshot 已 +1）：
   // 读端点缓存键换新后各数据中心新请求必然回源重建，无需（也无法）跨区 purge
@@ -201,58 +194,10 @@ async function checkMilestones(
       "INSERT OR IGNORE INTO milestones (member_id, threshold, achieved_at, announced) VALUES (?1, ?2, ?3, 1)"
     ).bind(memberId, event.threshold, event.achievedAt).run();
   }
-  // 公告机制：把最新跨过的档位写入 site_meta（首页「最新达成」展示源）。
-  // announced=1 表示已入公告流；未来接入推文/Newsletter 播报时复用此标记。
-  if (events.length > 0) {
-    const latest = events[events.length - 1];
-    await env.DB.prepare(
-      `INSERT INTO site_meta (key, value) VALUES ('latest_milestone', ?1)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-    ).bind(
-      JSON.stringify({ memberId, threshold: latest.threshold, achievedAt: latest.achievedAt })
-    ).run();
-  }
+  // announced=1 标记该登阶已计入公告流（首页「最新达成」读 milestones 表）；
+  // 未来接入推文播报等渠道时复用此标记
 }
 
-/**
- * 写每日统计预聚合（一行一人一天，幂等覆盖）：
- * 数据来自最近 31 条快照窗口（走索引），看板/卡片直接读此表，
- * 行读取 O(成员) 且不随历史增长。
- */
-async function writeDailyStats(
-  env: Env,
-  memberId: string,
-  latestFollowers: number,
-  nowIso: string
-): Promise<void> {
-  const { results: rows } = await env.DB.prepare(
-    "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 31"
-  ).bind(memberId).all();
-  const snapshots = (rows as never as Array<{ followers: number; recordedAt: string }>).slice().reverse();
-
-  // 基线优先用该成员最早快照（窗口 31 条足够覆盖首月；更早的成员以 daily_stats 首条为准）
-  const stats = computeMemberStats(
-    { id: memberId, handle: "", displayName: null, joinedAt: snapshots[0]?.recordedAt.slice(0, 10) ?? nowIso.slice(0, 10) },
-    snapshots,
-    nowIso
-  );
-
-  await env.DB.prepare(
-    `INSERT INTO daily_stats (member_id, stats_date, followers, growth, growth7d, growth30d, updated_at)
-     VALUES (?1, date(?2), ?3, ?4, ?5, ?6, ?2)
-     ON CONFLICT(member_id, stats_date) DO UPDATE SET
-       followers = excluded.followers, growth = excluded.growth,
-       growth7d = excluded.growth7d, growth30d = excluded.growth30d,
-       updated_at = excluded.updated_at`
-  ).bind(
-    memberId,
-    nowIso,
-    stats.latestFollowers ?? latestFollowers,
-    stats.growth,
-    stats.growth7d,
-    stats.growth30d
-  ).run();
-}
 
 /**
  * 写入成员最近帖子（posts 表批量 upsert，tweet_id 幂等）+ 清理超期旧帖。
@@ -324,7 +269,6 @@ export async function applyFollowerStats(
 ): Promise<void> {
   await writeSnapshot(env, memberId, stats, nowIso);
   await checkMilestones(env, memberId, stats.followers, nowIso);
-  await writeDailyStats(env, memberId, stats.followers, nowIso);
   if (source && stats.userId) {
     try {
       const posts = await source.fetchRecentPosts(stats.userId);

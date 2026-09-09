@@ -3,10 +3,12 @@ import type { MemberStats } from "@/stats";
 import { RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
 import { TitleBadge } from "@/components/member/TitleBadge";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { fmt } from "@/lib/format";
 import { xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { PODIUM } from "./podium";
+import { MemberRankRow } from "./MemberRankRow";
 
 /** 成长榜：近 7 天 / 近 30 天口径切换（存 URL，可分享），按所选范围排序，小账号也有机会登顶 */
 export const METRICS = [
@@ -60,34 +62,18 @@ export function GrowthSection({
         </div>
       )}
       <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
-        <div className="flex gap-1 rounded-full border border-line bg-soft-surface p-1">
-          {METRICS.map((mt) => (
-            <button
-              key={mt.key}
-              onClick={() => onMetricChange(mt.key)}
-              className={cn(
-                "h-7 cursor-pointer select-none rounded-full px-3 text-xs font-semibold transition-colors",
-                metric === mt.key ? "bg-white text-paper" : "text-mist hover:text-ink"
-              )}
-            >
-              {mt.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1 rounded-full border border-line bg-soft-surface p-1">
-          {RANGES.map((r) => (
-            <button
-              key={r.key}
-              onClick={() => onRangeChange(r.key)}
-              className={cn(
-                "h-7 cursor-pointer select-none rounded-full px-3 text-xs font-semibold transition-colors",
-                range === r.key ? "bg-white text-paper" : "text-mist hover:text-ink"
-              )}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={metric}
+          onChange={onMetricChange}
+          options={METRICS.map((mt) => ({ key: mt.key, label: mt.label }))}
+          ariaLabel="成长榜指标"
+        />
+        <SegmentedControl
+          value={range}
+          onChange={onRangeChange}
+          options={RANGES.map((r) => ({ key: r.key, label: r.label }))}
+          ariaLabel="时间范围"
+        />
       </div>
       <ol className="space-y-3">
         {sorted.map((m, i) => (
@@ -118,24 +104,12 @@ function GrowthMember({
   const primary = metricValue(m, metric, range);
   const alternatives = RANGES.filter((r) => r.key !== range);
   return (
-    <div
-      className={
-        podium
-          ? `card-lift flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border p-4 sm:gap-x-4 sm:p-5 ${podium.ring}`
-          : "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5"
-      }
-    >
-      <div
-        className={
-          podium
-            ? `w-6 shrink-0 bg-gradient-to-br bg-clip-text font-extrabold tabular-nums text-transparent ${podium.rankNum}`
-            : "w-6 shrink-0 text-mist tabular-nums"
-        }
-      >
-        {rank}
-      </div>
-      <Avatar url={m.profileImage} name={name} className="size-10" />
-      <div className="min-w-0 flex-1">
+    <MemberRankRow
+      rank={rank}
+      podium={podium}
+      profileImage={m.profileImage}
+      name={name}
+      middle={
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
             {name}
@@ -144,29 +118,31 @@ function GrowthMember({
           <a
             href={xProfileUrl(m.handle)}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="text-sm text-mist underline-offset-4 hover:text-ink hover:underline"
           >
             @{m.handle}
           </a>
         </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-6">
-        <div className="text-right">
-          <div className={cn("text-lg font-bold tabular-nums", range === 1 ? "text-signal" : "text-mist")}>
-            {metric === "growth" && primary > 0 ? "+" : ""}{fmt(primary)}
-          </div>
-          <div className="text-xs text-mist">{RANGES.find((r) => r.key === range)?.label}</div>
-        </div>
-        {alternatives.map((r) => (
-          <div key={r.key} className="hidden text-right sm:block">
-            <div className="font-semibold tabular-nums text-mist">
-              {metric === "growth" && metricValue(m, metric, r.key) > 0 ? "+" : ""}{fmt(metricValue(m, metric, r.key))}
+      }
+      trailing={
+        <div className="flex shrink-0 items-center gap-6">
+          <div className="text-right">
+            <div className={cn("text-lg font-bold tabular-nums", range === 1 ? "text-signal" : "text-mist")}>
+              {metric === "growth" && primary > 0 ? "+" : ""}{fmt(primary)}
             </div>
-            <div className="text-xs text-mist">{r.label}</div>
+            <div className="text-xs text-mist">{RANGES.find((r) => r.key === range)?.label}</div>
           </div>
-        ))}
-      </div>
-    </div>
+          {alternatives.map((r) => (
+            <div key={r.key} className="hidden text-right sm:block">
+              <div className="font-semibold tabular-nums text-mist">
+                {metric === "growth" && metricValue(m, metric, r.key) > 0 ? "+" : ""}{fmt(metricValue(m, metric, r.key))}
+              </div>
+              <div className="text-xs text-mist">{r.label}</div>
+            </div>
+          ))}
+        </div>
+      }
+    />
   );
 }

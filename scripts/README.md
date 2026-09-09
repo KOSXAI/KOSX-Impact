@@ -1,15 +1,20 @@
 # scripts/ 脚本索引
 
-每个脚本的用途与触发方式。共同约定：多数脚本输出 `/tmp/*.sql` 或 JSON 产物，
-配合 `wrangler d1 execute kosx-impact --remote --file=<sql>` 灌库；同步类脚本写库后
-自动 bump `cache_bust`。一次性回填脚本用完即可删（git 历史可找回），按需新写。
+每个脚本的用途与触发方式。共同约定：
+- 多数脚本输出 `/tmp/*.sql` 或 JSON 产物，配合 `wrangler d1 execute kosx-impact --remote --file=<sql>` 灌库；
+- 同步类脚本写库后自动 bump `cache_bust`；
+- `_lib.mjs` 提供共享工具（API key 读取 / 节流 fetch / SQL 转义 / d1 查询包装），新脚本勿再各写一份；
+- 同步脚本有失败项时以非零码退出，`&&` 链不会把半截数据灌进线上库。
+一次性回填脚本用完即可删（git 历史可找回），按需新写。
 
-## 定时自动化
+## 日常自动化（Worker cron，非本目录脚本）
+
+成员被提及 + 社群信号（共同关注/品味）由 Worker cron（`src/sync-signals.ts`，每日 09:30）自动跑，见 wrangler.jsonc。
 
 | 脚本 | 用途 | 触发 |
 | --- | --- | --- |
-| `run-mentions.mjs` | 站外提及拉取（SocialData Search 按关键词），输出原始 JSON 供 agent 分析（去噪+情绪）后 SQL 入库 | 自动化 cron，每日 09:00 |
-| `sync-community-signals.mjs` | 共同关注 / 社群品味（手动回填版） | 日常由 Worker cron（`src/sync-signals.ts`，每日 09:30）自动跑；本脚本只在需要重跑历史数据时手动执行 |
+| `run-mentions.mjs` | 品牌声量原始拉取（SocialData Search 按关键词），输出原始 JSON 供 agent 分析（去噪+情绪）后手工 SQL 入库 | 手动（agent 分析流程一环，无 cron） |
+| `sync-community-signals.mjs` | 共同关注 / 社群品味（手动回填版） | 日常由 Worker cron 接管；仅在需要重跑历史数据时手动执行 |
 | `sync-member-mentions.mjs` | 成员被提及（手动回填版） | 同上，日常由 Worker cron 接管 |
 
 ## 新成员入职 / 维护
@@ -33,5 +38,5 @@
 
 | 脚本 | 用途 | 触发 |
 | --- | --- | --- |
-| `validate-members.mjs` | 校验 `data/members.json` 结构与唯一性 | `npm run check`（本地 + CI） |
+| `validate-members.mjs` | 校验 `data/members.json` 结构与唯一性 | `npm run check`（本地；无 CI） |
 | `build-og-fonts.mjs` | 生成 OG 卡中文子集字体 → `public/fonts/`（产物需提交） | 字体升级时手动重跑 |

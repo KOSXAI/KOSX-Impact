@@ -11,6 +11,12 @@ export const POST_FIELDS = `tweet_id AS tweetId, created_at AS createdAt, text,
   like_count AS likes, reply_count AS replies,
   retweet_count AS retweets, quote_count AS quotes, bookmark_count AS bookmarks`;
 
+/** posts p JOIN members m 的单帖联查字段（三处手抄收敛于此；posts 加列只改这里） */
+export const TOP_POST_FIELDS = `p.tweet_id AS tweetId, p.created_at AS createdAt, p.text,
+  p.views_count AS views, p.like_count AS likes, p.reply_count AS replies,
+  p.retweet_count AS retweets, p.quote_count AS quotes, p.bookmark_count AS bookmarks,
+  m.id AS memberId, m.handle, m.display_name AS displayName, m.profile_image AS profileImage`;
+
 export type MemberRow = {
   id: string;
   handle: string;
