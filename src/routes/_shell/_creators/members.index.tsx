@@ -45,7 +45,7 @@ const SORTS = [
 ] as const;
 type SortKey = (typeof SORTS)[number]["key"];
 
-export const Route = createFileRoute("/members/")({
+export const Route = createFileRoute("/_shell/_creators/members/")({
   loader: async () => {
     const stats = await fetchDashboard();
     // trackStats 供模块页头门牌卡的「N 条赛道」计数

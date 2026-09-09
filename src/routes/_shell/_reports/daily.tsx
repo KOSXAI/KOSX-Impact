@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard, fetchDailyArchive } from "@/data.functions";
-import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { titleOf } from "@/milestones";
@@ -12,7 +11,7 @@ import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
  * 汇总成一份战报。每天自动更新，属于首页模块的时间切片（顶栏高亮「首页」）。
  * ?date=YYYY-MM-DD 查看历史归档（数据透明 / 可追溯）。
  */
-export const Route = createFileRoute("/daily")({
+export const Route = createFileRoute("/_shell/_reports/daily")({
   validateSearch: (search: Record<string, unknown>) => ({ date: typeof search.date === "string" ? search.date : "" }),
   loader: async ({ location }) => {
     const date = (location.search as { date?: string }).date;
@@ -44,7 +43,7 @@ function DailyPage() {
   const navigate = Route.useNavigate();
 
   if (archive) return <ArchiveView archive={archive} onBack={() => navigate({ search: { date: "" } })} />;
-  if (!stats) return <SiteHeader />;
+  if (!stats) return null;
 
   const today = new Date().toISOString().slice(0, 10);
   const todayClimbs = stats.recentMilestones.filter((m) => m.achievedAt.slice(0, 10) === today);
@@ -55,7 +54,6 @@ function DailyPage() {
 
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -226,7 +224,6 @@ function DailyPage() {
 function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnType<typeof fetchDailyArchive>>>; onBack: () => void }) {
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <div className="flex flex-wrap items-end justify-between gap-3">

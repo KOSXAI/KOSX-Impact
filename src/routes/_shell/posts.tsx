@@ -5,13 +5,12 @@ import type { PostItem } from "@/stats";
 import { Avatar } from "@/components/member/Avatar";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 import { Reveal } from "@/components/motion";
-import { SiteHeader } from "@/components/SiteHeader";
 import { ExternalLink, Eye, Heart, MessageCircle, Repeat2, Users, TrendingUp } from "lucide-react";
 import { fmt, fmtDate } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/posts")({
+export const Route = createFileRoute("/_shell/posts")({
   loader: async () => {
     const [stats, posts, allPosts, signals, recipe] = await Promise.all([
       fetchDashboard(),
@@ -62,7 +61,6 @@ function PostsPage() {
 
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">内容</h1>

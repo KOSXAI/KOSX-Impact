@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchAnnualReport } from "@/data.functions";
-import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { titleOf } from "@/milestones";
@@ -11,7 +10,7 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
  * 年度影响力报告：本年至今的社群叙事——YTD 增长 / 月度总粉丝 / 年度登阶 / Top 涨粉与声量 / 年度最火内容。
  * 入口在社群日报 / 能量报告页。
  */
-export const Route = createFileRoute("/annual")({
+export const Route = createFileRoute("/_shell/_reports/annual")({
   loader: () => fetchAnnualReport(),
   head: ({ loaderData }) => {
     const title = loaderData ? `${loaderData.year} 年度影响力报告 · ${SITE_NAME}` : `年度影响力报告 · ${SITE_NAME}`;
@@ -35,7 +34,6 @@ function AnnualPage() {
 
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{r.year} 年度影响力报告</h1>

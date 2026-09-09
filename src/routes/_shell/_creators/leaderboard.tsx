@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { fetchDashboard } from "@/data.functions";
-import { SiteHeader } from "@/components/SiteHeader";
 import { LEADERBOARD_TABS, MemberModuleHeader } from "@/components/member/MemberModuleHeader";
 import { LeaderboardList } from "@/components/leaderboard/LeaderboardList";
 import { GrowthSection } from "@/components/leaderboard/GrowthList";
@@ -10,7 +9,7 @@ import { ClimbsList } from "@/components/leaderboard/ClimbsList";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/leaderboard")({
+export const Route = createFileRoute("/_shell/_creators/leaderboard")({
   // 视图状态进 URL：每个榜/时间档可分享、可被搜索引擎收录（多维时间榜）
   validateSearch: (search: Record<string, unknown>) => ({
     tab: (
@@ -84,7 +83,6 @@ function LeaderboardPage() {
 
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         {/* 博主模块统一页头：标题 + 三视图门牌卡（榜单 / 广场 / 赛道） */}
         <MemberModuleHeader view="leaderboard" stats={stats} title="榜单" />

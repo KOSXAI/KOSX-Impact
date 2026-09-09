@@ -20,7 +20,7 @@ const TRACK_ICONS: Record<string, LucideIcon> = {
   Shapes,
 };
 
-export const Route = createFileRoute("/tracks/")({
+export const Route = createFileRoute("/_shell/_creators/tracks/")({
   loader: () => fetchDashboard(),
   head: ({ loaderData }) => {
     const desc = loaderData

@@ -3,12 +3,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/motion";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
-import { SiteHeader } from "@/components/SiteHeader";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 import { MILESTONES } from "@/milestones";
 import { badge } from "@/lib/format";
 
-export const Route = createFileRoute("/about")({
+export const Route = createFileRoute("/_shell/about")({
   head: () => ({
     meta: [
       { title: `关于 · ${SITE_NAME}` },
@@ -26,7 +25,6 @@ function AboutPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">关于 {SITE_NAME}</h1>

@@ -26,7 +26,7 @@ const PODIUM = [
   { ring: "border-orange-500/30 bg-gradient-to-r from-orange-500/12 to-transparent", rankNum: "from-orange-400 to-orange-700" },
 ] as const;
 
-export const Route = createFileRoute("/tracks/$slug")({
+export const Route = createFileRoute("/_shell/_creators/tracks/$slug")({
   loader: async ({ params }) => {
     const stats = await fetchDashboard();
     const track = [...TRACKS, TRACK_OTHER].find((t) => t.slug === params.slug);

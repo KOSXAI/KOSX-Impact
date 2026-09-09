@@ -2,7 +2,6 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchMemberDetail } from "@/data.functions";
 import { computeWeeklyReport, weeklyShareText } from "@/weekly";
-import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/member/Avatar";
 import { GrowProgress } from "@/components/motion";
 import { Check, Copy, Flag, Heart, MessageCircle, PauseCircle, Trophy, Eye } from "lucide-react";
@@ -11,7 +10,7 @@ import { titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_URL } from "@/lib/site";
 
-export const Route = createFileRoute("/reports/$memberId")({
+export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
   loader: async ({ params }) => {
     const detail = await fetchMemberDetail({ data: params.memberId });
     if (!detail) return { report: null };
@@ -37,7 +36,6 @@ function ReportPage() {
   if (!report) {
     return (
       <>
-        <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-24 text-center">
           <h1 className="text-2xl font-bold">这位成员不在追踪名单里</h1>
         </main>
@@ -61,7 +59,6 @@ function ReportPage() {
 
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-10 sm:py-14">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <Avatar url={report.profileImage} name={name} className="size-14 shrink-0 rounded-2xl" />

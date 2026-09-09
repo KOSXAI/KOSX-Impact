@@ -1,6 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchDashboard, fetchMemberDetail } from "@/data.functions";
-import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { fmt } from "@/lib/format";
@@ -11,7 +10,7 @@ import { cn } from "@/lib/utils";
  * 成员对比 PK：任选两位成员同屏对比（粉丝/增长/影响力/内容效率/被提及），
  * 属于博主模块的第三层视图（URL 直达可分享）。
  */
-export const Route = createFileRoute("/compare")({
+export const Route = createFileRoute("/_shell/compare")({
   validateSearch: (search: Record<string, unknown>) => ({
     a: typeof search.a === "string" ? search.a : "",
     b: typeof search.b === "string" ? search.b : "",
@@ -51,7 +50,6 @@ function ComparePage() {
   if (!left || !right) {
     return (
       <>
-        <SiteHeader />
         <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
           <Reveal>
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">成员对比</h1>
@@ -80,7 +78,6 @@ function ComparePage() {
 
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">成员对比</h1>

@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { Trophy } from "lucide-react";
 
-export const Route = createFileRoute("/members/$id")({
+export const Route = createFileRoute("/_shell/_creators/members/$id")({
   loader: async ({ params }) => {
     const detail = await fetchMemberDetail({ data: params.id });
     if (!detail) throw notFound();

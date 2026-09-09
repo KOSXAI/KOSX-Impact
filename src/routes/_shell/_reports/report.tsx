@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard, fetchReportExtras, fetchInviteLeaders } from "@/data.functions";
-import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { toast } from "@/components/ui/toast";
@@ -12,7 +11,7 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
  * 社群能量报告：社群能量全景聚合页——总影响力、赛道分布、
  * 粉丝质量（画像聚合）、影响力与声量 Top、邀请裂变荣誉榜。入口在首页底部与日报页。
  */
-export const Route = createFileRoute("/report")({
+export const Route = createFileRoute("/_shell/_reports/report")({
   loader: async () => {
     const [stats, extras, inviteLeaders] = await Promise.all([fetchDashboard(), fetchReportExtras(), fetchInviteLeaders()]);
     return { stats, extras, inviteLeaders };
@@ -85,7 +84,6 @@ function ReportPage() {
 
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <Reveal y={18}>
           <div className="flex flex-wrap items-end justify-between gap-3">
