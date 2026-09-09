@@ -42,11 +42,10 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 │   ├── members.json          # 成员名册：追踪名单的事实来源（通过 PR 修改）
 │   └── members.schema.json   # 名册的 JSON Schema
 ├── docs/
-├── docs/
 │   ├── architecture.md          # 功能架构：顶层菜单 → 各页功能树 + 设计原则（改版先看）
 │   └── socialdata-pricing.md   # SocialData 定价/限流/监控选型参考（官方核对版）
 ├── migrations/               # D1 数据库迁移（SQL）
-├── scripts/                  # 校验脚本（名册格式等）与 OG 字体生成（build-og-fonts.mjs）
+├── scripts/                  # 同步/回填/校验脚本，逐个用途见 scripts/README.md
 ├── public/
 │   ├── kosx-logo-white.png   # 白字标（页面与 OG 卡共用）
 │   └── fonts/                # OG 卡子集字体（生成产物，需提交）
@@ -165,7 +164,7 @@ git push           # 推送 GitHub
 - **名册成员加入（维护者批量）**：在 `data/members.json` 中按 id 排序加入该成员（通过 PR 提交，校验脚本会检查格式）→ 本地跑 `node scripts/sync-new-members.mjs`（新成员会从 SocialData 拉取粉丝数、头像与 **X 显示名**；名下写回 `data/members.json`，随本 PR 一并提交，缺了它会退化成 handle）；执行生成的 `/tmp/onboard.sql` 入库。每次引入新成员时**必须**跑该脚本，避免 `displayName` 缺失
 - **成员退出**：从名册中删除该成员（PR），同步后自动停止公开追踪、数据保留；如成员要求移除历史数据，删除其 `snapshots` / `milestones` 记录
 - **帖子活跃度数据（已纳入每日采集）**：滚动采集（`src/collector.ts`）复用 profile 响应的数字 ID（id_str）自动拉取 tweets 写入 `posts` 表（约 20 帖/人/天，$0.0002/帖，无额外 profile 调用），并清理 90 天前旧帖；`scripts/sync-posts.mjs` 保留为一次性手动补跑入口（profile+tweets 全链路）
-- **成员赛道分类（脚本运行，非网页自动）**：赛道体系为**五个正式赛道 + 综合兜底**——`AI工具 / 财经 / 开发者 / 增长 / 出海`，一人可挂多个赛道；无法归入任何正式赛道的成员统一挂「综合」，综合是一个**过渡桶**：人数攒到足够或分类维度清晰后再细分出新赛道。分类由**脚本执行**（Grok Build 子代理逐个博主扫描打标 → 人工 review → 入库），**不做网页自动分类**，避免不可控的分类结果直接上生产。打标执行用 **Grok Build 子代理**（x_search 访问博主主页读 bio+帖子，一次输出赛道+标签+置信度，文档 `docs/grok-track-classifier.md`），不占 SocialData 额度——SocialData 只留给结构化数据采集。**入库**：`node scripts/apply-tracks.mjs /path/to/grok-output.json`——校验赛道枚举白名单（AI工具/财经/开发者/增长/出海/综合）、tracks 1-3 个、tags 3-8 个后写 members 表 tracks/tags 并 bump `cache_bust`，输出低置信度清单供复查。数据存 `members` 表（0010 迁移），看板「赛道」区块 + 成员页档案卡 chip/标签组读取展示；赛道定义唯一来源 `src/tracks.ts`
+- **成员赛道分类（脚本运行，非网页自动）**：赛道体系为**五个正式赛道 + 综合兜底**——`AI工具 / 财经 / 开发者 / 增长 / 出海`，一人可挂多个赛道；无法归入任何正式赛道的成员统一挂「综合」，综合是一个**过渡桶**：人数攒到足够或分类维度清晰后再细分出新赛道。**不做网页自动分类**，避免不可控的分类结果直接上生产。存量 76 位活跃成员已于 2026-09-07 一次性打标入库（人工复核通过）；后续新增/调整：基于库内 bio 与帖子人工判断产出分类 JSON（`{members:[{handle,tracks[],tags[],confidence,note}]}`），跑 `node scripts/apply-tracks.mjs /path/to/output.json` 入库——校验赛道枚举白名单（AI工具/财经/开发者/增长/出海/综合）、tracks 1-3 个、tags 3-8 个后写 members 表 tracks/tags 并 bump `cache_bust`，输出低置信度清单供复查（显式空数组 = 清空该成员分类）。数据存 `members` 表（0010 迁移），看板「赛道」区块 + 成员页档案卡 chip/标签组读取展示；赛道定义唯一来源 `src/tracks.ts`
 - 数据库变更一律通过 `migrations/` 下的新迁移文件进行，不直接改线上库
 
 ## 沟通与行为规范

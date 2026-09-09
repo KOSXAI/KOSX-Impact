@@ -3,8 +3,8 @@
  * - 一人可挂多个赛道（tracks 数组），按内容主线排序
  * - 「综合」是过渡桶：无法归入任何正式赛道的成员挂这里，
  *   人数攒够或分类维度清晰后再细分出新赛道，故综合不参与榜单
- * - 分类由 Grok Build 逐个博主扫描产出（docs/grok-track-classifier.md），
- *   脚本入库（scripts/apply-tracks.mjs），不做网页自动分类
+ * - 分类产物由人工/agent 判断产出，脚本入库（scripts/apply-tracks.mjs），
+ *   不做网页自动分类
  */
 
 export interface Track {

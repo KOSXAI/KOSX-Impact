@@ -32,7 +32,7 @@ export interface MemberStats {
   progressToNext: number;
   /** 已拿下的大关数（成就徽章数，看板聚合时按登阶事件计） */
   climbs: number;
-  /** 赛道数组（5 正式 + 综合；Grok 分类产物，空数组=未分类） */
+  /** 赛道数组（5 正式 + 综合；空数组=未分类） */
   tracks: string[];
   /** 描述性标签数组（自由组合，空数组=未打标） */
   tags: string[];
@@ -84,7 +84,7 @@ export interface TrendPoint {
   total: number;
 }
 
-/** 品牌声量提及（站外「KOSX / impact.kosx.ai / 万粉影响力计划」的 X 提及，Grok 定时搜索入库） */
+/** 品牌声量提及（站外「KOSX / impact.kosx.ai / 万粉影响力计划」的 X 提及，定时搜索入库） */
 export interface MentionItem {
   keyword: string;
   authorHandle: string;
@@ -170,12 +170,12 @@ export interface FanProfile {
   topHandles: Array<{ handle: string; name: string | null; followers: number }>;
 }
 
-/** 相似账号推荐（Grok 逐个扫描产出，similar_accounts 表） */
+/** 相似账号推荐（similar_accounts 表） */
 export interface SimilarAccount {
   handle: string;
   name: string | null;
   avatar: string | null;
-  /** 相似理由（Grok 判断） */
+  /** 相似理由 */
   reason: string;
   /** 与本人的主要差异 */
   difference: string | null;
@@ -202,7 +202,7 @@ export interface WeeklyReport {
   prevMilestone: number;
   nextMilestone: number;
   progressToNext: number;
-  /** 窗口内目标大关与达成时间（Grok 无责，纯数据） */
+  /** 窗口内目标大关与达成时间 */
   milestoneAchieved: { threshold: number; achievedAt: string } | null;
   /** 窗口内发帖数 */
   postCount: number;

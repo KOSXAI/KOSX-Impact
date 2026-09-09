@@ -2,14 +2,14 @@ import type { SimilarAccount } from "@/stats";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
 
-/** 相似账号卡：Grok 逐个扫描产出的同类账号（内容/人群/风格实质相似），外链 X */
+/** 相似账号卡：内容/人群/风格实质相似的同类账号，外链 X */
 export function SimilarAccountsCard({ accounts }: { accounts: SimilarAccount[] }) {
   if (accounts.length === 0) return null;
   return (
     <Card>
       <CardContent className="p-6 sm:p-8">
         <h2 className="text-xl font-bold">相似账号</h2>
-        <p className="mt-1 text-sm text-mist">Grok 扫描内容与定位后推荐的同类账号</p>
+        <p className="mt-1 text-sm text-mist">根据内容与定位推荐的同类账号</p>
         <ul className="mt-5 space-y-2.5">
           {accounts.map((a) => (
             <li key={a.handle} className="rounded-2xl border border-line bg-soft-surface px-4 py-3">

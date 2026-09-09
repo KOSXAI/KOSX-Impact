@@ -1,6 +1,6 @@
 /**
  * Server functions：路由 loader 专用的 RPC 边界。
- * 调用共享查询层 queries.ts（内部带 Cache API 缓存），
+ * 调用共享查询层 queries/（内部带 Cache API 缓存），
  * env 通过 cloudflare:workers 按请求获取（Workers 上 env 是请求时注入的）。
  */
 import { createServerFn } from "@tanstack/react-start";

@@ -131,7 +131,7 @@ function DashboardPage() {
           </PopIn>
         )}
 
-        {/* 品牌声量：站外对 KOSX 的提及（Grok 定时搜索） */}
+        {/* 品牌声量：站外对 KOSX 的提及 */}
         {stats.mentions.length > 0 && (
           <Reveal delay={0.08}>
             <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">

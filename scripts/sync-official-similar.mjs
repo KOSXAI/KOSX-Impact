@@ -1,6 +1,6 @@
 // 官方相似账号同步：SocialData get-user-similar-profiles（/twitter/user/{id}/similar，$0.0002/人）。
 // 复用库内 user_id，覆盖全部活跃成员；结果并入 similar_accounts（reason='官方相似推荐'），
-// 与 Grok 语义相似互补，成员页同一卡片展示。幂等（INSERT OR REPLACE）+ cache_bust +1。
+// 成员页「相似账号」卡片展示。幂等（INSERT OR REPLACE）+ cache_bust +1。
 // 用法：先导出成员表：
 //   wrangler d1 execute kosx-impact --remote --command "SELECT id, handle, user_id FROM members WHERE status='active'" --json > /tmp/member-handles.json
 // 再：node scripts/sync-official-similar.mjs && wrangler d1 execute kosx-impact --remote --file=/tmp/official-similar.sql

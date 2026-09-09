@@ -1,5 +1,5 @@
-// 赛道/标签分类产物入库：读取 Grok Build 输出的分类 JSON（docs/grok-track-classifier.md 的
-// 输出格式 {members:[{handle,tracks[],tags[],confidence,note}]}），校验后写入线上库 members 表。
+// 赛道/标签分类产物入库：读取人工/agent 判断的分类 JSON
+// （格式 {members:[{handle,tracks[],tags[],confidence,note}]}），校验后写入线上库 members 表。
 //
 // 校验规则（与 src/tracks.ts 的 TRACK_NAMES 白名单一致，此处硬编码副本避免跨模块 import TS）：
 // - tracks 必须 ∈ 白名单（AI工具/财经/开发者/增长/出海/综合），1-3 个，去重
@@ -7,7 +7,7 @@
 // - 跑偏项（枚举外赛道 / 结构不合法）拒绝并列出，不写库
 // - confidence < 0.7 的项照常写库，但输出低置信清单供人工复查
 //
-// 用法：node scripts/apply-tracks.mjs /path/to/grok-output.json
+// 用法：node scripts/apply-tracks.mjs /path/to/output.json
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
@@ -19,7 +19,7 @@ const LOW_CONFIDENCE = 0.7;
 
 const inputPath = process.argv[2];
 if (!inputPath) {
-  console.error("用法：node scripts/apply-tracks.mjs /path/to/grok-output.json");
+  console.error("用法：node scripts/apply-tracks.mjs /path/to/output.json");
   process.exit(1);
 }
 const data = JSON.parse(readFileSync(inputPath, "utf8"));

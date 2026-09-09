@@ -11,7 +11,7 @@ const SENTIMENT_DOT: Record<string, string> = {
 };
 
 /**
- * 看板「品牌声量」：Grok 定时搜索 X 上关于 KOSX 的站外提及（最近 20 条）。
+ * 看板「品牌声量」：定时搜索 X 上关于 KOSX 的站外提及（最近 20 条）。
  * 品牌活跃度的直接证据；空数据隐藏整个区块。
  */
 export function MentionsSection({ mentions }: { mentions: MentionItem[] }) {
