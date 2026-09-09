@@ -9,7 +9,7 @@ import { BannerImage } from "@/components/member/BannerImage";
 import { MemberModuleHeader } from "@/components/member/MemberModuleHeader";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { toast } from "@/components/ui/toast";
-import { BadgeCheck, Blocks, CandlestickChart, Check, Copy, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Blocks, CandlestickChart, Check, Copy, Globe, Heart, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,9 @@ const SORTS = [
 ] as const;
 type SortKey = (typeof SORTS)[number]["key"];
 
+/** 标签 chips 默认展示条数，其余折进「+N」 */
+const TAG_PREVIEW = 8;
+
 export const Route = createFileRoute("/_shell/_creators/members/")({
   loader: async () => {
     const stats = await fetchDashboard();
@@ -78,6 +81,7 @@ function MembersSquarePage() {
   const [sortKey, setSortKey] = useState<SortKey>("followers");
   const [copied, setCopied] = useState(false);
   const [favOnly, setFavOnly] = useState(false);
+  const [showAllTags, setShowAllTags] = useState(false);
   // 本地收藏（浏览器存储，无需登录）：广场可「只看收藏」
   const [favs, setFavs] = useState<string[]>(() => {
     try {
@@ -113,6 +117,9 @@ function MembersSquarePage() {
     for (const m of members) for (const t of m.tracks) counts[t] = (counts[t] ?? 0) + 1;
     return counts;
   }, [members]);
+  // 选中的标签若在折叠区，自动展开，避免「选了却看不见」
+  const tagsExpanded =
+    showAllTags || selTags.some((t) => !tagCounts.slice(0, TAG_PREVIEW).some((x) => x.tag === t));
 
   const hasFilter = selTracks.length > 0 || selTags.length > 0 || bucket !== "all" || sortKey !== "followers" || favOnly;
   const reset = () => {
@@ -157,10 +164,26 @@ function MembersSquarePage() {
       {/* 博主模块统一页头：标题 + 三视图门牌卡（榜单 / 广场 / 赛道） */}
       <MemberModuleHeader view="members" stats={{ members, trackStats }} title="成员广场" />
 
-      {/* 筛选栏：赛道 / 标签 / 粉丝量 / 排序 */}
+      {/* 筛选栏：一行分段控件 + 两条紧凑 chips，取代原先五行大卡 */}
       <Reveal delay={0.05}>
-        <section className="mt-8 rounded-2xl border border-line bg-surface px-5 py-2 sm:px-6">
-          <FilterRow label="赛道">
+        <div className="mt-6 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex items-center gap-2">
+              <FilterLabel>排序</FilterLabel>
+              <Segmented id="members-sort" options={SORTS} value={sortKey} onChange={setSortKey} />
+            </div>
+            <div className="flex items-center gap-2">
+              <FilterLabel>粉丝量</FilterLabel>
+              <Segmented id="members-bucket" options={FOLLOWERS_BUCKETS} value={bucket} onChange={setBucket} />
+            </div>
+            <FilterChip active={favOnly} onClick={() => setFavOnly((v) => !v)}>
+              <Heart className={cn("size-3.5", favOnly && "fill-current")} aria-hidden="true" />
+              收藏
+              <b className="text-[11px] font-semibold opacity-60 tabular-nums">{favs.length}</b>
+            </FilterChip>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <FilterLabel>赛道</FilterLabel>
             <FilterChip active={selTracks.length === 0} onClick={() => setSelTracks([])}>
               全部
             </FilterChip>
@@ -171,43 +194,29 @@ function MembersSquarePage() {
                 <FilterChip key={t.slug} active={active} onClick={() => setSelTracks((cur) => toggle(cur, t.name))}>
                   <Icon className="size-3.5" aria-hidden="true" />
                   {t.name}
-                  <b className="tabular-nums">{trackCounts[t.name] ?? 0}</b>
+                  <b className="text-[11px] font-semibold opacity-60 tabular-nums">{trackCounts[t.name] ?? 0}</b>
                 </FilterChip>
               );
             })}
-          </FilterRow>
-          <FilterRow label="标签">
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <FilterLabel>标签</FilterLabel>
             <FilterChip active={selTags.length === 0} onClick={() => setSelTags([])}>
               全部
             </FilterChip>
-            {tagCounts.map(({ tag, count }) => (
+            {tagCounts.slice(0, tagsExpanded ? tagCounts.length : TAG_PREVIEW).map(({ tag, count }) => (
               <FilterChip key={tag} active={selTags.includes(tag)} onClick={() => setSelTags((cur) => toggle(cur, tag))}>
                 #{tag}
-                <b className="tabular-nums">{count}</b>
+                <b className="text-[11px] font-semibold opacity-60 tabular-nums">{count}</b>
               </FilterChip>
             ))}
-          </FilterRow>
-          <FilterRow label="粉丝量">
-            {FOLLOWERS_BUCKETS.map((b) => (
-              <FilterChip key={b.key} active={bucket === b.key} onClick={() => setBucket(b.key)}>
-                {b.label}
+            {tagCounts.length > TAG_PREVIEW && (
+              <FilterChip active={tagsExpanded} onClick={() => setShowAllTags((v) => !v)}>
+                {tagsExpanded ? "收起" : `+${tagCounts.length - TAG_PREVIEW}`}
               </FilterChip>
-            ))}
-          </FilterRow>
-          <FilterRow label="排序">
-            {SORTS.map((s) => (
-              <FilterChip key={s.key} active={sortKey === s.key} onClick={() => setSortKey(s.key)}>
-                {s.label}
-              </FilterChip>
-            ))}
-          </FilterRow>
-          <FilterRow label="收藏">
-            <FilterChip active={favOnly} onClick={() => setFavOnly((v) => !v)}>
-              ♥ 只看收藏
-              <b className="tabular-nums">{favs.length}</b>
-            </FilterChip>
-          </FilterRow>
-        </section>
+            )}
+          </div>
+        </div>
       </Reveal>
 
       {/* 结果操作条：计数 + 清除筛选 + 复制当前 @ 清单到 X 批量关注 */}
@@ -258,11 +267,47 @@ function MembersSquarePage() {
   );
 }
 
-function FilterRow({ label, children }: { label: string; children: ReactNode }) {
+function FilterLabel({ children }: { children: ReactNode }) {
+  return <span className="shrink-0 text-xs font-semibold text-mist">{children}</span>;
+}
+
+/** 分段选择器：滑动高亮 pill，与全站图表模式切换同一套视觉语言 */
+function Segmented<T extends string>({
+  id,
+  options,
+  value,
+  onChange,
+}: {
+  id: string;
+  options: ReadonlyArray<{ key: T; label: string }>;
+  value: T;
+  onChange: (v: T) => void;
+}) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line py-3 first:border-t-0">
-      <span className="w-12 shrink-0 text-sm font-semibold text-mist">{label}</span>
-      <div className="flex flex-wrap items-center gap-1.5">{children}</div>
+    <div className="inline-flex items-center rounded-full border border-line bg-soft-surface p-0.5">
+      {options.map((o) => {
+        const active = o.key === value;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => onChange(o.key)}
+            className={cn(
+              "relative h-7 rounded-full px-2.5 text-xs font-semibold transition-colors duration-200 select-none cursor-pointer",
+              active ? "text-paper" : "text-mist hover:text-ink"
+            )}
+          >
+            {active && (
+              <motion.span
+                layoutId={id}
+                className="absolute inset-0 rounded-full bg-white shadow-sm"
+                transition={{ type: "spring", stiffness: 500, damping: 35 }}
+              />
+            )}
+            <span className="relative z-10 whitespace-nowrap">{o.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -274,7 +319,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-all duration-150 cursor-pointer select-none active:scale-95",
+        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs transition-all duration-150 cursor-pointer select-none active:scale-95 sm:text-[13px]",
         active
           ? "border-signal/50 bg-signal/15 font-semibold text-signal shadow-[0_0_12px_rgba(255,106,0,0.18)]"
           : "border-line bg-soft-surface text-mist hover:border-signal/40 hover:text-ink"
@@ -304,7 +349,7 @@ function MiniMemberCard({ m, faved, onToggleFav }: { m: MemberStats; faved: bool
             : "border-white/15 bg-black/25 text-white/80 hover:bg-black/40 hover:text-white"
         )}
       >
-        <span aria-hidden="true" className={cn("text-base leading-none", faved ? "" : "opacity-70")}>{faved ? "♥" : "♡"}</span>
+        <Heart className={cn("size-4", faved && "fill-current", !faved && "opacity-70")} aria-hidden="true" />
       </button>
       <Link
         to="/members/$id"

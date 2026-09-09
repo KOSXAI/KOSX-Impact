@@ -207,12 +207,6 @@ function ReportPage() {
             </section>
           </Reveal>
         )}
-
-        <Reveal delay={0.14}>
-          <p className="mt-8 text-xs text-mist">
-            数据来自成员账号公开信息，每日更新；粉丝画像为采样聚合（月度刷新）。完整口径见 <Link to="/about" className="text-signal underline-offset-4 hover:underline">关于</Link>。
-          </p>
-        </Reveal>
       </div>
     </>
   );

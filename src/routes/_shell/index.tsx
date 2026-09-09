@@ -10,7 +10,7 @@ import { MentionsSection } from "@/components/dashboard/MentionsSection";
 import { MILESTONES, TITLE_FILL, titleOf } from "@/milestones";
 import { TRACKS } from "@/tracks";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { fmt } from "@/lib/format";
+import { fmt, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -324,7 +324,7 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
                   {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-7 shrink-0" />}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs text-mist">
-                      {p.member ? (p.member.displayName ?? p.member.handle) : ""} · {p.text ? (p.text.length > 34 ? `${p.text.slice(0, 34)}…` : p.text) : ""}
+                      {p.member ? (p.member.displayName ?? p.member.handle) : ""} · {postExcerpt(p.text) ?? "链接帖"}
                     </span>
                     <span className="block text-xs font-semibold tabular-nums">
                       {p.views != null ? `${fmt(p.views)} 浏览` : `${fmt(p.likes ?? 0)} 赞`}

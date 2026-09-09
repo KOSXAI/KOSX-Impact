@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { Link, Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TopLoadingBar } from "@/components/TopLoadingBar";
@@ -51,6 +51,12 @@ function GlobalNotFound() {
       <SiteHeader />
       <div className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
         <h1 className="text-3xl font-bold">页面不存在</h1>
+        <Link
+          to="/"
+          className="mt-6 inline-flex h-9 items-center rounded-full border border-line bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+        >
+          返回首页
+        </Link>
       </div>
     </>
   );

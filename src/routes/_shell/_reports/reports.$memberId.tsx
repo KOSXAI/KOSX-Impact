@@ -8,7 +8,7 @@ import { Check, Copy, Flag, Heart, MessageCircle, PauseCircle, Trophy, Eye } fro
 import { fmt, fmtDate } from "@/lib/format";
 import { titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
   loader: async ({ params }) => {
@@ -25,6 +25,24 @@ export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
       now: new Date().toISOString(),
     });
     return { report };
+  },
+  head: ({ loaderData, params }) => {
+    const r = loaderData?.report ?? null;
+    const name = r ? (r.displayName ?? `@${r.handle}`) : "成员周报";
+    const title = `${name} 的内容周报 · ${SITE_NAME}`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: `${name} 近 7 天的涨粉、登阶与最热内容周报，每周自动生成。` },
+        { property: "og:title", content: title },
+        { property: "og:description", content: `${name} 近 7 天的涨粉、登阶与最热内容。` },
+        { property: "og:type", content: "website" },
+        { property: "og:url", content: `${SITE_URL}/reports/${params.memberId}` },
+        { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
+      ],
+    };
   },
   component: ReportPage,
 });

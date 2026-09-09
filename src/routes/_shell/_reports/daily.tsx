@@ -3,7 +3,7 @@ import { fetchDashboard, fetchDailyArchive } from "@/data.functions";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { titleOf } from "@/milestones";
-import { fmt, fmtDate, badge } from "@/lib/format";
+import { fmt, fmtDate, badge, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
 /**
@@ -151,7 +151,7 @@ function DailyPage() {
                   <a href={p.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-4 py-3 transition-colors hover:border-signal/40">
                     {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-9 shrink-0" />}
                     <div className="min-w-0 flex-1">
-                      <div className="line-clamp-1 text-sm">{p.text ?? "帖子"}</div>
+                      <div className="line-clamp-1 text-sm">{postExcerpt(p.text, 60) ?? "链接帖"}</div>
                       <div className="mt-0.5 text-xs text-mist">
                         {p.member ? (p.member.displayName ?? p.member.handle) : ""} · {fmtDate(p.createdAt)}
                       </div>
