@@ -231,7 +231,7 @@ function MemberPage() {
             <Reveal>
               <section>
                 <h2 className="text-2xl font-bold">同赛道伙伴</h2>
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {neighbors.members.map((n) => (
                     <Link
                       key={n.id}
@@ -262,7 +262,7 @@ function MemberPage() {
                   <h2 className="text-2xl font-bold">同粉丝圈</h2>
                   <span className="rounded-full border border-line bg-soft-surface px-2.5 py-0.5 text-xs font-semibold text-mist">粉丝样本重叠</span>
                 </div>
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {fanCircle.map((n) => (
                     <Link
                       key={n.id}

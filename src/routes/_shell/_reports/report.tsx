@@ -156,7 +156,7 @@ function ReportPage() {
 
         {/* 影响力与声量 Top */}
         <Reveal delay={0.12}>
-          <div className="mt-8 grid gap-3 lg:grid-cols-2">
+          <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
             <section className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">影响力 Top</h2>
               <ul className="mt-4 space-y-2.5">

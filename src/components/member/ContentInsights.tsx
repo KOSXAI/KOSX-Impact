@@ -1,5 +1,5 @@
 import type { PostItem } from "@/stats";
-import { fmt } from "@/lib/format";
+import { fmt, postExcerpt } from "@/lib/format";
 
 /** 内容密码：从帖子 + 快照挖出的三条实用洞察（全部启发式，样本不足自动隐藏） */
 export function ContentInsights({
@@ -52,7 +52,7 @@ export function ContentInsights({
   return (
     <section>
       <h2 className="text-2xl font-bold">内容密码</h2>
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {hourLabel && (
           <div className="card-lift rounded-2xl border border-line bg-surface p-5">
             <div className="text-sm text-mist">黄金时段</div>
@@ -64,7 +64,7 @@ export function ContentInsights({
           <a href={attribution.post.url} target="_blank" rel="noopener noreferrer" className="card-lift block rounded-2xl border border-signal/30 bg-surface p-5 transition-colors hover:border-signal/50">
             <div className="text-sm text-mist">爆款带来</div>
             <div className="mt-1.5 text-2xl font-bold text-signal tabular-nums">+{fmt(attribution.gained)} 粉</div>
-            <div className="mt-0.5 line-clamp-1 text-xs text-mist">{attribution.post.text ?? "爆款帖子"}</div>
+            <div className="mt-0.5 line-clamp-1 text-xs text-mist">{postExcerpt(attribution.post.text, 80) ?? "链接帖"}</div>
           </a>
         )}
         {debate.length > 0 && (
@@ -73,7 +73,7 @@ export function ContentInsights({
             <div className="mt-1.5 space-y-1">
               {debate.map((p) => (
                 <a key={p.tweetId} href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm hover:text-ink">
-                  <span className="line-clamp-1 min-w-0 flex-1 text-mist">{p.text ?? "帖子"}</span>
+                  <span className="line-clamp-1 min-w-0 flex-1 text-mist">{postExcerpt(p.text, 60) ?? "链接帖"}</span>
                   <b className="shrink-0 tabular-nums">{p.replies ?? 0} 评</b>
                 </a>
               ))}

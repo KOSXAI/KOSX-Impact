@@ -2,7 +2,7 @@ import type { CommunityInsights, PostItem } from "@/stats";
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/member/Avatar";
 import { Eye, Heart, MessageCircle, PauseCircle, Tags } from "lucide-react";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, postExcerpt } from "@/lib/format";
 
 /**
  * 看板「内容洞察」：爆款帖（近 30 天单帖浏览 ≥5000 且 ≥ 本人均值×2）、
@@ -18,7 +18,7 @@ export function InsightsSection({ insights }: { insights: CommunityInsights }) {
       {viralPosts.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-mist">近 30 天爆款</h3>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {viralPosts.map((p) => (
               <ViralCard key={p.tweetId} post={p} />
             ))}
@@ -107,7 +107,7 @@ function ViralCard({ post: p }: { post: PostItem }) {
           <Eye className="size-3.5" />
         </a>
       </div>
-      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{p.text ?? "（无正文）"}</p>
+      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{postExcerpt(p.text, 120) ?? "分享了一条链接"}</p>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-mist">
         <span className="inline-flex items-center gap-1 font-semibold text-signal" title="浏览">
           <Eye className="size-3.5" aria-hidden="true" />

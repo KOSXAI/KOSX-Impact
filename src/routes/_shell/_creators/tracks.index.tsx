@@ -61,7 +61,7 @@ function TracksPage() {
 
       {/* 赛道导航卡：直达每个赛道的独立页（SEO 收录 + 批量关注 + 分享） */}
       <Reveal delay={0.06}>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {TRACKS.map((t) => {
             const stat: TrackStats | undefined = trackStats.find((s) => s.slug === t.slug);
             if (!stat || stat.memberCount === 0) return null;

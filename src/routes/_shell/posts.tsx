@@ -79,7 +79,7 @@ function PostsPage() {
           <Reveal delay={0.07}>
             <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">内容配方</h2>
-              <div className="mt-5 grid gap-6 lg:grid-cols-2">
+              <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {recipe.hours.length > 0 && (
                   <div>
                     <div className="text-sm font-semibold text-mist">社群黄金时段</div>
@@ -120,7 +120,7 @@ function PostsPage() {
           <Reveal delay={0.07}>
             <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <h2 className="text-xl font-bold">社群品味</h2>
-              <div className="mt-5 grid gap-6 lg:grid-cols-2">
+              <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {following.length > 0 && (
                   <div>
                     <div className="flex items-center gap-1.5 text-sm font-semibold text-mist">

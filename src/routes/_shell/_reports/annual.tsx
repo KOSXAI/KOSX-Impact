@@ -3,8 +3,8 @@ import { fetchAnnualReport } from "@/data.functions";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { StatCard } from "@/components/ui/StatCard";
-import { titleOf } from "@/milestones";
-import { fmt } from "@/lib/format";
+import { groupClimbs, titleOf } from "@/milestones";
+import { fmt, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
@@ -75,7 +75,7 @@ function AnnualPage() {
 
         {/* 年度涨粉 Top + 年度声量 Top */}
         <Reveal delay={0.1}>
-          <div className="mt-8 grid gap-3 lg:grid-cols-2">
+          <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
             <section className="rounded-2xl border border-line bg-surface p-6">
               <h2 className="text-xl font-bold">年度涨粉 Top</h2>
               <ul className="mt-4 space-y-2.5">
@@ -117,18 +117,25 @@ function AnnualPage() {
               <p className="mt-4 text-mist">今年还没有登阶记录，第一枚成就正在路上。</p>
             ) : (
               <ul className="mt-4 space-y-2.5">
-                {r.ytdClimbsList.map((m) => (
-                  <li key={`${m.memberId}-${m.threshold}`}>
-                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
-                      <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
-                        「{titleOf(m.threshold)}」
-                      </span>
-                      <span className="shrink-0 text-xs text-mist tabular-nums">{m.achievedAt.slice(0, 10)}</span>
-                    </Link>
-                  </li>
-                ))}
+                {groupClimbs(r.ytdClimbsList).map((g) => {
+                  const name = g.items[0].displayName ?? g.items[0].handle;
+                  return (
+                    <li key={g.key}>
+                      <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                        <Avatar url={g.items[0].profileImage} name={name} className="size-8 shrink-0" />
+                        <span className="min-w-0 truncate text-sm font-semibold">{name}</span>
+                        <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
+                          {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (
+                            <span key={c.threshold} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                              「{titleOf(c.threshold)}」
+                            </span>
+                          ))}
+                        </span>
+                        <span className="shrink-0 text-xs text-mist tabular-nums">{g.date} · {g.items.length} 枚</span>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
@@ -145,7 +152,7 @@ function AnnualPage() {
                     <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
                       {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-8 shrink-0" />}
                       <span className="min-w-0 flex-1">
-                        <span className="line-clamp-1 text-sm">{p.text ?? "帖子"}</span>
+                        <span className="line-clamp-1 text-sm">{postExcerpt(p.text, 60) ?? "链接帖"}</span>
                         <span className="mt-0.5 block text-xs text-mist">{p.member ? p.member.displayName ?? p.member.handle : ""} · {p.createdAt.slice(0, 10)}</span>
                       </span>
                       <span className="shrink-0 font-bold tabular-nums">{p.views != null ? fmt(p.views) : "—"}</span>

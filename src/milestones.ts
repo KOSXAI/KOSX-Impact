@@ -159,3 +159,30 @@ export function detectMilestones(
     .filter((t) => prevFollowers < t && t <= current)
     .map((threshold) => ({ threshold, achievedAt }));
 }
+
+/* ============ 登阶记录分组 ============ */
+
+/** 同成员同日的登阶事件组：列表一行呈现一位成员一天的全部称号，不再一人刷屏 */
+export interface ClimbGroup<T> {
+  key: string;
+  memberId: string;
+  date: string;
+  items: T[];
+}
+
+export function groupClimbs<T extends { memberId: string; achievedAt: string }>(items: T[]): ClimbGroup<T>[] {
+  const groups: ClimbGroup<T>[] = [];
+  const byKey = new Map<string, ClimbGroup<T>>();
+  for (const it of items) {
+    const date = it.achievedAt.slice(0, 10);
+    const key = `${it.memberId}·${date}`;
+    let g = byKey.get(key);
+    if (!g) {
+      g = { key, memberId: it.memberId, date, items: [] };
+      byKey.set(key, g);
+      groups.push(g);
+    }
+    g.items.push(it);
+  }
+  return groups;
+}

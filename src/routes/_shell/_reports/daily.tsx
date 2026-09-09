@@ -3,8 +3,8 @@ import { fetchDashboard, fetchDailyArchive } from "@/data.functions";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { StatCard } from "@/components/ui/StatCard";
-import { titleOf } from "@/milestones";
-import { fmt, fmtDate, badge, postExcerpt } from "@/lib/format";
+import { groupClimbs, titleOf } from "@/milestones";
+import { fmt, fmtDate, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
 /**
@@ -92,17 +92,27 @@ function DailyPage() {
             <h2 className="text-xl font-bold">今日登阶</h2>
             {todayClimbs.length > 0 ? (
               <ul className="mt-4 space-y-3">
-                {todayClimbs.map((m) => (
-                  <li key={`${m.memberId}-${m.threshold}`}>
-                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:border-signal/40">
-                      <Avatar url={byId.get(m.memberId)?.profileImage} name={m.displayName ?? m.handle} className="size-9 shrink-0" />
-                      <span className="min-w-0 flex-1 truncate font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 text-sm font-semibold text-signal">
-                        拿下「{titleOf(m.threshold)}」· {badge(m.threshold)}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
+                {groupClimbs(todayClimbs).map((g) => {
+                  const name = g.items[0].displayName ?? g.items[0].handle;
+                  return (
+                    <li key={g.key}>
+                      <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:border-signal/40">
+                        <Avatar url={byId.get(g.memberId)?.profileImage} name={name} className="size-9 shrink-0" />
+                        <span className="min-w-0 truncate font-semibold">{name}</span>
+                        <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
+                          {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (
+                            <span key={c.threshold} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                              「{titleOf(c.threshold)}」
+                            </span>
+                          ))}
+                        </span>
+                        {g.items.length > 1 && (
+                          <span className="shrink-0 text-xs font-semibold text-signal tabular-nums">{g.items.length} 枚</span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="mt-4 text-mist">今天还没有新登阶，第一枚成就正在路上。</p>
@@ -112,7 +122,7 @@ function DailyPage() {
 
         {/* 涨粉冠军 + 赛道表现 */}
         <Reveal delay={0.1}>
-          <div className="mt-8 grid gap-3 lg:grid-cols-2">
+          <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
             {growthChamp && (
               <section className="rounded-2xl border border-line bg-surface p-6">
                 <h2 className="text-xl font-bold">近 30 天涨粉冠军</h2>
@@ -267,13 +277,20 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
               <p className="mt-4 text-mist">这一天没有登阶记录。</p>
             ) : (
               <ul className="mt-4 space-y-3">
-                {archive.climbs.map((m) => (
-                  <li key={`${m.memberId}-${m.threshold}`}>
-                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:border-signal/40">
-                      <span className="min-w-0 flex-1 truncate font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 text-sm font-semibold text-signal">
-                        拿下「{titleOf(m.threshold)}」· {badge(m.threshold)}
+                {groupClimbs(archive.climbs).map((g) => (
+                  <li key={g.key}>
+                    <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:border-signal/40">
+                      <span className="min-w-0 truncate font-semibold">{g.items[0].displayName ?? g.items[0].handle}</span>
+                      <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
+                        {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (
+                          <span key={c.threshold} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                            「{titleOf(c.threshold)}」
+                          </span>
+                        ))}
                       </span>
+                      {g.items.length > 1 && (
+                        <span className="shrink-0 text-xs font-semibold text-signal tabular-nums">{g.items.length} 枚</span>
+                      )}
                     </Link>
                   </li>
                 ))}

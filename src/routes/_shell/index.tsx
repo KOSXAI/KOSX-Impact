@@ -7,7 +7,7 @@ import { GrowProgress, PopIn, Reveal, RevealGroup, RevealItem } from "@/componen
 import { Avatar } from "@/components/member/Avatar";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { MentionsSection } from "@/components/dashboard/MentionsSection";
-import { MILESTONES, TITLE_FILL, titleOf } from "@/milestones";
+import { MILESTONES, TITLE_FILL, groupClimbs, titleOf } from "@/milestones";
 import { TRACKS } from "@/tracks";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fmt, postExcerpt } from "@/lib/format";
@@ -210,19 +210,31 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
   }).filter((x) => x.count > 0);
 
   return (
-    <div className="mt-8 grid gap-3 lg:grid-cols-3">
+    <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-3">
       {/* 今日动态 */}
       <section className="rounded-2xl border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold text-mist">今日动态</h2>
         <div className="mt-3 space-y-2.5">
           {todayClimbs.length > 0 ? (
-            todayClimbs.slice(0, 3).map((m) => (
-              <Link key={`${m.memberId}-${m.threshold}`} to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-2 rounded-xl border border-signal/20 bg-signal/8 px-3 py-2 transition-colors hover:border-signal/40">
-                <Avatar url={stats.members.find((x) => x.id === m.memberId)?.profileImage} name={m.displayName ?? m.handle} className="size-7 shrink-0" />
-                <span className="truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                <span className="ml-auto shrink-0 text-xs font-semibold text-signal">拿下「{titleOf(m.threshold)}」</span>
-              </Link>
-            ))
+            groupClimbs(todayClimbs).slice(0, 3).map((g) => {
+              const name = g.items[0].displayName ?? g.items[0].handle;
+              return (
+                <Link key={g.key} to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-signal/20 bg-signal/8 px-3 py-2 transition-colors hover:border-signal/40">
+                  <Avatar url={stats.members.find((x) => x.id === g.memberId)?.profileImage} name={name} className="size-7 shrink-0" />
+                  <span className="truncate text-sm font-semibold">{name}</span>
+                  <span className="ml-auto flex flex-wrap justify-end gap-1">
+                    {[...g.items].sort((a, b) => a.threshold - b.threshold).slice(0, 2).map((c) => (
+                      <span key={c.threshold} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                        「{titleOf(c.threshold)}」
+                      </span>
+                    ))}
+                    {g.items.length > 2 && (
+                      <span className="shrink-0 text-[11px] font-semibold text-signal">+{g.items.length - 2} 枚</span>
+                    )}
+                  </span>
+                </Link>
+              );
+            })
           ) : (
             <div className="rounded-xl border border-line bg-soft-surface px-3 py-2 text-sm text-mist">今天还没有新登阶，称号正在路上。</div>
           )}
@@ -415,7 +427,7 @@ function NextGateRace({ members }: { members: MemberStats[] }) {
   return (
     <div className="mt-6 border-t border-line pt-6">
       <h3 className="text-sm font-semibold text-mist">冲线在即</h3>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
         {racers.map(({ m, remaining }) => {
           const name = m.displayName ?? m.handle;
           const dailyRate = m.growth30d > 0 ? m.growth30d / 30 : 0;
