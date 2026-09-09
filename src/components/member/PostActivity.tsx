@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Metric } from "@/components/ui/Metric";
 import { AnimatedNumber, Reveal } from "@/components/motion";
 import { ExternalLink, Eye, Heart, MessageCircle, Repeat2 } from "lucide-react";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, postExcerpt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** 成员页「帖子活跃度」：近 20 帖的浏览/赞/评论合计 + 帖子列表（摘要 + 原文外链） */
@@ -43,7 +43,7 @@ export function PostActivity({ activity }: { activity: PostActivityData }) {
                     <div className="min-w-0 flex-1">
                       <div className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</div>
                       <p className="mt-1 line-clamp-2 text-sm leading-relaxed">
-                        {p.text ?? "（无正文）"}
+                        {postExcerpt(p.text, 120) ?? "分享了一条链接"}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
                         <Metric icon={<Eye className="size-3.5" />} value={p.views} label="浏览" />

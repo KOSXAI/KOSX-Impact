@@ -7,7 +7,7 @@ import { Avatar } from "@/components/member/Avatar";
 import { GrowProgress } from "@/components/motion";
 import { StatCard } from "@/components/ui/StatCard";
 import { Check, Copy, Flag, Heart, MessageCircle, PauseCircle, Trophy, Eye } from "lucide-react";
-import { fmt, fmtDate } from "@/lib/format";
+import { fmt, fmtDate, postExcerpt } from "@/lib/format";
 import { titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -184,7 +184,7 @@ function ReportPage() {
                         查看原文
                       </a>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{p.text ?? "（无正文）"}</p>
+                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{postExcerpt(p.text, 120) ?? "分享了一条链接"}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-mist">
                       <span className="inline-flex items-center gap-1 font-semibold text-signal" title="浏览">
                         <Eye className="size-3.5" aria-hidden="true" />

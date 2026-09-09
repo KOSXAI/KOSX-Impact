@@ -8,7 +8,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { PODIUM } from "@/components/leaderboard/podium";
 import { MemberRankRow } from "@/components/leaderboard/MemberRankRow";
 import { ArrowUpRight, Blocks, CandlestickChart, Eye, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
-import { fmt, fmtDate } from "@/lib/format";
+import { fmt, fmtDate, postExcerpt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** 赛道图标映射（src/tracks.ts 存图标名字符串，组件侧映射到 lucide 组件） */
@@ -148,7 +148,7 @@ function TrackPostList({ trackName, posts }: { trackName: string; posts: TrackSt
                 </Link>
                 <span className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</span>
               </div>
-              <p className="mt-0.5 line-clamp-1 text-xs text-mist">{p.text ?? "（无正文）"}</p>
+              <p className="mt-0.5 line-clamp-1 text-xs text-mist">{postExcerpt(p.text, 60) ?? "链接帖"}</p>
             </div>
             <a
               href={p.url}

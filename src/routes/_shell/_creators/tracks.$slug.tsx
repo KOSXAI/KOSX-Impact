@@ -11,7 +11,7 @@ import { PODIUM } from "@/components/leaderboard/podium";
 import { MemberRankRow } from "@/components/leaderboard/MemberRankRow";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { Blocks, CandlestickChart, Check, Copy, Eye, Globe, PenTool, Shapes, Share2, Sparkles, type LucideIcon } from "lucide-react";
-import { fmt, fmtDate } from "@/lib/format";
+import { fmt, fmtDate, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 const TRACK_ICONS: Record<string, LucideIcon> = {
@@ -175,7 +175,7 @@ function TrackPage() {
                           </Link>
                           <span className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</span>
                         </div>
-                        <p className="mt-0.5 line-clamp-1 text-xs text-mist">{p.text ?? "（无正文）"}</p>
+                        <p className="mt-0.5 line-clamp-1 text-xs text-mist">{postExcerpt(p.text, 60) ?? "链接帖"}</p>
                       </div>
                       <a href={p.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-right text-sm font-bold text-signal tabular-nums" title="查看 X 原文">
                         <span className="inline-flex items-center gap-1">
