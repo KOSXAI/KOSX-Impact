@@ -133,32 +133,31 @@ function DashboardPage() {
         <div className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
           <h2 className="text-xl font-bold">报告</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Link
-              to="/daily"
-              className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong"
-            >
-              <span className="flex items-center gap-2 text-sm font-semibold text-ink">
-                <Newspaper className="size-4 text-signal" aria-hidden="true" />
-                社群日报
-              </span>
+            <Link to="/daily" className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong">
+              <div className="flex items-center gap-2">
+                <Newspaper className="size-4 shrink-0 text-signal" aria-hidden="true" />
+                <span className="truncate text-sm font-semibold text-ink">社群日报</span>
+                <span className="ml-auto shrink-0 text-xs text-mist tabular-nums">{today}</span>
+              </div>
+              <div className="mt-1 text-xs text-mist tabular-nums">
+                {todayClimbers > 0 ? `今日登阶 ${todayClimbers} 条` : "今天还没有登阶"}
+              </div>
             </Link>
-            <Link
-              to="/report"
-              className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong"
-            >
-              <span className="flex items-center gap-2 text-sm font-semibold text-ink">
-                <Zap className="size-4 text-signal" aria-hidden="true" />
-                社群能量报告
-              </span>
+            <Link to="/report" className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong">
+              <div className="flex items-center gap-2">
+                <Zap className="size-4 shrink-0 text-signal" aria-hidden="true" />
+                <span className="truncate text-sm font-semibold text-ink">社群能量报告</span>
+                <span className="ml-auto shrink-0 text-xs text-mist tabular-nums">本周</span>
+              </div>
+              <div className="mt-1 text-xs text-mist tabular-nums">覆盖 {stats.members.length} 位成员</div>
             </Link>
-            <Link
-              to="/annual"
-              className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong"
-            >
-              <span className="flex items-center gap-2 text-sm font-semibold text-ink">
-                <CalendarRange className="size-4 text-signal" aria-hidden="true" />
-                年度报告
-              </span>
+            <Link to="/annual" className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong">
+              <div className="flex items-center gap-2">
+                <CalendarRange className="size-4 shrink-0 text-signal" aria-hidden="true" />
+                <span className="truncate text-sm font-semibold text-ink">年度报告</span>
+                <span className="ml-auto shrink-0 text-xs text-mist tabular-nums">{today.slice(0, 4)}</span>
+              </div>
+              <div className="mt-1 text-xs text-mist tabular-nums">累计粉丝 {fmt(stats.totalFollowers)}</div>
             </Link>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
