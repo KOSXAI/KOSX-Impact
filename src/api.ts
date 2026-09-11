@@ -278,6 +278,7 @@ function renderLlmsTxt(): Response {
 - [赛道详情](https://impact.kosx.ai/tracks/ai-tools)：AI工具 / 财经 / 开发者 / 增长 / 出海 五个赛道 + 综合兜底，
   每个赛道独立页（seo 收录 + 批量关注 + 分享）；赛道榜在榜单页、赛道筛选在成员广场。
 - [内容](https://impact.kosx.ai/posts)：近 30 天精华帖与全站历史 Top 帖、内容洞察（爆款 / 标签云 / 停更）、内容配方（黄金时段 / 形态）、社群品味。
+- [报告](https://impact.kosx.ai/reports)：报告板块入口——社群日报、社群能量报告、年度报告、站外声量。
 - [社群日报](https://impact.kosx.ai/daily)：每日战报——今日登阶 / 涨粉冠军 / 赛道表现 / 最爆内容 / 品牌声量；支持 ?date=YYYY-MM-DD 归档回看。
 - [成员周报](https://impact.kosx.ai/reports/{id})：单成员周报——本周增长、登阶进度、内容表现，支持分享。
 - [年度报告](https://impact.kosx.ai/annual)：年度影响力报告——年初至今增长、月度趋势、年度登阶与最火内容。
@@ -318,6 +319,7 @@ async function renderSitemap(env: Env): Promise<Response> {
       { loc: `${SITE_URL}/`, lastmod: dataDay, changefreq: "daily", priority: "1.0" },
       { loc: `${SITE_URL}/members`, lastmod: dataDay, changefreq: "daily", priority: "0.9" },
       { loc: `${SITE_URL}/posts`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
+      { loc: `${SITE_URL}/reports`, lastmod: dataDay, changefreq: "daily", priority: "0.5" },
       { loc: `${SITE_URL}/daily`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
       { loc: `${SITE_URL}/report`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },
       { loc: `${SITE_URL}/annual`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },

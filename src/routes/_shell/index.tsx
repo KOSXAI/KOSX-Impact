@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ChampionCards } from "@/components/home/ChampionCards";
 import { WindowGrid } from "@/components/home/WindowGrid";
 import { TitleDistribution } from "@/components/home/TitleDistribution";
+import { CalendarRange, Newspaper, Zap } from "lucide-react";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { fmt, fmtDate } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
@@ -127,15 +128,51 @@ function DashboardPage() {
         </section>
       </Reveal>
 
-      {/* 外部信号带：互相关注（真实关注网）/ 站外声量 / 深入详情入口 */}
-      {(stats.followNet || stats.mentions.length > 0) && (
-        <Reveal delay={0.12}>
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-soft-surface px-4 py-3">
+      {/* 报告窗格：日报/能量报告/年报缩略入口 + 外部信号收尾 */}
+      <Reveal delay={0.12}>
+        <div className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <h2 className="text-xl font-bold">报告</h2>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Link
+              to="/daily"
+              className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <Newspaper className="size-4 text-signal" aria-hidden="true" />
+                社群日报
+              </span>
+            </Link>
+            <Link
+              to="/report"
+              className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <Zap className="size-4 text-signal" aria-hidden="true" />
+                社群能量报告
+              </span>
+            </Link>
+            <Link
+              to="/annual"
+              className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <CalendarRange className="size-4 text-signal" aria-hidden="true" />
+                年度报告
+              </span>
+            </Link>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Link
+              to="/reports"
+              className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-xs font-semibold text-mist transition-colors hover:text-ink"
+            >
+              📣 站外声量 <b className="text-ink tabular-nums">{stats.mentions.length}</b> 条
+            </Link>
             {stats.followNet && stats.followNet.mutualPairs > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-surface shadow-[var(--panel-elev)] px-3 py-1 text-xs font-semibold text-mist transition-colors hover:border-white/20 hover:text-ink"
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-xs font-semibold text-mist transition-colors hover:text-ink"
                     tabIndex={0}
                   >
                     🤝 成员互相关注 <b className="text-ink tabular-nums">{stats.followNet.mutualPairs}</b> 对
@@ -146,28 +183,9 @@ function DashboardPage() {
                 </TooltipContent>
               </Tooltip>
             )}
-            {stats.mentions.length > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    to="/daily"
-                    className="inline-flex items-center gap-1.5 rounded-full bg-surface shadow-[var(--panel-elev)] px-3 py-1 text-xs font-semibold text-mist transition-colors hover:border-white/20 hover:text-ink"
-                  >
-                    📣 站外声量 <b className="text-ink tabular-nums">{stats.mentions.length}</b> 条
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>X 上对 KOSX 的站外提及，完整列表在社群日报</TooltipContent>
-              </Tooltip>
-            )}
-            <Link to="/report" className="text-xs font-semibold text-signal underline-offset-4 hover:underline">
-              社群能量报告 →
-            </Link>
-            <Link to="/daily" className="text-xs font-semibold text-signal underline-offset-4 hover:underline">
-              社群日报 →
-            </Link>
           </div>
-        </Reveal>
-      )}
+        </div>
+      </Reveal>
 
       {/* 第二屏 · 冠军卡三联：今天谁在赢 */}
       <Reveal delay={0.14}>

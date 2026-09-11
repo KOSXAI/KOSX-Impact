@@ -15,14 +15,15 @@ const SENTIMENT_DOT: Record<string, string> = {
  * 看板「品牌声量」：定时搜索 X 上关于 KOSX 的站外提及（最近 20 条）。
  * 品牌活跃度的直接证据；空数据隐藏整个区块。默认只展开前 3 条，其余折叠防列表刷屏。
  */
-export function MentionsSection({ mentions }: { mentions: MentionItem[] }) {
+export function MentionsSection({ mentions, heading }: { mentions: MentionItem[]; heading?: string | null }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? mentions : mentions.slice(0, 3);
   if (mentions.length === 0) return null;
+  const title = heading === undefined ? "最近站外提及" : heading;
   return (
-    <div className="mt-6 border-t border-line pt-6">
-      <h3 className="text-sm font-semibold text-mist">最近站外提及</h3>
-      <ol className="mt-3 space-y-2">
+    <div className={cn(title ? "border-t border-line pt-6" : null)}>
+      {title && <h3 className="text-sm font-semibold text-mist">{title}</h3>}
+      <ol className={cn("space-y-2", title ? "mt-3" : "mt-0")}>
         {visible.map((m, i) => (
           <li
             key={`${m.keyword}-${m.url ?? m.collectedAt}-${i}`}

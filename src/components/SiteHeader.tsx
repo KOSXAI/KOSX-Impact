@@ -22,6 +22,7 @@ const NAV = [
       p.startsWith("/members") || p.startsWith("/tracks"),
   },
   { label: "内容", match: (p: string) => p.startsWith("/posts") },
+  { label: "报告", match: (p: string) => p.startsWith("/report") || p.startsWith("/daily") || p.startsWith("/annual") },
 ] as const;
 
 const NAV_BASE_CLS =
@@ -87,7 +88,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
               return (
                 <Link
                   key={n.label}
-                  to={n.label === "首页" ? "/" : n.label === "博主" ? "/members" : "/posts"}
+                  to={n.label === "首页" ? "/" : n.label === "博主" ? "/members" : n.label === "内容" ? "/posts" : "/reports"}
                   aria-current={active ? "page" : undefined}
                   className={cn(NAV_BASE_CLS, active && "bg-surface text-ink shadow-sm")}
                 >
