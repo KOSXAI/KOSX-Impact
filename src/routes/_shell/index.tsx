@@ -279,8 +279,8 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
             </li>
           ))}
         </ul>
-        <Link to="/tracks" className="mt-3 inline-block text-xs font-semibold text-signal underline-offset-4 hover:underline">
-          进入赛道 →
+        <Link to="/members" className="mt-3 inline-block text-xs font-semibold text-signal underline-offset-4 hover:underline">
+          去广场看赛道 →
         </Link>
       </section>
 

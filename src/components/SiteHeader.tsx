@@ -7,17 +7,17 @@ import { cn } from "@/lib/utils";
 /**
  * 全站导航：门少屋深——一级菜单只保留「独立进入心智」：
  * - 首页 /：社群怎么样（含 /daily 日报 = 首页的时间切片）
- * - 博主 /：谁值得关注（成员实体，涵盖 /leaderboard 榜单 / /members 广场 / /tracks 赛道）
+ * - 博主 /：谁值得关注（成员实体，/members 博主库 = 视图×筛选×布局的一页 + /tracks/{slug} 赛道详情）
  * - 内容 /：他们产出什么（帖子实体）
  * 三项 320px 全放得下，无汉堡、无渐进隐藏；站外链接与站点入口（官网/GitHub/关于/加入追踪）归页脚。
- * 激活态：/ 与 /daily 高亮「首页」；/leaderboard、/members、/tracks 及其子路由高亮「博主」。
+ * 激活态：/ 与 /daily 高亮「首页」；/members、/tracks 及其子路由高亮「博主」。
  */
 const NAV = [
   { label: "首页", match: (p: string) => p === "/" || p.startsWith("/daily") },
   {
     label: "博主",
     match: (p: string) =>
-      p.startsWith("/members") || p.startsWith("/leaderboard") || p.startsWith("/tracks"),
+      p.startsWith("/members") || p.startsWith("/tracks"),
   },
   { label: "内容", match: (p: string) => p.startsWith("/posts") },
 ] as const;

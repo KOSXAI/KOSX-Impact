@@ -273,11 +273,10 @@ function renderLlmsTxt(): Response {
 
 - [首页](https://impact.kosx.ai/)：社群规模、今日动态（登阶 / 涨粉先锋 / 今日曝光增量）、
   社群全景（称号分布 / 总量趋势 / 社群互推）、赛道速览、内容热点、品牌声量与情绪分布。
-- [榜单](https://impact.kosx.ai/leaderboard)：总排行 / 成长榜 / 新锐潜力 / 影响力 / 被提及 / 勤快 / 登阶记录，
-  每个榜可带时间档参数（?tab=growth&range=7）。
-- [成员广场](https://impact.kosx.ai/members)：按赛道 / 标签 / 粉丝量筛选全部成员，复制 @ 清单批量关注。
-- [赛道](https://impact.kosx.ai/tracks)：AI工具 / 财经 / 开发者 / 增长 / 出海 五个赛道 + 综合兜底，
-  每个赛道独立页（seo 收录 + 批量关注 + 分享）。
+- [博主库](https://impact.kosx.ai/members)：同一份成员数据集的多视图库——总排行 / 成长 / 新锐 / 影响力 / 被提及 / 勤快 / 新面孔 / 赛道分组 / 登阶记录，
+  筛选（赛道 / 标签 / 粉丝档 / 收藏）与布局密度（单列 / 双列 / 卡片）自由切换，状态进 URL 可分享；复制 @ 清单批量关注。
+- [赛道详情](https://impact.kosx.ai/tracks/ai-tools)：AI工具 / 财经 / 开发者 / 增长 / 出海 五个赛道 + 综合兜底，
+  每个赛道独立页（seo 收录 + 批量关注 + 分享）；赛道榜在榜单页、赛道筛选在成员广场。
 - [内容](https://impact.kosx.ai/posts)：近 30 天精华帖与全站历史 Top 帖、内容洞察（爆款 / 标签云 / 停更）、内容配方（黄金时段 / 形态）、社群品味。
 - [社群日报](https://impact.kosx.ai/daily)：每日战报——今日登阶 / 涨粉冠军 / 赛道表现 / 最爆内容 / 品牌声量；支持 ?date=YYYY-MM-DD 归档回看。
 - [成员周报](https://impact.kosx.ai/reports/{id})：单成员周报——本周增长、登阶进度、内容表现，支持分享。
@@ -317,9 +316,7 @@ async function renderSitemap(env: Env): Promise<Response> {
     const dataDay = members.reduce<string | null>((max, m) => (m.lastmod && (!max || m.lastmod > max) ? m.lastmod : max), null)?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
     const urls = [
       { loc: `${SITE_URL}/`, lastmod: dataDay, changefreq: "daily", priority: "1.0" },
-      { loc: `${SITE_URL}/leaderboard`, lastmod: dataDay, changefreq: "daily", priority: "0.9" },
-      { loc: `${SITE_URL}/members`, lastmod: dataDay, changefreq: "daily", priority: "0.8" },
-      { loc: `${SITE_URL}/tracks`, lastmod: dataDay, changefreq: "daily", priority: "0.8" },
+      { loc: `${SITE_URL}/members`, lastmod: dataDay, changefreq: "daily", priority: "0.9" },
       { loc: `${SITE_URL}/posts`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
       { loc: `${SITE_URL}/daily`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
       { loc: `${SITE_URL}/report`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },

@@ -199,16 +199,21 @@ export function ProfileHero({
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {neighbors.trackRanks
               .filter((r) => r.total > 0)
-              .map(({ track, rank, total }) => (
-                <Link
-                  key={track}
-                  to="/tracks"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/8 px-3 py-1 text-xs font-semibold text-signal transition-colors hover:border-signal/50"
-                  title={`${track} 赛道内第 ${rank} 名（共 ${total} 人，按粉丝量）`}
-                >
-                  {track} · 第 {rank} 名 / {total}
-                </Link>
-              ))}
+              .map(({ track, rank, total }) => {
+                const slug = trackOf(track)?.slug;
+                if (!slug) return null;
+                return (
+                  <Link
+                    key={track}
+                    to="/tracks/$slug"
+                    params={{ slug }}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/8 px-3 py-1 text-xs font-semibold text-signal transition-colors hover:border-signal/50"
+                    title={`${track} 赛道内第 ${rank} 名（共 ${total} 人，按粉丝量）`}
+                  >
+                    {track} · 第 {rank} 名 / {total}
+                  </Link>
+                );
+              })}
           </div>
         )}
         {profile.bio && (

@@ -122,6 +122,8 @@
   }
   html {
     @apply bg-paper;
+    /* 恒定保留滚动条槽位：弹窗锁滚动时页面宽度不变，杜绝工具条 re-wrap 抖动 */
+    scrollbar-gutter: stable;
   }
   body {
     @apply bg-paper text-foreground font-sans antialiased;
