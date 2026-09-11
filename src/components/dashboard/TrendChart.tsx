@@ -38,13 +38,13 @@ export function TrendChart({ data, className }: { data: TrendPoint[]; className?
                 aria-pressed={isActive}
                 className={cn(
                   "relative h-7 rounded-full px-3 text-xs font-semibold transition-colors duration-200 select-none cursor-pointer",
-                  isActive ? "text-paper" : "text-mist hover:text-ink"
+                  isActive ? "text-primary-foreground" : "text-mist hover:text-ink"
                 )}
               >
                 {isActive && (
                   <motion.span
                     layoutId="trendModeActive"
-                    className="absolute inset-0 rounded-full bg-white shadow-sm"
+                    className="absolute inset-0 rounded-full bg-primary shadow-sm"
                     transition={{ type: "spring", stiffness: 500, damping: 35 }}
                   />
                 )}

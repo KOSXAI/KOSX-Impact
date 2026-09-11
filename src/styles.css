@@ -20,7 +20,7 @@
   /* ===== 浅色（默认）：色块分层——页面灰底、纯白卡浮起、卡内衬灰底，
         零线框零灰描边；层级的表达 = 底色深浅 + 轻投影，暖色只给信号 ===== */
   --paper: #f5f6f7;
-  --soft-surface: #f1f2f4;
+  --soft-surface: #f8f8f9;
   --surface: #ffffff;
   --line: #e4e4e7;
   --ink: #18181b;
