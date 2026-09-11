@@ -26,8 +26,8 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "card-lift relative overflow-hidden rounded-2xl border bg-surface p-4",
-        highlight ? "border-signal/30" : "border-line"
+        "card-lift relative overflow-hidden rounded-2xl bg-surface p-4 shadow-[var(--panel-elev)]",
+        highlight ? "bg-signal/8" : ""
       )}
     >
       {highlight && (

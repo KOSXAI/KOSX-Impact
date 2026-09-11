@@ -25,7 +25,7 @@ export function MiniMemberCard({
   const name = m.displayName ?? m.handle;
   const shown = metric ?? { value: fmt(m.latestFollowers ?? 0), label: "粉丝" };
   return (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--card-inset)] transition-all duration-300 hover:-translate-y-0.5 hover:border-signal/40 hover:shadow-[var(--hover-lift)]">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-surface shadow-[var(--card-inset)] transition-all duration-300 hover:-translate-y-0.5 hover:border-signal/40 hover:shadow-[var(--hover-lift)]">
       {rank != null && (
         <span
           aria-hidden="true"
@@ -67,8 +67,8 @@ export function MiniMemberCard({
                 <span
                   key={t}
                   className={cn(
-                    "rounded-full border px-2 py-0.5 text-xs font-medium",
-                    t === "AI工具" ? "border-signal/40 bg-signal/10 text-signal-ink" : "border-line bg-soft-surface text-ink"
+                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                    t === "AI工具" ? "bg-signal/10 text-signal-ink" : "bg-soft-surface text-ink"
                   )}
                 >
                   {t}

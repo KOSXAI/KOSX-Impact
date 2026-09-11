@@ -65,7 +65,7 @@ function AboutPage() {
                 {MILESTONES.map((m) => (
                   <span
                     key={m.threshold}
-                    className="inline-flex items-center gap-1 rounded-full border border-line bg-soft-surface px-2.5 py-1 text-xs text-mist"
+                    className="inline-flex items-center gap-1 rounded-full bg-soft-surface px-2.5 py-1 text-xs text-mist"
                   >
                     <b className="text-ink">「{m.title}」</b>
                     <span className="tabular-nums">{badge(m.threshold)}</span>

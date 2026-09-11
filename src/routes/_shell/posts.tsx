@@ -67,7 +67,7 @@ function PostsPage() {
           insights.inactiveMembers.length > 0 ||
           insights.tagCloud.length > 0) && (
           <Reveal delay={0.06}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">内容洞察</h2>
               <InsightsSection insights={insights} />
             </section>
@@ -77,7 +77,7 @@ function PostsPage() {
         {/* 内容配方：社群黄金时段 + 什么形态最吃香（近 30 天帖子聚合） */}
         {recipe && (recipe.hours.length > 0 || recipe.forms.length > 0) && (
           <Reveal delay={0.07}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">内容配方</h2>
               <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {recipe.hours.length > 0 && (
@@ -85,7 +85,7 @@ function PostsPage() {
                     <div className="text-sm font-semibold text-mist">社群黄金时段</div>
                     <ul className="mt-3 space-y-2">
                       {recipe.hours.map((h) => (
-                        <li key={h.hour} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2">
+                        <li key={h.hour} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2">
                           <span className="w-14 shrink-0 font-bold tabular-nums">{String(h.hour).padStart(2, "0")}:00</span>
                           <span className="text-xs text-mist tabular-nums">{h.count} 帖</span>
                           <span className="ml-auto text-sm font-bold text-signal-ink tabular-nums">{fmt(h.avgViews)}</span>
@@ -100,7 +100,7 @@ function PostsPage() {
                     <div className="text-sm font-semibold text-mist">什么形态最吃香</div>
                     <ul className="mt-3 space-y-2">
                       {recipe.forms.map((f) => (
-                        <li key={f.label} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2">
+                        <li key={f.label} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2">
                           <span className="w-16 shrink-0 font-bold">{f.label}</span>
                           <span className="text-xs text-mist tabular-nums">{f.count} 帖</span>
                           <span className="ml-auto text-sm font-bold tabular-nums">{fmt(f.avgViews)}</span>
@@ -118,7 +118,7 @@ function PostsPage() {
         {/* 社群品味策展：成员们共同关注的大V + 社群帖子中热议的外部账号 */}
         {(following.length > 0 || taste.length > 0) && (
           <Reveal delay={0.07}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">社群品味</h2>
               <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {following.length > 0 && (
@@ -130,7 +130,7 @@ function PostsPage() {
                     <ul className="mt-3 space-y-2">
                       {following.map((s) => (
                         <li key={s.handle}>
-                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl bg-soft-surface px-3 py-2 transition-colors hover:bg-wash-strong">
                             <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.name ?? `@${s.handle}`}</span>
                             <span className="truncate text-xs text-mist">@{s.handle}</span>
                             <b className="shrink-0 text-xs text-signal-ink tabular-nums">{s.count} 人</b>
@@ -149,7 +149,7 @@ function PostsPage() {
                     <ul className="mt-3 space-y-2">
                       {taste.map((s) => (
                         <li key={s.handle}>
-                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
+                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl bg-soft-surface px-3 py-2 transition-colors hover:bg-wash-strong">
                             <span className="min-w-0 flex-1 truncate text-sm font-semibold">@{s.handle}</span>
                             <b className="shrink-0 text-xs text-signal-ink tabular-nums">被提 {s.count} 次</b>
                           </a>
@@ -165,7 +165,7 @@ function PostsPage() {
 
         {/* 精华帖：近 30 天 / 全站历史 Top 切换 */}
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-bold">{scope === "30d" ? "精华帖" : "历史 Top 帖"}</h2>
               <SegmentedControl
@@ -203,7 +203,7 @@ function PostList({ posts }: { posts: PostItem[] }) {
             <article
               className={cn(
                 "p-4 sm:p-5",
-                podium ? `card-lift rounded-2xl border ${podium.ring}` : "rounded-2xl border border-line bg-surface"
+                podium ? `card-lift rounded-2xl bg-surface ${podium.ring}` : "rounded-2xl bg-surface shadow-[var(--panel-elev)]"
               )}
             >
               <div className="flex items-start gap-3">

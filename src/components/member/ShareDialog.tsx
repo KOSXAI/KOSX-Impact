@@ -130,7 +130,7 @@ export function ShareDialog({
 
         {/* 分享文案：链接已含在文内，「复制文案 / 复制链接」两键并排收尾 */}
         <section className="min-w-0">
-          <p className="rounded-xl border border-line bg-soft-surface p-4 text-sm leading-relaxed whitespace-pre-wrap break-words text-mist select-all">
+          <p className="rounded-xl bg-soft-surface p-4 text-sm leading-relaxed whitespace-pre-wrap break-words text-mist select-all">
             {text}
           </p>
           <div className="mt-2.5 flex gap-2.5">
@@ -145,7 +145,7 @@ export function ShareDialog({
             src={ogUrl}
             alt={`${name} 的 KOSX 影响力卡片`}
             loading="lazy"
-            className="aspect-[1200/630] w-full rounded-xl border border-line object-cover"
+            className="aspect-[1200/630] w-full rounded-xl object-cover"
           />
           <div className="mt-2.5 flex gap-2.5">
             <ActionChip active={copied === "image"} label="复制图片" onClick={() => void copyImage()} disabled={imgBusy} />

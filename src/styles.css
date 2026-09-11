@@ -17,10 +17,10 @@
   --radius: 0.875rem;
   color-scheme: light;
 
-  /* ===== 浅色（默认）：全纯白数据面板——页面/卡片/内衬容器全部 #fff，
-        层级只靠描边与阴影，不放任何灰调填充；暖色只留给信号与高亮 ===== */
-  --paper: #ffffff;
-  --soft-surface: #ffffff;
+  /* ===== 浅色（默认）：色块分层——页面灰底、纯白卡浮起、卡内衬灰底，
+        零线框零灰描边；层级的表达 = 底色深浅 + 轻投影，暖色只给信号 ===== */
+  --paper: #f5f6f7;
+  --soft-surface: #f1f2f4;
   --surface: #ffffff;
   --line: #e4e4e7;
   --ink: #18181b;
@@ -52,6 +52,8 @@
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.1);
   --shadow-pop-xl:
     0 24px 70px -12px rgba(0, 0, 0, 0.14), inset 0 1px 0 0 rgba(255, 255, 255, 0.85);
+  /* 卡片主影：纯白卡浮在灰底上的唯一立体语言（深色下靠底色分层不用影） */
+  --panel-elev: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 28px -14px rgba(0, 0, 0, 0.1);
   --shadow-glass: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
   --hover-lift: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.06);
 
@@ -128,6 +130,7 @@
   --card-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
   --dock-from: rgba(255, 255, 255, 0.08);
   --dock-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  --panel-elev: 0 0 #0000;
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.7);
   --shadow-pop-xl:
     0 24px 70px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
@@ -259,11 +262,11 @@ html[data-theme-mode="dark"] .theme-icon-dark {
   display: block;
 }
 
-/* 卡片 hover 抬升与高光微交互（稳重高级，无缩放引发的文字虚焦抖动） */
+/* 卡片 hover 抬升（无缩放引发的文字虚焦抖动） */
 @utility card-lift {
   @apply transition-all duration-300 ease-out;
   &:hover {
-    @apply -translate-y-0.5 border-edge-strong;
+    @apply -translate-y-1;
     box-shadow: var(--hover-lift);
   }
 }

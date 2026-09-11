@@ -28,7 +28,7 @@ export function TrendChart({ data, className }: { data: TrendPoint[]; className?
   return (
     <div className={className}>
       <div className="mb-3 flex justify-end">
-        <div className="inline-flex items-center rounded-full border border-line bg-soft-surface p-0.5" role="group" aria-label="趋势口径">
+        <div className="inline-flex items-center rounded-full bg-soft-surface p-0.5" role="group" aria-label="趋势口径">
           {MODES.map((m) => {
             const isActive = mode === m.key;
             return (

@@ -11,7 +11,7 @@ export const THEME_STORAGE_KEY = "kosx:theme";
 
 /** 两种解析主题的浏览器 chrome 色（地址栏/状态栏），随主题切换同步进 meta */
 export const THEME_COLORS: Record<ResolvedTheme, string> = {
-  light: "#ffffff",
+  light: "#f5f6f7",
   dark: "#0a0a0a",
 };
 
@@ -53,4 +53,4 @@ export function applyTheme(mode: ThemeMode, systemDark: boolean): ResolvedTheme 
  * <head> 内联启动脚本：阻塞执行、首帧绘制前定题，深色用户不闪白屏。
  * 与 applyTheme 逻辑一致（class + data-theme-mode + meta），但零依赖内联。
  */
-export const THEME_BOOT_SCRIPT = `(function(){try{var m="system";try{m=localStorage.getItem("kosx:theme")||"system"}catch(e){}var d=m==="dark"||(m!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement;r.classList.toggle("dark",d);r.dataset.themeMode=m;var t=document.querySelector('meta[name="theme-color"]');if(t)t.setAttribute("content",d?"#0a0a0a":"#ffffff");}catch(e){}})();`;
+export const THEME_BOOT_SCRIPT = `(function(){try{var m="system";try{m=localStorage.getItem("kosx:theme")||"system"}catch(e){}var d=m==="dark"||(m!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement;r.classList.toggle("dark",d);r.dataset.themeMode=m;var t=document.querySelector('meta[name="theme-color"]');if(t)t.setAttribute("content",d?"#0a0a0a":"#f5f6f7");}catch(e){}})();`;

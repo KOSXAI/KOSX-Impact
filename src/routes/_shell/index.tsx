@@ -53,7 +53,7 @@ function DashboardPage() {
 
       <Reveal delay={0.04}>
         <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <div className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <div className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <div className="text-sm font-medium text-mist">社群累计粉丝</div>
             <AnimatedNumber
               value={stats.totalFollowers}
@@ -62,13 +62,20 @@ function DashboardPage() {
             {fans && fans.sampleSize > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span
-                    className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-xs font-semibold text-mist transition-colors hover:border-white/20 hover:text-ink"
-                    tabIndex={0}
-                  >
-                    粉丝画像：{fans.pct10k != null ? `${fans.pct10k.toFixed(1)}%` : "—"} 粉丝自己过万粉
-                    {fans.verifiedPct != null && <span className="tabular-nums"> · 认证 {fans.verifiedPct.toFixed(1)}%</span>}
-                  </span>
+                  <div className="flex items-baseline gap-8" tabIndex={0}>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-medium text-mist">粉丝过万占比</span>
+                      <span className="text-xl font-extrabold text-ink tabular-nums">
+                        {fans.pct10k != null ? `${fans.pct10k.toFixed(1)}%` : "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-medium text-mist">认证占比</span>
+                      <span className="text-xl font-extrabold text-ink tabular-nums">
+                        {fans.verifiedPct != null ? `${fans.verifiedPct.toFixed(1)}%` : "—"}
+                      </span>
+                    </div>
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent>
                   对全成员粉丝圈抽样 {fmt(fans.sampleSize)} 个账号加权统计（月度采样），粉丝质量的最直接证据
@@ -76,7 +83,7 @@ function DashboardPage() {
               </Tooltip>
             )}
           </div>
-          <div className="rounded-2xl border border-signal/30 bg-signal/5 p-6 sm:p-8">
+          <div className="rounded-2xl bg-signal/5 shadow-[var(--panel-elev)] p-6 sm:p-8">
             <div className="text-sm font-medium text-mist">近 30 天新增</div>
             <AnimatedNumber
               value={stats.totalGrowth30d}
@@ -105,14 +112,14 @@ function DashboardPage() {
 
       {/* 赛道能量条：哪条赛道在涨一眼分明（涨速 = 30 天净增 ÷ 粉丝基数） */}
       <Reveal delay={0.08}>
-        <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+        <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
           <TrackEnergyBar tracks={stats.trackStats} />
         </section>
       </Reveal>
 
       {/* 里程碑分布 + 总量趋势：大屏收官两件 */}
       <Reveal delay={0.1}>
-        <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+        <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-bold">里程碑分布</h2>
             <span className="text-xs font-semibold text-mist tabular-nums">
@@ -131,12 +138,12 @@ function DashboardPage() {
       {/* 外部信号带：互相关注（真实关注网）/ 站外声量 / 深入详情入口 */}
       {(stats.followNet || stats.mentions.length > 0) && (
         <Reveal delay={0.12}>
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-line bg-soft-surface px-4 py-3">
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-soft-surface px-4 py-3">
             {stats.followNet && stats.followNet.mutualPairs > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-mist transition-colors hover:border-white/20 hover:text-ink"
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-surface shadow-[var(--panel-elev)] px-3 py-1 text-xs font-semibold text-mist transition-colors hover:border-white/20 hover:text-ink"
                     tabIndex={0}
                   >
                     🤝 成员互相关注 <b className="text-ink tabular-nums">{stats.followNet.mutualPairs}</b> 对
@@ -152,7 +159,7 @@ function DashboardPage() {
                 <TooltipTrigger asChild>
                   <Link
                     to="/daily"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-mist transition-colors hover:border-white/20 hover:text-ink"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-surface shadow-[var(--panel-elev)] px-3 py-1 text-xs font-semibold text-mist transition-colors hover:border-white/20 hover:text-ink"
                   >
                     📣 站外声量 <b className="text-ink tabular-nums">{stats.mentions.length}</b> 条
                   </Link>

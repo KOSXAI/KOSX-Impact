@@ -26,7 +26,7 @@ export function TrackEnergyBar({ tracks }: { tracks: TrackStats[] }) {
             <Link
               to="/members"
               search={{ view: "track", track: r.name }}
-              className="group flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40"
+              className="group flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2 transition-colors hover:bg-wash-strong"
             >
               <span className="flex w-24 shrink-0 flex-wrap items-baseline gap-x-2">
                 <span className="text-sm font-semibold">{r.name}</span>

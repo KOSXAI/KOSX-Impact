@@ -54,21 +54,21 @@ export function ContentInsights({
       <h2 className="text-2xl font-bold">内容密码</h2>
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {hourLabel && (
-          <div className="card-lift rounded-2xl border border-line bg-surface p-5">
+          <div className="card-lift rounded-2xl bg-surface shadow-[var(--panel-elev)] p-5">
             <div className="text-sm text-mist">黄金时段</div>
             <div className="mt-1.5 text-2xl font-bold tabular-nums">{hourLabel}</div>
             <div className="mt-0.5 text-xs text-mist">北京时间的帖子平均曝光最高</div>
           </div>
         )}
         {attribution && (
-          <a href={attribution.post.url} target="_blank" rel="noopener noreferrer" className="card-lift block rounded-2xl border border-signal/30 bg-surface p-5 transition-colors hover:border-signal/50">
+          <a href={attribution.post.url} target="_blank" rel="noopener noreferrer" className="card-lift block rounded-2xl bg-signal/5 p-5 transition-colors hover:bg-wash-strong">
             <div className="text-sm text-mist">爆款带来</div>
             <div className="mt-1.5 text-2xl font-bold text-signal-ink tabular-nums">+{fmt(attribution.gained)} 粉</div>
             <div className="mt-0.5 line-clamp-1 text-xs text-mist">{postExcerpt(attribution.post.text, 80) ?? "链接帖"}</div>
           </a>
         )}
         {debate.length > 0 && (
-          <div className="card-lift rounded-2xl border border-line bg-surface p-5">
+          <div className="card-lift rounded-2xl bg-surface shadow-[var(--panel-elev)] p-5">
             <div className="text-sm text-mist">最有讨论度</div>
             <div className="mt-1.5 space-y-1">
               {debate.map((p) => (

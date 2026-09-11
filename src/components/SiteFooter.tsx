@@ -51,7 +51,7 @@ export function SiteFooter() {
               target="_blank"
               rel="noopener noreferrer"
               title="KOSX-Impact 开源仓库"
-              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+              className="inline-flex items-center gap-1.5 rounded-full bg-surface shadow-[var(--panel-elev)] px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
             >
               <GitHubIcon className="size-4" />
               GitHub

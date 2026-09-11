@@ -304,8 +304,7 @@ export function CreatorLibrary({
           <section key={t.slug} className="mt-9 first:mt-0">
             <div
               className={cn(
-                "flex flex-wrap items-center gap-2.5 rounded-2xl border bg-soft-surface px-4 py-2.5",
-                isOther ? "border-dashed border-line" : "border-line",
+                "flex flex-wrap items-center gap-2.5 rounded-2xl bg-soft-surface px-4 py-2.5",
               )}
               title={t.description}
             >
@@ -370,7 +369,7 @@ export function CreatorLibrary({
             <div
               role="group"
               aria-label="筛选与布局"
-              className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-soft-surface p-1"
+              className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-soft-surface p-1"
             >
               <button
                 type="button"
@@ -463,7 +462,7 @@ export function CreatorLibrary({
                     type="button"
                     onClick={() => setPending(null)}
                     aria-label="关闭"
-                    className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full border border-line text-mist transition-colors hover:border-signal/40 hover:text-ink"
+                    className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-surface text-mist transition-colors hover:bg-wash-strong hover:text-ink"
                   >
                     <X className="size-4" aria-hidden="true" />
                   </button>
@@ -582,7 +581,7 @@ export function CreatorLibrary({
                       value={tagQuery}
                       onChange={(e) => setTagQuery(e.target.value)}
                       placeholder="搜索标签"
-                      className="h-9 w-full rounded-full border border-line bg-soft-surface pr-3 pl-10 text-sm outline-none transition-colors placeholder:text-mist focus:border-signal/40"
+                      className="h-9 w-full rounded-full bg-soft-surface pr-3 pl-10 text-sm outline-none transition-colors placeholder:text-mist focus:border-signal/40"
                     />
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
@@ -625,7 +624,7 @@ export function CreatorLibrary({
                   <button
                     type="button"
                     onClick={() => setPending(null)}
-                    className="h-9 cursor-pointer rounded-full border border-line px-5 text-sm font-semibold text-mist transition-colors hover:text-ink sm:h-10"
+                    className="h-9 cursor-pointer rounded-full bg-soft-surface px-5 text-sm font-semibold text-mist transition-colors hover:text-ink sm:h-10"
                   >
                     取消
                   </button>
@@ -646,7 +645,7 @@ export function CreatorLibrary({
       {/* 列表本体：同一份数据，随视图 × 筛选 × 布局变形 */}
       <div className="mt-6">
         {base.length === 0 && view !== "climbs" && view !== "track" ? (
-          <div className="rounded-2xl border border-line bg-surface p-10 text-center">
+          <div className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-10 text-center">
             <p className="text-mist">{preset.empty}</p>
             {hasFilter && (
               <button
@@ -719,11 +718,10 @@ function FilterChip({
       aria-pressed={active}
       title={title}
       className={cn(
-        "inline-flex h-8 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-full border px-3 text-xs transition-all duration-150 active:scale-95 sm:h-9 sm:px-3.5 sm:text-sm",
-        dashed && !active && "border-dashed",
+        "inline-flex h-8 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-full px-3 text-xs transition-all duration-150 active:scale-95 sm:h-9 sm:px-3.5 sm:text-sm",
         active
-          ? "border-signal/50 bg-signal/15 text-signal-ink shadow-[0_0_12px_rgba(255,106,0,0.18)]"
-          : "border-line bg-soft-surface text-mist hover:border-signal/40 hover:text-ink",
+          ? "bg-signal/15 text-signal-ink shadow-[0_0_12px_rgba(255,106,0,0.18)]"
+          : "bg-soft-surface text-mist hover:bg-wash-strong hover:text-ink",
       )}
     >
       {children}
@@ -743,10 +741,10 @@ function SegmentDivider({ threshold }: { threshold: number }) {
       <div className={cn("h-px flex-1", tenK ? "bg-signal/40" : "bg-line")} />
       <span
         className={cn(
-          "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold",
+          "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
           tenK
-            ? "border-signal/40 bg-signal/10 text-signal-ink"
-            : "border-line bg-soft-surface text-mist",
+            ? "bg-signal/10 text-signal-ink"
+            : "bg-soft-surface text-mist",
         )}
       >
         <Flag className="size-3" aria-hidden="true" />

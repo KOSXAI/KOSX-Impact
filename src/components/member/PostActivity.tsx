@@ -38,7 +38,7 @@ export function PostActivity({ activity }: { activity: PostActivityData }) {
                     href={p.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-start gap-3 rounded-2xl border border-line bg-soft-surface px-4 py-3 transition-colors hover:border-signal/40 hover:bg-soft-surface/60"
+                    className="group flex items-start gap-3 rounded-2xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong hover:bg-soft-surface/60"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</div>
@@ -54,8 +54,8 @@ export function PostActivity({ activity }: { activity: PostActivityData }) {
                     </div>
                     <span
                       className={cn(
-                        "mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs text-mist transition-colors",
-                        "group-hover:border-signal/40 group-hover:text-signal-ink"
+                        "mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs text-mist transition-colors",
+                        "group-hover:bg-wash-strong group-hover:text-signal-ink"
                       )}
                     >
                       原文

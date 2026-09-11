@@ -81,7 +81,7 @@ export function ProfileHero({
   const homeHost = profile.url ? urlHost(profile.url) : null;
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-line bg-surface">
+    <section className="overflow-hidden rounded-3xl bg-surface shadow-[var(--panel-elev)]">
       <div className="relative h-32 sm:h-44">
         {profile.bannerUrl ? (
           <BannerImage src={profile.bannerUrl} />
@@ -120,13 +120,13 @@ export function ProfileHero({
               href={xProfileUrl(member.handle)}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-signal/40 hover:text-ink"
+              className="rounded-full bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:bg-wash-strong hover:text-ink"
             >
               @{member.handle}
             </a>
             {insights?.inactive && (
               <span
-                className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist"
+                className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-sm text-mist"
                 title="近 14 天没有发布新内容"
               >
                 <PauseCircle className="size-3.5 text-signal-ink" aria-hidden="true" />
@@ -134,17 +134,17 @@ export function ProfileHero({
               </span>
             )}
             {profile.location && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-sm text-mist">
                 <MapPin className="size-3.5" aria-hidden="true" />
                 {profile.location}
               </span>
             )}
             {age && (
-              <span className="rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist">
+              <span className="rounded-full bg-soft-surface px-3 py-1 text-sm text-mist">
                 {age}
               </span>
             )}
-            <span className="rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist">
+            <span className="rounded-full bg-soft-surface px-3 py-1 text-sm text-mist">
               加入于 {fmtDate(member.joinedAt)}
             </span>
             {profile.url && homeHost && (
@@ -152,7 +152,7 @@ export function ProfileHero({
                 href={profile.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-signal/40 hover:text-ink"
+                className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:bg-wash-strong hover:text-ink"
               >
                 <ExternalLink className="size-3.5" aria-hidden="true" />
                 {homeHost}
@@ -172,10 +172,10 @@ export function ProfileHero({
                   key={t}
                   title={track.description}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium",
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
                     t === "AI工具"
-                      ? "border-signal/40 bg-signal/10 text-signal-ink"
-                      : "border-line bg-soft-surface text-ink"
+                      ?"bg-signal/10 text-signal-ink"
+                      :"bg-soft-surface text-ink"
                   )}
                 >
                   <Icon className="size-3.5" aria-hidden="true" />
@@ -207,7 +207,7 @@ export function ProfileHero({
                     key={track}
                     to="/tracks/$slug"
                     params={{ slug }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/8 px-3 py-1 text-xs font-semibold text-signal-ink transition-colors hover:border-signal/50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/8 px-3 py-1 text-xs font-semibold text-signal-ink transition-colors hover:bg-wash-strong"
                     title={`${track} 赛道内第 ${rank} 名（共 ${total} 人，按粉丝量）`}
                   >
                     {track} · 第 {rank} 名 / {total}

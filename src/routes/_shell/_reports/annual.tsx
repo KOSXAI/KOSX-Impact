@@ -56,7 +56,7 @@ function AnnualPage() {
         {/* 月度总粉丝趋势 */}
         {r.monthlyTrend.length >= 2 && (
           <Reveal delay={0.08}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">月度总粉丝</h2>
               <div className="mt-5 flex h-36 items-end gap-1.5">
                 {r.monthlyTrend.map((m) => (
@@ -76,12 +76,12 @@ function AnnualPage() {
         {/* 年度涨粉 Top + 年度声量 Top */}
         <Reveal delay={0.1}>
           <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <section className="rounded-2xl border border-line bg-surface p-6">
+            <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
               <h2 className="text-xl font-bold">年度涨粉 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {r.topGrowers.map((m, i) => (
                   <li key={m.memberId}>
-                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
@@ -91,12 +91,12 @@ function AnnualPage() {
                 ))}
               </ul>
             </section>
-            <section className="rounded-2xl border border-line bg-surface p-6">
+            <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
               <h2 className="text-xl font-bold">年度声量 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {r.topMentions.map((m, i) => (
                   <li key={m.memberId}>
-                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
@@ -111,7 +111,7 @@ function AnnualPage() {
 
         {/* 年度登阶 */}
         <Reveal delay={0.12}>
-          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <h2 className="text-xl font-bold">年度登阶</h2>
             {r.ytdClimbsList.length === 0 ? (
               <p className="mt-4 text-mist">今年还没有登阶记录，第一枚成就正在路上。</p>
@@ -121,7 +121,7 @@ function AnnualPage() {
                   const name = g.items[0].displayName ?? g.items[0].handle;
                   return (
                     <li key={g.key}>
-                      <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                      <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
                         <Avatar url={g.items[0].profileImage} name={name} className="size-8 shrink-0" />
                         <span className="min-w-0 truncate text-sm font-semibold">{name}</span>
                         <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
@@ -144,12 +144,12 @@ function AnnualPage() {
         {/* 年度最火内容 */}
         {r.topPosts.length > 0 && (
           <Reveal delay={0.14}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">年度最火内容</h2>
               <ul className="mt-4 space-y-2.5">
                 {r.topPosts.map((p) => (
                   <li key={p.tweetId}>
-                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
                       {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-8 shrink-0" />}
                       <span className="min-w-0 flex-1">
                         <span className="line-clamp-1 text-sm">{postExcerpt(p.text, 60) ?? "链接帖"}</span>

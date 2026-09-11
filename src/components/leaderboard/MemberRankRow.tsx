@@ -29,7 +29,7 @@ export function MemberRankRow({
     <div
       className={cn(
         "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5",
-        podium ? `card-lift rounded-2xl border ${podium.ring}` : bordered && "rounded-2xl border border-line bg-soft-surface"
+        podium ? `card-lift rounded-2xl bg-surface ${podium.ring}` : bordered && "rounded-2xl bg-surface shadow-[var(--panel-elev)]"
       )}
     >
       <div

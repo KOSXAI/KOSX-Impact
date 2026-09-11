@@ -98,7 +98,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
             placeholder="搜索成员昵称、@handle 或赛道..."
             className="flex-1 bg-transparent text-base text-ink placeholder:text-mist/60 outline-none"
           />
-          <kbd className="hidden sm:inline-flex items-center rounded border border-line bg-soft-surface px-1.5 py-0.5 text-[10px] font-medium text-mist">
+          <kbd className="hidden sm:inline-flex items-center rounded bg-soft-surface px-1.5 py-0.5 text-[10px] font-medium text-mist">
             ESC
           </kbd>
         </div>
@@ -127,9 +127,9 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={cn(
-                        "flex size-8 shrink-0 items-center justify-center rounded-lg border",
+                        "flex size-8 shrink-0 items-center justify-center rounded-lg",
                         isMember 
-                          ? "border-line bg-soft-surface text-mist" 
+                          ?"bg-soft-surface text-mist"
                           : "border-signal/30 bg-signal/10 text-signal-ink"
                       )}>
                         {isMember ? <Users className="size-4" /> : <Shapes className="size-4" />}
@@ -155,16 +155,16 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
         <div className="flex items-center justify-between border-t border-line/60 bg-paper/60 px-4 py-2 text-[11px] text-mist/70">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="rounded border border-line bg-soft-surface px-1 py-0.2 font-mono">
+              <kbd className="rounded bg-soft-surface px-1 py-0.2 font-mono">
                 <ArrowUp className="inline size-2.5" />
               </kbd>
-              <kbd className="rounded border border-line bg-soft-surface px-1 py-0.2 font-mono">
+              <kbd className="rounded bg-soft-surface px-1 py-0.2 font-mono">
                 <ArrowDown className="inline size-2.5" />
               </kbd>
               切换
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="rounded border border-line bg-soft-surface px-1 py-0.2 font-mono">↵</kbd>
+              <kbd className="rounded bg-soft-surface px-1 py-0.2 font-mono">↵</kbd>
               直达
             </span>
           </div>

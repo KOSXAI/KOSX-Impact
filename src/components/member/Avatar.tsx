@@ -31,7 +31,7 @@ export function Avatar({
     return (
       <div
         className={cn(
-          "bg-soft-surface border-line flex size-10 shrink-0 items-center justify-center rounded-full border font-semibold text-mist",
+          "bg-soft-surface flex size-10 shrink-0 items-center justify-center rounded-full font-semibold text-mist",
           className
         )}
         aria-hidden
@@ -49,7 +49,7 @@ export function Avatar({
       decoding="async"
       onError={() => setStage((s) => s + 1)}
       className={cn(
-        "border-line bg-soft-surface size-10 shrink-0 rounded-full border object-cover",
+        "bg-soft-surface size-10 shrink-0 rounded-full object-cover",
         className
       )}
     />

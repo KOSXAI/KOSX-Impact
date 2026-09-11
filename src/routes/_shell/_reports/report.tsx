@@ -94,7 +94,7 @@ function ReportPage() {
             <button
               type="button"
               onClick={() => void exportReport()}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
             >
               <Download className="size-4" /> 导出摘要
             </button>
@@ -112,7 +112,7 @@ function ReportPage() {
 
         {/* 赛道分布 */}
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <h2 className="text-xl font-bold">赛道分布</h2>
             <ul className="mt-5 space-y-3">
               {stats.trackStats
@@ -139,7 +139,7 @@ function ReportPage() {
 
         {/* 粉丝质量：画像聚合 */}
         <Reveal delay={0.1}>
-          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <h2 className="text-xl font-bold">粉丝质量</h2>
             {fanCount === 0 ? (
               <p className="mt-4 text-mist">粉丝画像采样进行中。</p>
@@ -157,12 +157,12 @@ function ReportPage() {
         {/* 影响力与声量 Top */}
         <Reveal delay={0.12}>
           <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <section className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">影响力 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {influenceTop.map((m, i) => (
                   <li key={m.id}>
-                    <Link to="/members/$id" params={{ id: m.id }} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                    <Link to="/members/$id" params={{ id: m.id }} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
@@ -172,12 +172,12 @@ function ReportPage() {
                 ))}
               </ul>
             </section>
-            <section className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">被提及 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {mentionTop.map((m, i) => (
                   <li key={m.id}>
-                    <Link to="/members/$id" params={{ id: m.id }} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                    <Link to="/members/$id" params={{ id: m.id }} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
@@ -193,12 +193,12 @@ function ReportPage() {
         {/* 邀请裂变荣誉榜：谁带来了最多新成员 */}
         {inviteLeaders.length > 0 && (
           <Reveal delay={0.13}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">推荐荣誉榜</h2>
               <ul className="mt-4 space-y-2.5">
                 {inviteLeaders.map((m, i) => (
                   <li key={m.inviterId}>
-                    <Link to="/members/$id" params={{ id: m.inviterId }} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                    <Link to="/members/$id" params={{ id: m.inviterId }} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>

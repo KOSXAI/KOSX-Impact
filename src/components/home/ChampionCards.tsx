@@ -13,7 +13,7 @@ import type { DashboardStats, MemberStats, PostItem } from "@/stats";
 function MiniMemberRow({ m, value }: { m: MemberStats; value: string }) {
   const name = m.displayName ?? m.handle;
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-1.5 text-sm">
+    <div className="flex items-center gap-2 rounded-xl bg-soft-surface px-3 py-1.5 text-sm">
       <Avatar url={m.profileImage} name={name} className="size-6 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{name}</span>
       <span className="shrink-0 font-bold text-signal tabular-nums">{value}</span>
@@ -25,7 +25,7 @@ function MiniPostRow({ p }: { p: PostItem }) {
   const excerpt = postExcerpt(p.text) ?? "链接帖";
   const value = (p.viewsGain ?? 0) > 0 ? `+${fmt(p.viewsGain!)} 浏览` : p.views != null ? `${fmt(p.views)} 浏览` : `${fmt(p.likes ?? 0)} 赞`;
   return (
-    <div className="flex items-baseline gap-2 rounded-xl border border-line bg-soft-surface px-3 py-1.5 text-sm">
+    <div className="flex items-baseline gap-2 rounded-xl bg-soft-surface px-3 py-1.5 text-sm">
       <span className="min-w-0 flex-1 truncate text-mist">{excerpt}</span>
       <span className="shrink-0 text-xs font-bold tabular-nums text-mist">{value}</span>
     </div>
@@ -57,7 +57,7 @@ export function ChampionCards({ stats }: { stats: DashboardStats }) {
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
       {/* 涨粉之星 */}
-      <section className="order-1 rounded-2xl border border-line bg-surface p-5">
+      <section className="order-1 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-5">
         <h3 className="text-sm font-semibold text-mist">涨粉之星</h3>
         {champ ? (
           <>
@@ -89,7 +89,7 @@ export function ChampionCards({ stats }: { stats: DashboardStats }) {
       </section>
 
       {/* 今日爆帖 */}
-      <section className="order-2 rounded-2xl border border-signal/25 bg-signal/5 p-5">
+      <section className="order-2 rounded-2xl bg-signal/5 p-5">
         <h3 className="text-sm font-semibold text-mist">今日爆帖</h3>
         {postRanks[0] ? (
           <>
@@ -140,7 +140,7 @@ export function ChampionCards({ stats }: { stats: DashboardStats }) {
       </section>
 
       {/* 登阶在望 */}
-      <section className="order-3 rounded-2xl border border-line bg-surface p-5">
+      <section className="order-3 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-5">
         <h3 className="text-sm font-semibold text-mist">登阶在望</h3>
         {racers.length > 0 ? (
           <>
@@ -152,7 +152,7 @@ export function ChampionCards({ stats }: { stats: DashboardStats }) {
                   params={{ id: m.id }}
                   className={i === 0 ? "block" : "group block"}
                 >
-                  <div className={i === 0 ? "flex items-center gap-3" : "flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-1.5 transition-colors hover:border-signal/40"}>
+                  <div className={i === 0 ? "flex items-center gap-3" : "flex items-center gap-2 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"}>
                     {i === 0 ? (
                       <>
                         <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-11 shrink-0" />
@@ -164,7 +164,7 @@ export function ChampionCards({ stats }: { stats: DashboardStats }) {
                         </span>
                         <span className="shrink-0 text-right">
                           <span className="block text-2xl font-extrabold text-signal tabular-nums">还差 {fmt(remaining)}</span>
-                          <span className="mt-0.5 inline-block rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-bold text-amber-300">
+                          <span className="mt-0.5 inline-block rounded-full bg-gold/10 px-2 py-0.5 text-[11px] text-gold-text font-bold text-amber-300">
                             至 {badge(m.nextMilestone)}「{titleOf(m.nextMilestone)}」
                           </span>
                         </span>

@@ -38,7 +38,7 @@ export function InsightsSection({ insights }: { insights: CommunityInsights }) {
             {tagCloud.map(({ tag, count }) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist"
+                className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-sm text-mist"
                 title={`${count} 位成员打上此标签`}
               >
                 #{tag}
@@ -65,7 +65,7 @@ export function InsightsSection({ insights }: { insights: CommunityInsights }) {
                   key={m.memberId}
                   to="/members/$id"
                   params={{ id: m.memberId }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-signal/40 hover:text-ink"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:bg-wash-strong hover:text-ink"
                 >
                   {name}
                   <b className="text-ink tabular-nums">{m.days} 天</b>
@@ -88,7 +88,7 @@ export function InsightsSection({ insights }: { insights: CommunityInsights }) {
 function ViralCard({ post: p }: { post: PostItem }) {
   const name = p.member?.displayName ?? p.member?.handle ?? "?";
   return (
-    <div className="group rounded-2xl border border-signal/25 bg-gradient-to-r from-signal/8 to-transparent px-3.5 py-3 transition-colors hover:border-signal/50">
+    <div className="group rounded-2xl border border-signal/25 bg-gradient-to-r from-signal/8 to-transparent px-3.5 py-3 transition-colors hover:bg-wash-strong">
       <div className="flex items-center gap-3">
         <Link to="/members/$id" params={{ id: p.member?.id ?? "" }} className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar url={p.member?.profileImage ?? null} name={name} className="size-9 shrink-0" />
@@ -102,7 +102,7 @@ function ViralCard({ post: p }: { post: PostItem }) {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="查看 X 原文"
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-line text-mist transition-colors group-hover:border-signal/40 group-hover:text-signal-ink"
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-mist transition-colors group-hover:bg-wash-strong group-hover:text-signal-ink"
         >
           <Eye className="size-3.5" />
         </a>

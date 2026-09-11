@@ -12,7 +12,7 @@ export function SimilarAccountsCard({ accounts }: { accounts: SimilarAccount[] }
         <p className="mt-1 text-sm text-mist">根据内容与定位推荐的同类账号</p>
         <ul className="mt-5 space-y-2.5">
           {accounts.map((a) => (
-            <li key={a.handle} className="rounded-2xl border border-line bg-soft-surface px-4 py-3">
+            <li key={a.handle} className="rounded-2xl bg-soft-surface px-4 py-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <a
                   href={`https://x.com/${encodeURIComponent(a.handle)}`}

@@ -89,7 +89,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
                   key={n.label}
                   to={n.label === "首页" ? "/" : n.label === "博主" ? "/members" : "/posts"}
                   aria-current={active ? "page" : undefined}
-                  className={cn(NAV_BASE_CLS, active && "bg-surface ring-1 ring-line text-ink")}
+                  className={cn(NAV_BASE_CLS, active && "bg-surface text-ink shadow-sm")}
                 >
                   {n.label}
                 </Link>
@@ -104,7 +104,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
               onClick={() => setMode(cycleTheme(mode))}
               aria-label={`主题：${THEME_META[mode].label}，点击切换为${THEME_META[mode].next}`}
               title={`主题：${THEME_META[mode].label}（点击切换为${THEME_META[mode].next}）`}
-              className="inline-flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-mist transition-colors hover:border-signal/40 hover:text-ink cursor-pointer select-none active:scale-95 duration-150"
+              className="inline-flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full bg-surface shadow-[var(--panel-elev)] text-mist transition-colors hover:bg-wash-strong hover:text-ink cursor-pointer select-none active:scale-95 duration-150"
             >
               {/* 图标由 html[data-theme-mode] 纯 CSS 切换，水合前后零闪烁 */}
               <Sun className="theme-icon theme-icon-light size-3.5 sm:size-4" aria-hidden="true" />
@@ -116,7 +116,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
               onClick={() => setSearchOpen(true)}
               aria-label="快速搜索成员与赛道"
               title="搜索（⌘K）"
-              className="inline-flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-mist transition-colors hover:border-signal/40 hover:text-ink cursor-pointer select-none active:scale-95 duration-150"
+              className="inline-flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full bg-surface shadow-[var(--panel-elev)] text-mist transition-colors hover:bg-wash-strong hover:text-ink cursor-pointer select-none active:scale-95 duration-150"
             >
               <Search className="size-3.5 sm:size-4" aria-hidden="true" />
             </button>

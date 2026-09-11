@@ -216,7 +216,7 @@ export function SubmitDialog({
                 placeholder="例如 @yourname 或 x.com/yourname"
                 aria-label="X 主页链接或 @ID"
                 autoFocus
-                className="h-11 min-w-0 flex-1 rounded-full border border-line bg-soft-surface px-5 text-sm text-ink placeholder:text-fog focus:border-signal/50 focus:outline-none"
+                className="h-11 min-w-0 flex-1 rounded-full bg-soft-surface px-5 text-sm text-ink placeholder:text-fog focus:border-signal/50 focus:outline-none"
               />
               <Button type="submit" disabled={phase.kind === "looking" || !input.trim()}>
                 {phase.kind === "looking" ? <RefreshCw className="size-4 animate-spin" /> : <SearchCheck className="size-4" />}

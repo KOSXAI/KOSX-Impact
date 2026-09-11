@@ -20,7 +20,7 @@ export function TrackChip({ name, className }: { name: string; className?: strin
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-line bg-soft-surface px-2 py-0.5 text-xs font-semibold text-mist",
+        "inline-flex items-center gap-1 rounded-full bg-soft-surface px-2 py-0.5 text-xs font-semibold text-mist",
         name === "综合" && "border-dashed",
         className
       )}

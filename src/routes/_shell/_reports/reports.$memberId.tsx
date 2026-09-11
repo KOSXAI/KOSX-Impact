@@ -120,7 +120,7 @@ function ReportPage() {
         </div>
 
         {/* 称号进度 */}
-        <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+        <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
           <h2 className="text-xl font-bold">称号之路</h2>
           <div className="mt-4 flex items-baseline justify-between gap-3">
             <span className="text-sm text-mist">当前「{titleOf(report.prevMilestone)}」</span>
@@ -149,14 +149,14 @@ function ReportPage() {
 
         {/* 停更警告 */}
         {report.inactive && (
-          <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-line bg-soft-surface px-5 py-4 text-sm text-mist">
+          <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-soft-surface px-5 py-4 text-sm text-mist">
             <PauseCircle className="size-4 text-signal-ink" aria-hidden="true" />
             已 <b className="text-ink tabular-nums">{report.inactiveDays}</b> 天没有新内容
           </div>
         )}
 
         {/* 本周内容表现 */}
-        <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+        <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
           <h2 className="text-xl font-bold">本周内容</h2>
           {report.topPosts.length === 0 ? (
             <p className="mt-4 text-sm text-mist">这周还没有帖子数据，采集跑起来后自动出现。</p>
@@ -165,7 +165,7 @@ function ReportPage() {
               {report.topPosts.map((p, i) => {
                 const viral = report.virals.some((v) => v.tweetId === p.tweetId);
                 return (
-                  <li key={p.tweetId} className="rounded-2xl border border-line bg-soft-surface px-4 py-3">
+                  <li key={p.tweetId} className="rounded-2xl bg-soft-surface px-4 py-3">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span className="inline-flex size-5 items-center justify-center rounded-full bg-surface text-xs font-bold text-mist tabular-nums">{i + 1}</span>
                       <span className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</span>

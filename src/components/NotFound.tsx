@@ -17,13 +17,13 @@ export function NotFound({ title, description }: { title: string; description?: 
       <div className="mt-6 flex justify-center gap-3">
         <Link
           to="/"
-          className="inline-flex h-9 items-center rounded-full border border-line bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+          className="inline-flex h-9 items-center rounded-full bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
         >
           返回首页
         </Link>
         <Link
           to="/members"
-          className="inline-flex h-9 items-center rounded-full border border-line bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+          className="inline-flex h-9 items-center rounded-full bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
         >
           成员广场
         </Link>

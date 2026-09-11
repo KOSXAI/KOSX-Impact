@@ -100,7 +100,7 @@ function TrackPage() {
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <Reveal y={18}>
           <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-            <div className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border border-line bg-soft-surface">
+            <div className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-soft-surface">
               <Icon className="size-6 text-signal-ink" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
@@ -110,7 +110,7 @@ function TrackPage() {
             <div className="flex shrink-0 flex-wrap gap-2">
               <button
                 onClick={copyAllHandles}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line bg-surface px-4 text-sm font-semibold transition-colors hover:border-signal/40 hover:text-ink"
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-surface shadow-[var(--panel-elev)] px-4 text-sm font-semibold transition-colors hover:bg-wash-strong hover:text-ink"
                 title="一键复制赛道全部 @ 清单，到 X 批量关注"
               >
                 {copiedHandles ? <Check className="size-4 text-signal-ink" /> : <Copy className="size-4" />}
@@ -140,7 +140,7 @@ function TrackPage() {
 
         {/* 赛道成员榜（按粉丝量，前三名荣誉样式） */}
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <h2 className="text-xl font-bold">成员榜</h2>
             {sorted.length === 0 ? (
               <p className="mt-4 text-mist">这个赛道还没有成员上榜。</p>
@@ -159,13 +159,13 @@ function TrackPage() {
         {/* 赛道互动 Top：近 30 天单帖浏览（帖子数据跑起来后出现） */}
         {!isOther && trackStat.topPosts.length > 0 && (
           <Reveal delay={0.08}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">单帖互动 Top</h2>
               <ol className="mt-5 space-y-2.5">
                 {trackStat.topPosts.map((p, i) => {
                   const name = p.member?.displayName ?? p.member?.handle ?? "?";
                   return (
-                    <li key={p.tweetId} className="flex items-center gap-3 rounded-2xl border border-line bg-soft-surface px-4 py-3">
+                    <li key={p.tweetId} className="flex items-center gap-3 rounded-2xl bg-soft-surface px-4 py-3">
                       <div className="w-6 shrink-0 font-extrabold tabular-nums text-mist">{i + 1}</div>
                       <Avatar url={p.member?.profileImage ?? null} name={name} className="size-9 shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -194,13 +194,13 @@ function TrackPage() {
         {/* 赛道话题标签 */}
         {tags.length > 0 && (
           <Reveal delay={0.08}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">话题标签</h2>
               <div className="mt-4 flex flex-wrap gap-2">
                 {tags.slice(0, 12).map(({ tag, count }) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-sm text-mist"
                     title={`${count} 位赛道成员打上此标签`}
                   >
                     #{tag}

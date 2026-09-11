@@ -70,7 +70,7 @@ function DailyPage() {
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">社群日报</h1>
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-mist tabular-nums">{fmtDate(today)} · 每日更新</span>
-              <Link to="/annual" className="inline-flex h-9 items-center rounded-full border border-line bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink">
+              <Link to="/annual" className="inline-flex h-9 items-center rounded-full bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink">
                 年度报告 →
               </Link>
             </div>
@@ -88,7 +88,7 @@ function DailyPage() {
 
         {/* 今日登阶 */}
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <h2 className="text-xl font-bold">今日登阶</h2>
             {todayClimbs.length > 0 ? (
               <ul className="mt-4 space-y-3">
@@ -96,7 +96,7 @@ function DailyPage() {
                   const name = g.items[0].displayName ?? g.items[0].handle;
                   return (
                     <li key={g.key}>
-                      <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:border-signal/40">
+                      <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:bg-wash-strong">
                         <Avatar url={byId.get(g.memberId)?.profileImage} name={name} className="size-9 shrink-0" />
                         <span className="min-w-0 truncate font-semibold">{name}</span>
                         <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
@@ -124,9 +124,9 @@ function DailyPage() {
         <Reveal delay={0.1}>
           <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
             {growthChamp && (
-              <section className="rounded-2xl border border-line bg-surface p-6">
+              <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
                 <h2 className="text-xl font-bold">近 30 天涨粉冠军</h2>
-                <Link to="/members/$id" params={{ id: growthChamp.id }} className="mt-4 flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-4 py-3 transition-colors hover:border-signal/40">
+                <Link to="/members/$id" params={{ id: growthChamp.id }} className="mt-4 flex items-center gap-3 rounded-xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong">
                   <Avatar url={growthChamp.profileImage} name={growthChamp.displayName ?? growthChamp.handle} className="size-9 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">{growthChamp.displayName ?? growthChamp.handle}</div>
@@ -140,7 +140,7 @@ function DailyPage() {
               </section>
             )}
             {bestTrack && bestTrack.memberCount > 0 && (
-              <section className="rounded-2xl border border-line bg-surface p-6">
+              <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
                 <h2 className="text-xl font-bold">赛道表现</h2>
                 <ul className="mt-4 space-y-2.5">
                   {[...stats.trackStats]
@@ -163,12 +163,12 @@ function DailyPage() {
 
         {/* 最爆内容 */}
         <Reveal delay={0.12}>
-          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <h2 className="text-xl font-bold">最爆内容</h2>
             <ul className="mt-4 space-y-3">
               {hotPosts.map((p) => (
                 <li key={p.tweetId}>
-                  <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-4 py-3 transition-colors hover:border-signal/40">
+                  <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong">
                     {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-9 shrink-0" />}
                     <div className="min-w-0 flex-1">
                       <div className="line-clamp-1 text-sm">{postExcerpt(p.text, 60) ?? "链接帖"}</div>
@@ -190,12 +190,12 @@ function DailyPage() {
         {/* 品牌声量 */}
         {stats.mentions.length > 0 && (
           <Reveal delay={0.14}>
-            <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
               <h2 className="text-xl font-bold">品牌声量</h2>
               <ul className="mt-4 space-y-3">
                 {stats.mentions.slice(0, 8).map((mn) => (
                   <li key={mn.url ?? `${mn.authorHandle}-${mn.collectedAt}`}>
-                    <a href={mn.url ?? undefined} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 rounded-xl border border-line bg-soft-surface px-4 py-3 transition-colors hover:border-signal/40">
+                    <a href={mn.url ?? undefined} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 rounded-xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong">
                       <span className="min-w-0 flex-1">
                         <span className="line-clamp-2 text-sm">{mn.text}</span>
                         <span className="mt-1 block text-xs text-mist">
@@ -215,7 +215,7 @@ function DailyPage() {
 
         {/* 历史归档：最近 7 天的日报快照（数据透明，逐日可追溯） */}
         <Reveal delay={0.15}>
-          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <h2 className="text-xl font-bold">历史归档</h2>
             <div className="mt-4 flex flex-wrap gap-2">
               {[...new Set(stats.trend.map((t) => t.date))]
@@ -227,7 +227,7 @@ function DailyPage() {
                     key={d}
                     to="/daily"
                     search={{ date: d }}
-                    className="rounded-full border border-line bg-soft-surface px-3.5 py-1.5 text-sm font-semibold text-mist tabular-nums transition-colors hover:border-signal/40 hover:text-ink"
+                    className="rounded-full bg-soft-surface px-3.5 py-1.5 text-sm font-semibold text-mist tabular-nums transition-colors hover:bg-wash-strong hover:text-ink"
                   >
                     {d}
                   </Link>
@@ -254,7 +254,7 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex h-9 items-center rounded-full border border-line bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+              className="inline-flex h-9 items-center rounded-full bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
             >
               ← 最新一期
             </button>
@@ -271,7 +271,7 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
         </Reveal>
 
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
             <h2 className="text-xl font-bold">当日登阶</h2>
             {archive.climbs.length === 0 ? (
               <p className="mt-4 text-mist">这一天没有登阶记录。</p>
@@ -279,7 +279,7 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
               <ul className="mt-4 space-y-3">
                 {groupClimbs(archive.climbs).map((g) => (
                   <li key={g.key}>
-                    <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:border-signal/40">
+                    <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:bg-wash-strong">
                       <span className="min-w-0 truncate font-semibold">{g.items[0].displayName ?? g.items[0].handle}</span>
                       <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
                         {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (

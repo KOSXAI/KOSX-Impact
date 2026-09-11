@@ -69,7 +69,7 @@ export function TitleDistribution({ members }: { members: MemberStats[] }) {
         ))}
         {activeBucket && (
           <div className="pointer-events-none absolute bottom-full mb-1.5 -translate-x-1/2" style={{ left: tipX }}>
-            <div className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-soft-surface px-2.5 py-1 text-xs font-semibold text-ink shadow-xl">
+            <div className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-soft-surface px-2.5 py-1 text-xs font-semibold text-ink shadow-xl">
               <span className="size-2 rounded-full" style={{ background: activeBucket.fill }} aria-hidden="true" />
               {activeBucket.name}
               <b className="tabular-nums">{activeBucket.count} 人</b>
@@ -89,10 +89,10 @@ export function TitleDistribution({ members }: { members: MemberStats[] }) {
             onBlur={() => setHovered(null)}
             onClick={() => setPinned((p) => (p === t.key ? null : t.key))}
             className={cn(
-              "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
+              "inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors",
               active === t.key
-                ? "border-ink/30 bg-surface text-ink"
-                : "border-line bg-soft-surface text-mist hover:text-ink"
+                ?"bg-wash-strong text-ink"
+                :"bg-soft-surface text-mist hover:text-ink"
             )}
           >
             <span className="size-2 rounded-full" style={{ background: t.fill }} aria-hidden="true" />

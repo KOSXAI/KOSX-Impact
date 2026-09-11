@@ -28,7 +28,7 @@ describe("主题三态机", () => {
   it("启动脚本与 applyTheme 行为一致：都落 .dark + data-theme-mode + meta", () => {
     // 脚本里写死了两主题 chrome 色与存储键，必须与常量同步
     expect(THEME_BOOT_SCRIPT).toContain('"#0a0a0a"');
-    expect(THEME_BOOT_SCRIPT).toContain('"#ffffff"');
+    expect(THEME_BOOT_SCRIPT).toContain('"#f5f6f7"');
     expect(THEME_BOOT_SCRIPT).toContain('localStorage.getItem("kosx:theme")');
     // applyTheme 在 workerd 里没有 document，跳过 DOM 侧断言，仅保证可导入无副作用
     expect(typeof applyTheme).toBe("function");

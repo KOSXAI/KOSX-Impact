@@ -29,7 +29,7 @@ export function InfluenceCard({ influence }: { influence: Influence | null }) {
               有效粉丝 <b className="text-ink">{fmt(influence.effectiveFollowers)}</b>
             </div>
           </div>
-          <div className="rounded-2xl border border-line bg-soft-surface px-4 py-3 text-right">
+          <div className="rounded-2xl bg-soft-surface px-4 py-3 text-right">
             <div className="text-xs text-mist">互动率中位数</div>
             <div className="mt-0.5 text-xl font-bold tabular-nums">
               {influence.engagementMedian != null

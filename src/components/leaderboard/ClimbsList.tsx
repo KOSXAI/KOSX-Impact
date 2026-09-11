@@ -20,7 +20,7 @@ export function ClimbsList({ stats }: { stats: DashboardStats }) {
         const name = m.displayName ?? member?.displayName ?? m.handle;
         return (
           <RevealItem key={`${m.memberId}-${m.threshold}`} y={12}>
-            <div className="card-lift flex items-center gap-x-3 gap-y-2 rounded-2xl border border-line bg-surface p-4 sm:gap-x-4 sm:p-5">
+            <div className="card-lift flex items-center gap-x-3 gap-y-2 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-4 sm:gap-x-4 sm:p-5">
               <Avatar url={member?.profileImage} name={name} className="size-10 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

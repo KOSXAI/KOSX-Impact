@@ -55,7 +55,7 @@ function WindowShell({ title, hint, to, search, children }: {
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col rounded-2xl border border-line bg-surface p-4 sm:p-5">
+    <section className="flex flex-col rounded-2xl bg-surface shadow-[var(--panel-elev)] p-4 sm:p-5">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-mist" title={hint}>
           {title}

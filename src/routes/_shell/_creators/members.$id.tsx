@@ -180,7 +180,7 @@ function MemberPage() {
                         href={v.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/10 px-3 py-1 text-sm font-semibold text-signal-ink transition-colors hover:border-signal/50"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/10 px-3 py-1 text-sm font-semibold text-signal-ink transition-colors hover:bg-wash-strong"
                         title={`${fmtDate(v.createdAt)} · 浏览 ${v.views ?? "—"}`}
                       >
                         <Trophy className="size-3.5" aria-hidden="true" />
@@ -237,7 +237,7 @@ function MemberPage() {
                       key={n.id}
                       to="/members/$id"
                       params={{ id: n.id }}
-                      className="card-lift flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-signal/40"
+                      className="card-lift flex items-center gap-3 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-4 transition-colors hover:bg-wash-strong"
                     >
                       <Avatar url={n.profileImage} name={n.displayName ?? n.handle} className="size-9 shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -260,7 +260,7 @@ function MemberPage() {
               <section>
                 <div className="flex items-center gap-3">
                   <h2 className="text-2xl font-bold">同粉丝圈</h2>
-                  <span className="rounded-full border border-line bg-soft-surface px-2.5 py-0.5 text-xs font-semibold text-mist">粉丝样本重叠</span>
+                  <span className="rounded-full bg-soft-surface px-2.5 py-0.5 text-xs font-semibold text-mist">粉丝样本重叠</span>
                 </div>
                 <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {fanCircle.map((n) => (
@@ -268,7 +268,7 @@ function MemberPage() {
                       key={n.id}
                       to="/members/$id"
                       params={{ id: n.id }}
-                      className="card-lift flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-signal/40"
+                      className="card-lift flex items-center gap-3 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-4 transition-colors hover:bg-wash-strong"
                     >
                       <Avatar url={n.profileImage} name={n.displayName ?? n.handle} className="size-9 shrink-0" />
                       <div className="min-w-0 flex-1">

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 /** 成长档案摘要块（回顾卡的单个数据点） */
 function Recap({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-line bg-soft-surface px-4 py-3">
+    <div className="rounded-xl bg-soft-surface px-4 py-3">
       <div className="text-xs text-mist">{label}</div>
       <div className="mt-1 truncate text-lg font-bold">{value}</div>
     </div>
@@ -113,7 +113,7 @@ export function MilestoneJourney({
               <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5">
                 <span className="text-sm text-mist">接下来的称号</span>
                 {upcoming.map((threshold) => (
-                  <Badge key={threshold} variant="outline" className="gap-1.5 text-mist transition-colors hover:border-edge-strong hover:text-ink select-none cursor-default">
+                  <Badge key={threshold} variant="outline" className="gap-1.5 text-mist transition-colors hover:bg-wash-strong hover:text-ink select-none cursor-default">
                     {titleOf(threshold)}
                     <span className="text-xs font-normal text-mist/60 tabular-nums">{badge(threshold)}</span>
                   </Badge>
@@ -146,7 +146,7 @@ export function MilestoneJourney({
                   key={m.threshold}
                   title={`${fmtDate(m.achievedAt)} 达成 · ${badge(m.threshold)}`}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold",
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold",
                     titleBadgeClass(m.threshold)
                   )}
                 >
@@ -161,13 +161,13 @@ export function MilestoneJourney({
 
       {/* 成长档案：加入天数 / 已领称号 / 当前段位 / 首次登阶——成长回顾摘要（可分享） */}
       <Reveal>
-        <section className="rounded-2xl border border-line bg-surface p-6">
+        <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-bold">成长档案</h2>
             <button
               type="button"
               onClick={onShare}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3.5 text-xs font-semibold text-mist transition-colors hover:border-signal/40 hover:text-ink"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-soft-surface px-3.5 text-xs font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
             >
               <Share2 className="size-3.5" /> 分享成长卡
             </button>
