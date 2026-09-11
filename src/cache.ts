@@ -27,8 +27,8 @@ export interface CachedResponseOptions {
  * 结构升级升 v、数据变化靠 cb 自动换键。
  */
 export const CACHE_KEYS = {
-  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v22：新增 topicStats/trendingPosts/followNet/fansSample/rankDelta */
-  dashboard: "/api/dashboard?v=22",
+  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v23：成员新增 collectFailed 首采失败态 */
+  dashboard: "/api/dashboard?v=23",
   /** 成员列表（/api/members） */
   memberList: "/api/members?v=10",
   /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */
@@ -43,8 +43,8 @@ export const CACHE_KEYS = {
   ogLeaderboard: "/og/leaderboard.png?v=1",
   /** 站点 OG 分享卡（PNG） */
   ogSite: "/og/site.png?v=1",
-  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v19：随看板 v21 的影响力口径升级 */
-  memberDetail: (id: string) => `/api/members/${id}?v=19`,
+  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v20：新增 collectFailed 首采失败态 */
+  memberDetail: (id: string) => `/api/members/${id}?v=20`,
   /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v3：兜底排序修复（NULL 互动项毒化加法和） */
   topPosts: "/api/top-posts?v=3",
   /** sitemap.xml（SSR 之外的 Worker 直出，键只作 Cache API 存储用） */

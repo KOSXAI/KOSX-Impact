@@ -123,6 +123,8 @@ export function computeDashboardStats(
     bio?: string | null;
     bannerUrl?: string | null;
     verified?: number | null;
+    /** 采集失败态（queries 层标定：无快照且队列最近一次为 failed） */
+    collectFailed?: boolean;
   }>,
   milestones: Array<{
     memberId: string;
@@ -155,6 +157,7 @@ export function computeDashboardStats(
     if (row.bio !== undefined) computed.bio = row.bio;
     if (row.bannerUrl !== undefined) computed.bannerUrl = row.bannerUrl;
     if (row.verified !== undefined) computed.verified = row.verified === 1;
+    if (row.collectFailed) computed.collectFailed = true;
     return computed;
   });
 

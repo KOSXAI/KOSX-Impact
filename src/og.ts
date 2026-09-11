@@ -128,7 +128,7 @@ ${frame(tierFill, opts.logo)}
 <text x="${PAD}" y="258" font-size="${nameSize}" font-weight="700" fill="${INK}">${esc(name)}</text>
 <text x="${PAD}" y="306" font-size="30" fill="${MIST}">${esc(handle)}</text>
 <text x="${OG_W - PAD}" y="258" font-size="${numSize}" font-weight="700" fill="${INK}" text-anchor="end">${esc(followerStr)}</text>
-<text x="${OG_W - PAD}" y="306" font-size="28" fill="${MIST}" text-anchor="end">${hasSnapshot ? "粉丝" : "首次采集排队中"}</text>
+<text x="${OG_W - PAD}" y="306" font-size="28" fill="${MIST}" text-anchor="end">${hasSnapshot ? "粉丝" : stats.collectFailed ? "首次采集未成功" : "首次采集排队中"}</text>
 <text x="${OG_W - PAD}" y="364" font-size="28"${g7Weight} fill="${g7Color}" text-anchor="end">近7天 ${esc(growthText(g7))}</text>
 <text x="${OG_W - PAD}" y="408" font-size="26" fill="${MIST}" text-anchor="end">近30天 ${esc(growthText(stats.growth30d))}</text>
 <text x="${PAD}" y="476" font-size="26" fill="${MIST}">称号 ${esc(stats.prevMilestone > 0 ? titleOf(stats.prevMilestone) : "新人村")} → ${esc(titleOf(stats.nextMilestone))}</text>

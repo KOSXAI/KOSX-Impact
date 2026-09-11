@@ -81,6 +81,20 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     );
     const snapshotBatches = await env.DB.batch(memberList.map((m) => snapshotStmt.bind(m.id)));
 
+    // 首采失败态：从未有快照且刷新队列最近一次记录为 failed（查无账号/持续报错），
+    // 与「排队中」区分用；只查有失败记录的无快照成员， fans 面很小
+    const failedIds = new Set<string>();
+    {
+      const { results: failedRows } = await env.DB.prepare(
+        `SELECT rq.member_id AS memberId FROM refresh_queue rq
+         WHERE rq.status = 'failed'
+           AND NOT EXISTS (SELECT 1 FROM snapshots s WHERE s.member_id = rq.member_id)
+           AND EXISTS (SELECT 1 FROM members m WHERE m.id = rq.member_id AND m.status = 'active')
+         GROUP BY rq.member_id`
+      ).all();
+      for (const r of failedRows as never as Array<{ memberId: string }>) failedIds.add(r.memberId);
+    }
+
     const { results: milestoneRows } = await env.DB.prepare(
       `SELECT ms.member_id AS memberId, m.handle, m.display_name AS displayName, ms.threshold, ms.achieved_at AS achievedAt
        FROM milestones ms
@@ -159,7 +173,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       // 窗口内是倒序取的，统计层期望正序
       const snapshots = rows.slice().reverse();
       // 赛道/标签：members 表 JSON 文本 → 数组（挂到 stats.members 供 computeDashboardStats 透传）
-      return { ...m, snapshots, tracks: parseStrArray(m.tracks), tags: parseStrArray(m.tags) };
+      return { ...m, snapshots, tracks: parseStrArray(m.tracks), tags: parseStrArray(m.tags), collectFailed: failedIds.has(m.id) };
     });
 
     // 与 API JSON 响应同构：computeDashboardStats 输出即 DashboardStats（trend 由快照窗口推导）

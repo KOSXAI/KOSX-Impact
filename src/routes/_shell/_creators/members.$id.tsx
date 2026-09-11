@@ -133,7 +133,10 @@ function MemberPage() {
         <main className="mt-10 space-y-12 sm:mt-14">
           <RevealGroup className="grid grid-cols-2 gap-3 lg:grid-cols-4" stagger={0.06}>
             <RevealItem>
-              <StatCard label="当前粉丝" value={member.latestFollowers ?? 0} />
+              <StatCard
+                label="当前粉丝"
+                value={member.latestFollowers ?? (member.collectFailed ? "首采未成功" : "排队中")}
+              />
             </RevealItem>
             <RevealItem>
               <StatCard label="近 7 天增长" value={member.growth7d} prefix={member.growth7d > 0 ? "+" : ""} />

@@ -24,6 +24,8 @@ export interface MemberStats {
   growth30d: number;
   /** 最近一次采集距今天数（null 表示从未采集） */
   daysSinceUpdate: number | null;
+  /** 从未有快照且最近一次自队采集以失败告终（查无账号/持续报错）；用于与「排队中」区分的失败态 */
+  collectFailed?: boolean;
   /** 段位（量级身份徽章） */
   tierKey: string;
   tierName: string;

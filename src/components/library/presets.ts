@@ -130,6 +130,8 @@ const followersMetric = (m: MemberStats): MetricValue => ({
   sub:
     m.latestFollowers != null
       ? `还差 ${fmt(m.nextMilestone - m.latestFollowers)} 至「${titleOf(m.nextMilestone)}」`
+      : m.collectFailed
+      ? "首次采集未成功"
       : "排队中",
   progress: m.latestFollowers != null ? m.progressToNext : undefined,
 });

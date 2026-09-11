@@ -195,6 +195,14 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     stats.tracks = parseStrArray(memberRow.tracks);
     stats.tags = parseStrArray(memberRow.tags);
 
+    // 首采失败态：无快照且队列最近一次为 failed（OG 卡与「排队中」区分用）
+    if (!snapshotRows.length) {
+      const failedRow = await env.DB.prepare(
+        "SELECT 1 AS x FROM refresh_queue WHERE member_id = ?1 AND status = 'failed' LIMIT 1"
+      ).bind(memberRow.id).first();
+      if (failedRow) stats.collectFailed = true;
+    }
+
     // 次级计数：最新快照的当前值 + 近 30 天增量（历史快照缺值的字段不硬算）
     const latestSnap = snapshotRows[snapshotRows.length - 1] ?? null;
     const counters: MemberDetail["counters"] = {

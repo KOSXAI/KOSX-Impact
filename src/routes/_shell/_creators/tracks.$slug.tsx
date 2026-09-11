@@ -264,7 +264,11 @@ function TrackMemberRow({
         <div className="shrink-0 text-right">
           <div className="text-lg font-bold tabular-nums">{fmt(m.latestFollowers ?? 0)}</div>
           <div className="text-xs text-mist tabular-nums">
-            {m.latestFollowers != null ? `还差 ${fmt(m.nextMilestone - m.latestFollowers)}` : "排队中"}
+            {m.latestFollowers != null
+              ? `还差 ${fmt(m.nextMilestone - m.latestFollowers)}`
+              : m.collectFailed
+              ? "首次采集未成功"
+              : "排队中"}
           </div>
         </div>
       }
