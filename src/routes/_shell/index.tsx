@@ -3,7 +3,6 @@ import { fetchDashboard } from "@/data.functions";
 import { StatCard } from "@/components/ui/StatCard";
 import { AnimatedNumber, Reveal } from "@/components/motion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { TrackEnergyBar } from "@/components/home/TrackEnergyBar";
 import { ChampionCards } from "@/components/home/ChampionCards";
 import { WindowGrid } from "@/components/home/WindowGrid";
 import { TitleDistribution } from "@/components/home/TitleDistribution";
@@ -108,13 +107,6 @@ function DashboardPage() {
             hint={todayClimbers > 0 ? "人" : undefined}
           />
         </div>
-      </Reveal>
-
-      {/* 赛道能量条：哪条赛道在涨一眼分明（涨速 = 30 天净增 ÷ 粉丝基数） */}
-      <Reveal delay={0.08}>
-        <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
-          <TrackEnergyBar tracks={stats.trackStats} />
-        </section>
       </Reveal>
 
       {/* 里程碑分布 + 总量趋势：大屏收官两件 */}
