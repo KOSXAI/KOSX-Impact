@@ -17,9 +17,10 @@
   --radius: 0.875rem;
   color-scheme: light;
 
-  /* ===== 浅色（默认）：中性近白冷灰系——干净不发土，信号橙独自负责暖色 ===== */
-  --paper: #fafafa;
-  --soft-surface: #f3f4f5;
+  /* ===== 浅色（默认）：全纯白数据面板——页面/卡片/内衬容器全部 #fff，
+        层级只靠描边与阴影，不放任何灰调填充；暖色只留给信号与高亮 ===== */
+  --paper: #ffffff;
+  --soft-surface: #ffffff;
   --surface: #ffffff;
   --line: #e4e4e7;
   --ink: #18181b;
@@ -34,7 +35,7 @@
 
   /* 主按钮：浅色下翻成实心深钮（深色下为白钮） */
   --primary: #18181b;
-  --primary-foreground: #fafafa;
+  --primary-foreground: #ffffff;
 
   /* 质感槽：深色靠白高光，浅色靠黑弱化——组件一律走这些槽，不再写裸白黑 */
   --wash: rgba(0, 0, 0, 0.045);

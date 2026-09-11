@@ -89,7 +89,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
                   key={n.label}
                   to={n.label === "首页" ? "/" : n.label === "博主" ? "/members" : "/posts"}
                   aria-current={active ? "page" : undefined}
-                  className={cn(NAV_BASE_CLS, active && "bg-soft-surface text-ink")}
+                  className={cn(NAV_BASE_CLS, active && "bg-surface ring-1 ring-line text-ink")}
                 >
                   {n.label}
                 </Link>
