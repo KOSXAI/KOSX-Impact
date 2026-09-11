@@ -64,7 +64,7 @@ function WindowShell({ title, hint, to, search, children }: {
           完整榜 ›
         </Link>
       </div>
-      <div className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-1.5">{children}</div>
+      <div className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-2">{children}</div>
     </section>
   );
 }
@@ -80,7 +80,7 @@ function MemberRow({ rank, m, metric, delta }: {
     <Link
       to="/members/$id"
       params={{ id: m.id }}
-      className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
+      className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
     >
       <span className="w-4 shrink-0 text-right text-xs text-mist tabular-nums">{rank}</span>
       <Avatar url={m.profileImage} name={name} className="size-6 shrink-0" />
@@ -104,7 +104,7 @@ function PostRow({ p }: { p: PostItem }) {
       href={p.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
+      className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
     >
       {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-6 shrink-0" />}
       <span className="min-w-0 flex-1 truncate text-xs text-mist">{postExcerpt(p.text) ?? "链接帖"}</span>
@@ -155,7 +155,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
             </button>
           ))}
         </div>
-        <div className="mt-3 flex min-h-48 flex-col justify-start gap-1.5">
+        <div className="mt-3 flex min-h-48 flex-1 flex-col justify-start gap-2">
           {active.rows.length > 0 ? (
             active.rows.map((m, i) => (
               <MemberRow
@@ -180,7 +180,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               key={t.name}
               to="/members"
               search={{ view: "track", track: t.name }}
-              className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
+              className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
             >
               <span className="text-sm font-semibold">{t.name}</span>
               <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">{t.memberCount} 人</span>
@@ -201,7 +201,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               key={g.key}
               to="/members/$id"
               params={{ id: g.memberId }}
-              className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
+              className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
             >
               <Avatar url={memberById.get(g.memberId)?.profileImage} name={g.items[0].displayName ?? g.items[0].handle} className="size-6 shrink-0" />
               <span className="min-w-0 flex-1 truncate text-sm">{g.items[0].displayName ?? g.items[0].handle}</span>
@@ -230,7 +230,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               key={t.tag}
               to="/members"
               search={{ tag: t.tag }}
-              className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
+              className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
             >
               <span className="shrink-0 text-sm font-semibold text-ink">{t.tag}</span>
               <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">{t.memberCount} 人在做</span>
