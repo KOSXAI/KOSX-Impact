@@ -8,7 +8,7 @@ import { fmt, fmtDate, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
 /**
- * 社群日报：社群的「历史总览」——把今天的登阶、涨粉冠军、最爆内容、赛道表现、品牌声量
+ * 社群日报：社群的「历史总览」——把今天的登阶、涨粉冠军、最爆内容、赛道表现
  * 汇总成一份战报。每天自动更新，属于首页模块的时间切片（顶栏高亮「首页」）。
  * ?date=YYYY-MM-DD 查看历史归档（数据透明 / 可追溯）。
  */
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_shell/_reports/daily")({
     return {
       meta: [
         { title },
-        { name: "description", content: `${SITE_NAME} 社群日报：今日登阶、涨粉冠军、最爆内容、赛道表现与品牌声量。` },
+        { name: "description", content: `${SITE_NAME} 社群日报：今日登阶、涨粉冠军、最爆内容与赛道表现。` },
         { property: "og:title", content: title },
         { property: "og:description", content: SLOGAN },
         { property: "og:type", content: "website" },
@@ -187,54 +187,7 @@ function DailyPage() {
           </section>
         </Reveal>
 
-        {/* 品牌声量 */}
-        {stats.mentions.length > 0 && (
-          <Reveal delay={0.14}>
-            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
-              <h2 className="text-xl font-bold">品牌声量</h2>
-              <ul className="mt-4 space-y-3">
-                {stats.mentions.slice(0, 8).map((mn) => (
-                  <li key={mn.url ?? `${mn.authorHandle}-${mn.collectedAt}`}>
-                    <a href={mn.url ?? undefined} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 rounded-xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong">
-                      <span className="min-w-0 flex-1">
-                        <span className="line-clamp-2 text-sm">{mn.text}</span>
-                        <span className="mt-1 block text-xs text-mist">
-                          @{mn.authorHandle} · {fmtDate(mn.collectedAt)}
-                        </span>
-                      </span>
-                      {mn.sentiment && (
-                        <span className="shrink-0 text-xs font-semibold text-mist">{sentimentText(mn.sentiment)}</span>
-                      )}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </Reveal>
-        )}
 
-        {/* 历史归档：最近 7 天的日报快照（数据透明，逐日可追溯） */}
-        <Reveal delay={0.15}>
-          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
-            <h2 className="text-xl font-bold">历史归档</h2>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {[...new Set(stats.trend.map((t) => t.date))]
-                .filter((d) => d < today)
-                .slice(-7)
-                .reverse()
-                .map((d) => (
-                  <Link
-                    key={d}
-                    to="/daily"
-                    search={{ date: d }}
-                    className="rounded-full bg-soft-surface px-3.5 py-1.5 text-sm font-semibold text-mist tabular-nums transition-colors hover:bg-wash-strong hover:text-ink"
-                  >
-                    {d}
-                  </Link>
-                ))}
-            </div>
-          </section>
-        </Reveal>
       </div>
     </>
   );
@@ -266,7 +219,6 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
             <StatCard label="当日成员" value={archive.memberCount} />
             <StatCard label="当日总粉丝" value={archive.totalFollowers} />
             <StatCard label="当日新增成员" value={archive.newJoins} highlight />
-            <StatCard label="当日品牌提及" value={archive.mentionsCount} />
           </div>
         </Reveal>
 

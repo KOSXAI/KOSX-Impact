@@ -1,13 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchDashboard } from "@/data.functions";
 import { Reveal } from "@/components/motion";
-import { MentionsSection } from "@/components/dashboard/MentionsSection";
 import { fmt } from "@/lib/format";
 import { CalendarRange, Newspaper, Zap } from "lucide-react";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
- * 报告板块落地页：日报 / 社群能量报告 / 年度报告三入口 + 站外声量面板。
+ * 报告板块落地页：日报 / 社群能量报告 / 年度报告三入口。
  * 报告是传播实体（恒定 URL 可转发），给一级导航入口。
  */
 export const Route = createFileRoute("/_shell/_reports/reports/")({
@@ -83,22 +82,6 @@ function ReportsPage() {
         </div>
       </Reveal>
 
-      {/* 站外声量：X 上对 KOSX 的站外提及 */}
-      <Reveal delay={0.06}>
-        {stats.mentions.length > 0 && (
-          <div className="mt-3 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="text-xl font-bold">站外声量</h2>
-              <span className="shrink-0 text-xs font-semibold text-mist tabular-nums">
-                {stats.mentions.length} 条
-              </span>
-            </div>
-            <div className="mt-4">
-              <MentionsSection mentions={stats.mentions} heading={null} />
-            </div>
-          </div>
-        )}
-      </Reveal>
     </div>
   );
 }

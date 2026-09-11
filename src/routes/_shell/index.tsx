@@ -162,12 +162,6 @@ function DashboardPage() {
             </Link>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <Link
-              to="/reports"
-              className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-xs font-semibold text-mist transition-colors hover:text-ink"
-            >
-              📣 站外声量 <b className="text-ink tabular-nums">{stats.mentions.length}</b> 条
-            </Link>
             {stats.followNet && stats.followNet.mutualPairs > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
