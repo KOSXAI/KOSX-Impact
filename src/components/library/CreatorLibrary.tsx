@@ -312,7 +312,7 @@ export function CreatorLibrary({
               <Icon
                 className={cn(
                   "size-4 shrink-0",
-                  isOther ? "text-mist" : "text-signal",
+                  isOther ? "text-mist" : "text-signal-ink",
                 )}
                 aria-hidden="true"
               />
@@ -323,7 +323,7 @@ export function CreatorLibrary({
               {!isOther && stat ? (
                 <span className="ml-auto text-xs text-mist tabular-nums">
                   粉丝 {fmt(stat.totalFollowers)} · 30 天{" "}
-                  <b className="text-signal">+{fmt(stat.growth30dTotal)}</b>
+                  <b className="text-signal-ink">+{fmt(stat.growth30dTotal)}</b>
                 </span>
               ) : (
                 <span className="ml-auto text-xs text-mist">
@@ -381,7 +381,7 @@ export function CreatorLibrary({
                 className={cn(
                   "relative inline-flex size-8 cursor-pointer select-none items-center justify-center gap-1.5 rounded-full transition-colors",
                   appliedCount > 0
-                    ? "bg-white text-signal"
+                    ? "bg-primary text-signal-ink"
                     : "text-mist hover:text-ink",
                 )}
               >
@@ -405,7 +405,7 @@ export function CreatorLibrary({
                     className={cn(
                       "inline-flex size-8 cursor-pointer select-none items-center justify-center rounded-full transition-colors",
                       active
-                        ? "bg-white text-paper"
+                        ? "bg-primary text-primary-foreground"
                         : "text-mist hover:text-ink",
                     )}
                   >
@@ -430,7 +430,7 @@ export function CreatorLibrary({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setPending(null)}
-              className="absolute inset-0 bg-black/65 backdrop-blur-md"
+              className="absolute inset-0 bg-scrim backdrop-blur-md"
             />
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -442,7 +442,7 @@ export function CreatorLibrary({
               role="dialog"
               aria-modal="true"
               aria-label="筛选与排序"
-              className="relative z-10 flex max-h-[82vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface/95 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_0_rgba(255,255,255,0.08)] outline-none backdrop-blur-xl sm:max-w-2xl"
+              className="relative z-10 flex max-h-[82vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-edge bg-surface/95 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_0_rgba(255,255,255,0.08)] outline-none backdrop-blur-xl sm:max-w-2xl"
             >
               {/* 头：标题 + 清空 + 关闭 */}
               <div className="flex items-center justify-between border-b border-line px-5 py-4 sm:px-7">
@@ -651,7 +651,7 @@ export function CreatorLibrary({
             {hasFilter && (
               <button
                 onClick={reset}
-                className="mt-3 text-sm font-semibold text-signal underline-offset-4 hover:underline"
+                className="mt-3 text-sm font-semibold text-signal-ink underline-offset-4 hover:underline"
               >
                 清除筛选
               </button>
@@ -691,7 +691,7 @@ function SectionTitle({
       <Icon className="size-3.5 text-mist" aria-hidden="true" />
       {children}
       {count != null && count > 0 && (
-        <span className="ml-0.5 rounded-full bg-signal/15 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-signal">
+        <span className="ml-0.5 rounded-full bg-signal/15 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-signal-ink">
           {count}
         </span>
       )}
@@ -722,7 +722,7 @@ function FilterChip({
         "inline-flex h-8 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-full border px-3 text-xs transition-all duration-150 active:scale-95 sm:h-9 sm:px-3.5 sm:text-sm",
         dashed && !active && "border-dashed",
         active
-          ? "border-signal/50 bg-signal/15 text-signal shadow-[0_0_12px_rgba(255,106,0,0.18)]"
+          ? "border-signal/50 bg-signal/15 text-signal-ink shadow-[0_0_12px_rgba(255,106,0,0.18)]"
           : "border-line bg-soft-surface text-mist hover:border-signal/40 hover:text-ink",
       )}
     >
@@ -745,7 +745,7 @@ function SegmentDivider({ threshold }: { threshold: number }) {
         className={cn(
           "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold",
           tenK
-            ? "border-signal/40 bg-signal/10 text-signal"
+            ? "border-signal/40 bg-signal/10 text-signal-ink"
             : "border-line bg-soft-surface text-mist",
         )}
       >

@@ -324,7 +324,7 @@ function DoneBody({ memberId, followersAfter, joined }: { memberId: string; foll
   return (
     <>
       <DialogTitle className="flex items-center gap-2.5">
-        <CircleCheck className="size-5 text-signal" />
+        <CircleCheck className="size-5 text-signal-ink" />
         {joined ? "已加入追踪" : "已更新"}
       </DialogTitle>
       {followersAfter != null && (
@@ -394,7 +394,7 @@ function QueuedBody({
     <>
       <DialogTitle className="flex items-center gap-2.5">
         {waiting ? (
-          <RefreshCw className="size-5 animate-spin text-signal" />
+          <RefreshCw className="size-5 animate-spin text-signal-ink" />
         ) : (
           <Clock3 className="size-5 text-mist" />
         )}

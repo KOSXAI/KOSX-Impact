@@ -88,7 +88,7 @@ function PostsPage() {
                         <li key={h.hour} className="flex items-center gap-3 rounded-xl border border-line bg-soft-surface px-3 py-2">
                           <span className="w-14 shrink-0 font-bold tabular-nums">{String(h.hour).padStart(2, "0")}:00</span>
                           <span className="text-xs text-mist tabular-nums">{h.count} 帖</span>
-                          <span className="ml-auto text-sm font-bold text-signal tabular-nums">{fmt(h.avgViews)}</span>
+                          <span className="ml-auto text-sm font-bold text-signal-ink tabular-nums">{fmt(h.avgViews)}</span>
                           <span className="text-xs text-mist">平均曝光</span>
                         </li>
                       ))}
@@ -133,7 +133,7 @@ function PostsPage() {
                           <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
                             <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.name ?? `@${s.handle}`}</span>
                             <span className="truncate text-xs text-mist">@{s.handle}</span>
-                            <b className="shrink-0 text-xs text-signal tabular-nums">{s.count} 人</b>
+                            <b className="shrink-0 text-xs text-signal-ink tabular-nums">{s.count} 人</b>
                           </a>
                         </li>
                       ))}
@@ -151,7 +151,7 @@ function PostsPage() {
                         <li key={s.handle}>
                           <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
                             <span className="min-w-0 flex-1 truncate text-sm font-semibold">@{s.handle}</span>
-                            <b className="shrink-0 text-xs text-signal tabular-nums">被提 {s.count} 次</b>
+                            <b className="shrink-0 text-xs text-signal-ink tabular-nums">被提 {s.count} 次</b>
                           </a>
                         </li>
                       ))}
@@ -231,7 +231,7 @@ function PostList({ posts }: { posts: PostItem[] }) {
                       href={p.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-mist underline-offset-4 hover:text-signal hover:underline"
+                      className="inline-flex items-center gap-1 text-xs text-mist underline-offset-4 hover:text-signal-ink hover:underline"
                     >
                       X 原文
                       <ExternalLink className="size-3" />

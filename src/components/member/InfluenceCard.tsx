@@ -20,7 +20,7 @@ export function InfluenceCard({ influence }: { influence: Influence | null }) {
           <div>
             <div className="text-sm text-mist">影响力指数</div>
             <div className="mt-1 flex items-baseline gap-1.5">
-              <span className="bg-gradient-to-br from-amber-300 to-amber-600 bg-clip-text text-4xl font-extrabold tabular-nums text-transparent">
+              <span className="bg-gradient-to-br from-gold-text to-gold-deep bg-clip-text text-4xl font-extrabold tabular-nums text-transparent">
                 {influence.score}
               </span>
               <span className="text-sm text-mist">/ 1000</span>
@@ -49,7 +49,7 @@ export function InfluenceCard({ influence }: { influence: Influence | null }) {
                 </div>
                 <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line/70">
                   <div
-                    className={cn("h-full rounded-full", label === "互动" ? "bg-signal" : "bg-amber-400/80")}
+                    className={cn("h-full rounded-full", label === "互动" ? "bg-signal" : "bg-gold/80")}
                     style={{ width: `${Math.min(100, (v / max) * 100)}%` }}
                   />
                 </div>

@@ -43,7 +43,7 @@ function urlHost(raw: string): string | null {
 
 /** 横幅上的磨砂玻璃圆钮：深色半透明底 + 背景模糊，任何横幅图上都可读 */
 const frostedBtn =
-  "inline-flex size-9 items-center justify-center rounded-full border border-white/15 bg-black/30 text-ink shadow-lg shadow-black/20 backdrop-blur-md transition-colors hover:bg-black/45 focus-visible:bg-black/45";
+  "inline-flex size-9 items-center justify-center rounded-full border border-edge bg-glass text-ink shadow-[var(--shadow-glass)] backdrop-blur-md transition-colors hover:bg-glass-strong focus-visible:bg-glass-strong";
 
 /** 横幅上的分享钮：打开分享弹窗（X 分享/文案/链接/OG 卡预览复制下载） */
 function ShareButton({ onClick }: { onClick: () => void }) {
@@ -109,7 +109,7 @@ export function ProfileHero({
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{name}</h1>
                 {profile.verified && (
-                  <BadgeCheck className="size-5 text-sky-400" aria-label="X 认证账号" />
+                  <BadgeCheck className="size-5 text-sky-600 dark:text-sky-400" aria-label="X 认证账号" />
                 )}
                 <TierBadge tierKey={member.tierKey} tierName={member.tierName} />
               </div>
@@ -129,7 +129,7 @@ export function ProfileHero({
                 className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist"
                 title="近 14 天没有发布新内容"
               >
-                <PauseCircle className="size-3.5 text-signal" aria-hidden="true" />
+                <PauseCircle className="size-3.5 text-signal-ink" aria-hidden="true" />
                 已 {insights.inactiveDays} 天未更新
               </span>
             )}
@@ -174,7 +174,7 @@ export function ProfileHero({
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium",
                     t === "AI工具"
-                      ? "border-signal/40 bg-signal/10 text-signal"
+                      ? "border-signal/40 bg-signal/10 text-signal-ink"
                       : "border-line bg-soft-surface text-ink"
                   )}
                 >
@@ -207,7 +207,7 @@ export function ProfileHero({
                     key={track}
                     to="/tracks/$slug"
                     params={{ slug }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/8 px-3 py-1 text-xs font-semibold text-signal transition-colors hover:border-signal/50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/8 px-3 py-1 text-xs font-semibold text-signal-ink transition-colors hover:border-signal/50"
                     title={`${track} 赛道内第 ${rank} 名（共 ${total} 人，按粉丝量）`}
                   >
                     {track} · 第 {rank} 名 / {total}

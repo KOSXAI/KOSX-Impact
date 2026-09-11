@@ -101,7 +101,7 @@ function TrackPage() {
       <Reveal y={18}>
           <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
             <div className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border border-line bg-soft-surface">
-              <Icon className="size-6 text-signal" aria-hidden="true" />
+              <Icon className="size-6 text-signal-ink" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{track.name} 赛道</h1>
@@ -113,12 +113,12 @@ function TrackPage() {
                 className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line bg-surface px-4 text-sm font-semibold transition-colors hover:border-signal/40 hover:text-ink"
                 title="一键复制赛道全部 @ 清单，到 X 批量关注"
               >
-                {copiedHandles ? <Check className="size-4 text-signal" /> : <Copy className="size-4" />}
+                {copiedHandles ? <Check className="size-4 text-signal-ink" /> : <Copy className="size-4" />}
                 {copiedHandles ? "已复制" : "复制全部 @"}
               </button>
               <button
                 onClick={copyShare}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-semibold text-paper transition-opacity hover:opacity-90"
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
                 title="复制分享文案，带上赛道页链接"
               >
                 {copiedShare ? <Check className="size-4" /> : <Share2 className="size-4" />}
@@ -177,7 +177,7 @@ function TrackPage() {
                         </div>
                         <p className="mt-0.5 line-clamp-1 text-xs text-mist">{postExcerpt(p.text, 60) ?? "链接帖"}</p>
                       </div>
-                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-right text-sm font-bold text-signal tabular-nums" title="查看 X 原文">
+                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-right text-sm font-bold text-signal-ink tabular-nums" title="查看 X 原文">
                         <span className="inline-flex items-center gap-1">
                           <Eye className="size-3.5" aria-hidden="true" />
                           {fmt(p.views ?? (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0))}

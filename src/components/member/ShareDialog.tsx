@@ -193,7 +193,7 @@ function ActionChip({
         children
       ) : (
         <>
-          {active ? <Check className="size-3.5 text-signal" /> : <Copy className="size-3.5" />}
+          {active ? <Check className="size-3.5 text-signal-ink" /> : <Copy className="size-3.5" />}
           {active ? "已复制" : label}
         </>
       )}

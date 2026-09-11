@@ -48,7 +48,7 @@ export function MentionsSection({ mentions }: { mentions: MentionItem[] }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="查看原文"
-                className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-line text-mist transition-colors hover:border-signal/40 hover:text-signal"
+                className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-line text-mist transition-colors hover:border-signal/40 hover:text-signal-ink"
               >
                 <ExternalLink className="size-3.5" />
               </a>
@@ -61,7 +61,7 @@ export function MentionsSection({ mentions }: { mentions: MentionItem[] }) {
             type="button"
             onClick={() => setExpanded((e) => !e)}
             aria-expanded={expanded}
-            className="mt-3 w-full cursor-pointer rounded-full border border-line bg-soft-surface px-4 py-2 text-xs font-semibold text-mist transition-colors hover:border-white/20 hover:text-ink"
+            className="mt-3 w-full cursor-pointer rounded-full border border-line bg-soft-surface px-4 py-2 text-xs font-semibold text-mist transition-colors hover:border-edge-strong hover:text-ink"
           >
             {expanded ? "收起" : `展开全部 ${mentions.length} 条`}
           </button>

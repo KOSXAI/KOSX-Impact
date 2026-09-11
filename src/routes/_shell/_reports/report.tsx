@@ -181,7 +181,7 @@ function ReportPage() {
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 font-bold text-signal tabular-nums">{m.mentionCount30d ?? 0} 次</span>
+                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">{m.mentionCount30d ?? 0} 次</span>
                     </Link>
                   </li>
                 ))}
@@ -202,7 +202,7 @@ function ReportPage() {
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 font-bold text-signal tabular-nums">{m.n} 位新成员</span>
+                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">{m.n} 位新成员</span>
                     </Link>
                   </li>
                 ))}

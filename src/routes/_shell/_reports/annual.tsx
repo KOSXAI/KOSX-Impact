@@ -85,7 +85,7 @@ function AnnualPage() {
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 font-bold text-signal tabular-nums">+{fmt(m.growth)}</span>
+                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">+{fmt(m.growth)}</span>
                     </Link>
                   </li>
                 ))}
@@ -100,7 +100,7 @@ function AnnualPage() {
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 font-bold text-signal tabular-nums">{m.count} 次</span>
+                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">{m.count} 次</span>
                     </Link>
                   </li>
                 ))}
@@ -126,7 +126,7 @@ function AnnualPage() {
                         <span className="min-w-0 truncate text-sm font-semibold">{name}</span>
                         <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
                           {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (
-                            <span key={c.threshold} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                            <span key={c.threshold} className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text">
                               「{titleOf(c.threshold)}」
                             </span>
                           ))}

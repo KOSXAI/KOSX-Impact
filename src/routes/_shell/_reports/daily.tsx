@@ -101,13 +101,13 @@ function DailyPage() {
                         <span className="min-w-0 truncate font-semibold">{name}</span>
                         <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
                           {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (
-                            <span key={c.threshold} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                            <span key={c.threshold} className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text">
                               「{titleOf(c.threshold)}」
                             </span>
                           ))}
                         </span>
                         {g.items.length > 1 && (
-                          <span className="shrink-0 text-xs font-semibold text-signal tabular-nums">{g.items.length} 枚</span>
+                          <span className="shrink-0 text-xs font-semibold text-signal-ink tabular-nums">{g.items.length} 枚</span>
                         )}
                       </Link>
                     </li>
@@ -133,7 +133,7 @@ function DailyPage() {
                     <div className="truncate text-xs text-mist">@{growthChamp.handle}</div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="text-xl font-bold text-signal tabular-nums">+{fmt(growthChamp.growth30d)}</div>
+                    <div className="text-xl font-bold text-signal-ink tabular-nums">+{fmt(growthChamp.growth30d)}</div>
                     <div className="text-xs text-mist tabular-nums">近 7 天 +{fmt(growthChamp.growth7d)}</div>
                   </div>
                 </Link>
@@ -149,10 +149,10 @@ function DailyPage() {
                     .slice(0, 5)
                     .map((t) => (
                       <li key={t.slug} className="flex items-center gap-2 text-sm">
-                        <Link to="/tracks/$slug" params={{ slug: t.slug }} className="w-14 shrink-0 font-semibold hover:text-signal">{t.name}</Link>
+                        <Link to="/tracks/$slug" params={{ slug: t.slug }} className="w-14 shrink-0 font-semibold hover:text-signal-ink">{t.name}</Link>
                         <span className="text-xs text-mist tabular-nums">{t.memberCount} 人</span>
                         <span className="ml-auto text-xs text-mist tabular-nums">30 天</span>
-                        <b className="shrink-0 text-signal tabular-nums">+{fmt(t.growth30dTotal)}</b>
+                        <b className="shrink-0 text-signal-ink tabular-nums">+{fmt(t.growth30dTotal)}</b>
                       </li>
                     ))}
                 </ul>
@@ -283,13 +283,13 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
                       <span className="min-w-0 truncate font-semibold">{g.items[0].displayName ?? g.items[0].handle}</span>
                       <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
                         {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (
-                          <span key={c.threshold} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                          <span key={c.threshold} className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text">
                             「{titleOf(c.threshold)}」
                           </span>
                         ))}
                       </span>
                       {g.items.length > 1 && (
-                        <span className="shrink-0 text-xs font-semibold text-signal tabular-nums">{g.items.length} 枚</span>
+                        <span className="shrink-0 text-xs font-semibold text-signal-ink tabular-nums">{g.items.length} 枚</span>
                       )}
                     </Link>
                   </li>

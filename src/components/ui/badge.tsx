@@ -8,15 +8,15 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-signal/30 bg-signal/10 text-signal",
+        default: "border-signal/30 bg-signal/10 text-signal-ink",
         secondary:
           "border-line bg-surface text-ink",
         destructive:
           "bg-destructive text-white focus-visible:ring-destructive/20",
         outline:
-          "border-line bg-transparent text-ink hover:bg-white/5",
-        ghost: "text-mist hover:bg-white/5",
-        link: "text-signal underline-offset-4 hover:underline",
+          "border-line bg-transparent text-ink hover:bg-wash",
+        ghost: "text-mist hover:bg-wash",
+        link: "text-signal-ink underline-offset-4 hover:underline",
       },
     },
     defaultVariants: {

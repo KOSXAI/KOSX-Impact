@@ -50,7 +50,7 @@ export function MilestoneJourney({
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold">称号之路</h2>
             {member.progressToNext >= 80 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-signal/40 bg-signal/10 px-2.5 py-0.5 text-xs font-semibold text-signal shadow-[0_0_10px_rgba(255,106,0,0.2)]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-signal/40 bg-signal/10 px-2.5 py-0.5 text-xs font-semibold text-signal-ink shadow-[0_0_10px_rgba(255,106,0,0.2)]">
                 🔥 冲线在即
               </span>
             )}
@@ -80,7 +80,7 @@ export function MilestoneJourney({
               />
               <div className="mt-2 flex items-center justify-between text-sm">
                 <span className="text-mist">{member.prevMilestone > 0 ? titleOf(member.prevMilestone) : "新人村"}</span>
-                <span className={cn("font-semibold", member.nextMilestone === TEN_K ? "text-signal" : "text-amber-300")}>
+                <span className={cn("font-semibold", member.nextMilestone === TEN_K ? "text-signal-ink" : "text-gold-text")}>
                   {titleOf(member.nextMilestone)}
                 </span>
               </div>
@@ -113,7 +113,7 @@ export function MilestoneJourney({
               <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5">
                 <span className="text-sm text-mist">接下来的称号</span>
                 {upcoming.map((threshold) => (
-                  <Badge key={threshold} variant="outline" className="gap-1.5 text-mist transition-colors hover:border-white/25 hover:text-ink select-none cursor-default">
+                  <Badge key={threshold} variant="outline" className="gap-1.5 text-mist transition-colors hover:border-edge-strong hover:text-ink select-none cursor-default">
                     {titleOf(threshold)}
                     <span className="text-xs font-normal text-mist/60 tabular-nums">{badge(threshold)}</span>
                   </Badge>

@@ -84,7 +84,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden border-white/12 bg-surface/98 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
+      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden border-edge bg-surface/98 shadow-[var(--shadow-pop-xl)] backdrop-blur-xl">
         <DialogTitle className="sr-only">搜索成员与赛道</DialogTitle>
 
         {/* 顶部搜索输入 */}
@@ -122,7 +122,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={cn(
                       "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors cursor-pointer select-none",
-                      isSelected ? "bg-white/10 text-ink" : "text-mist hover:bg-white/5 hover:text-ink"
+                      isSelected ? "bg-wash-strong text-ink" : "text-mist hover:bg-wash hover:text-ink"
                     )}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -130,7 +130,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                         "flex size-8 shrink-0 items-center justify-center rounded-lg border",
                         isMember 
                           ? "border-line bg-soft-surface text-mist" 
-                          : "border-signal/30 bg-signal/10 text-signal"
+                          : "border-signal/30 bg-signal/10 text-signal-ink"
                       )}>
                         {isMember ? <Users className="size-4" /> : <Shapes className="size-4" />}
                       </div>

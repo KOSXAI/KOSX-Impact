@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Search } from "lucide-react";
+import { Monitor, Moon, Search, Sun } from "lucide-react";
 import { SearchDialog } from "@/components/SearchDialog";
+import { useTheme } from "@/components/ThemeProvider";
+import { cycleTheme, type ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,8 +27,16 @@ const NAV = [
 const NAV_BASE_CLS =
   "shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold text-mist transition-colors hover:text-ink";
 
+/** 头部主题切换钮的三态文案：点击按 system → light → dark 循环 */
+const THEME_META: Record<ThemeMode, { label: string; next: string }> = {
+  system: { label: "跟随系统", next: "浅色模式" },
+  light: { label: "浅色模式", next: "深色模式" },
+  dark: { label: "深色模式", next: "跟随系统" },
+};
+
 export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClassName?: string }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const { mode, setMode } = useTheme();
   const location = useLocation();
   const pathname = location.pathname;
 
@@ -64,7 +74,9 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
           {/* 左格：窄屏留白让导航严格居中，宽屏放 logo */}
           <div className="flex items-center">
             <Link to="/" aria-label="KOSX 万粉影响力计划" className="hidden items-center md:flex">
-              <img src="/kosx-logo-white.png" alt="KOSX.ai" className="h-6 w-auto" />
+              {/* 品牌双套：白标配深色模式，黑标（同款橙点）配浅色模式 */}
+              <img src="/kosx-logo-white.png" alt="KOSX.ai" className="hidden h-6 w-auto dark:block" />
+              <img src="/kosx-logo-dark.png" alt="" aria-hidden="true" className="h-6 w-auto dark:hidden" />
             </Link>
           </div>
 
@@ -85,8 +97,20 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
             })}
           </nav>
 
-          {/* 右格：搜索 */}
+          {/* 右格：主题切换 + 搜索 */}
           <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setMode(cycleTheme(mode))}
+              aria-label={`主题：${THEME_META[mode].label}，点击切换为${THEME_META[mode].next}`}
+              title={`主题：${THEME_META[mode].label}（点击切换为${THEME_META[mode].next}）`}
+              className="inline-flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-mist transition-colors hover:border-signal/40 hover:text-ink cursor-pointer select-none active:scale-95 duration-150"
+            >
+              {/* 图标由 html[data-theme-mode] 纯 CSS 切换，水合前后零闪烁 */}
+              <Sun className="theme-icon theme-icon-light size-3.5 sm:size-4" aria-hidden="true" />
+              <Moon className="theme-icon theme-icon-dark size-3.5 sm:size-4" aria-hidden="true" />
+              <Monitor className="theme-icon theme-icon-system size-3.5 sm:size-4" aria-hidden="true" />
+            </button>
             <button
               type="button"
               onClick={() => setSearchOpen(true)}

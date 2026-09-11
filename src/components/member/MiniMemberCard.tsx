@@ -25,11 +25,11 @@ export function MiniMemberCard({
   const name = m.displayName ?? m.handle;
   const shown = metric ?? { value: fmt(m.latestFollowers ?? 0), label: "粉丝" };
   return (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-signal/40 hover:shadow-lg hover:shadow-black/50">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--card-inset)] transition-all duration-300 hover:-translate-y-0.5 hover:border-signal/40 hover:shadow-[var(--hover-lift)]">
       {rank != null && (
         <span
           aria-hidden="true"
-          className="absolute left-2.5 top-2.5 z-20 inline-flex size-6 select-none items-center justify-center rounded-full border border-white/15 bg-black/30 text-[11px] font-bold tabular-nums text-white/90 backdrop-blur-sm"
+          className="absolute left-2.5 top-2.5 z-20 inline-flex size-6 select-none items-center justify-center rounded-full border border-edge bg-glass text-[11px] font-bold tabular-nums text-ink backdrop-blur-sm"
         >
           {rank}
         </span>
@@ -54,11 +54,11 @@ export function MiniMemberCard({
           </div>
           <div className="mt-2 flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm font-semibold leading-tight">{name}</span>
-            {m.verified && <BadgeCheck className="size-4 shrink-0 text-sky-400" aria-label="X 认证账号" />}
+            {m.verified && <BadgeCheck className="size-4 shrink-0 text-sky-600 dark:text-sky-400" aria-label="X 认证账号" />}
           </div>
           <div className="mt-0.5 truncate text-xs text-mist">@{m.handle}</div>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className={cn("text-xl font-bold tabular-nums", shown.tone === "signal" && "text-signal")}>{shown.value}</span>
+            <span className={cn("text-xl font-bold tabular-nums", shown.tone === "signal" && "text-signal-ink")}>{shown.value}</span>
             <span className="text-xs text-mist">{shown.label}</span>
           </div>
           {m.tracks.length > 0 && (
@@ -68,7 +68,7 @@ export function MiniMemberCard({
                   key={t}
                   className={cn(
                     "rounded-full border px-2 py-0.5 text-xs font-medium",
-                    t === "AI工具" ? "border-signal/40 bg-signal/10 text-signal" : "border-line bg-soft-surface text-ink"
+                    t === "AI工具" ? "border-signal/40 bg-signal/10 text-signal-ink" : "border-line bg-soft-surface text-ink"
                   )}
                 >
                   {t}

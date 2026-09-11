@@ -56,28 +56,29 @@ export function titleOf(threshold: number): string {
  * 称号分布分段条配色（社群全景）：新人村石板灰；万粉前荣誉金由浅入深；
  * 万人迷信号橙（与徽章层特例一致）；万粉后至十万前共用深金，
  * 十万往上接段位量级色（紫/金/玫红/浅金），与 TIER_STYLE 同源。
+ * 色值走 styles.css 的 --census-* 令牌（浅/深主题各一套，浅色整体压深保对比）。
  */
 export const TITLE_FILL: Record<number, string> = {
-  0: "#94a3b8",
-  100: "#fde68a",
-  500: "#fcd34d",
-  1_000: "#fbbf24",
-  5_000: "#f59e0b",
-  10_000: "#ff6a00",
-  15_000: "#d97706",
-  20_000: "#d97706",
-  25_000: "#d97706",
-  30_000: "#d97706",
-  40_000: "#d97706",
-  50_000: "#d97706",
-  60_000: "#d97706",
-  70_000: "#d97706",
-  80_000: "#d97706",
-  90_000: "#d97706",
-  100_000: "#a78bfa",
-  1_000_000: "#fbbf24",
-  10_000_000: "#fb7185",
-  100_000_000: "#fde68a",
+  0: "var(--census-novice)",
+  100: "var(--census-g1)",
+  500: "var(--census-g2)",
+  1_000: "var(--census-g3)",
+  5_000: "var(--census-g4)",
+  10_000: "var(--census-signal)",
+  15_000: "var(--census-deep)",
+  20_000: "var(--census-deep)",
+  25_000: "var(--census-deep)",
+  30_000: "var(--census-deep)",
+  40_000: "var(--census-deep)",
+  50_000: "var(--census-deep)",
+  60_000: "var(--census-deep)",
+  70_000: "var(--census-deep)",
+  80_000: "var(--census-deep)",
+  90_000: "var(--census-deep)",
+  100_000: "var(--census-violet)",
+  1_000_000: "var(--census-g3)",
+  10_000_000: "var(--census-rose)",
+  100_000_000: "var(--census-g1)",
 };
 
 /* ============ 段位（量级身份徽章，与称号大关解耦） ============ */

@@ -49,7 +49,7 @@ export function Toaster() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -14, scale: 0.94 }}
             transition={{ type: "spring", stiffness: 450, damping: 32 }}
-            className="pointer-events-auto flex items-center gap-2.5 rounded-full border border-white/15 bg-surface/95 px-4 py-2 text-xs font-semibold text-ink shadow-[0_12px_32px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-xl"
+            className="pointer-events-auto flex items-center gap-2.5 rounded-full border border-edge bg-surface/95 px-4 py-2 text-xs font-semibold text-ink shadow-[var(--shadow-pop-xl)] backdrop-blur-xl"
           >
             <span className="size-2 rounded-full bg-signal shadow-[0_0_8px_var(--signal)] animate-pulse" />
             <span>{current.message}</span>

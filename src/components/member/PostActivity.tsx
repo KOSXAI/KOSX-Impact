@@ -55,7 +55,7 @@ export function PostActivity({ activity }: { activity: PostActivityData }) {
                     <span
                       className={cn(
                         "mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs text-mist transition-colors",
-                        "group-hover:border-signal/40 group-hover:text-signal"
+                        "group-hover:border-signal/40 group-hover:text-signal-ink"
                       )}
                     >
                       原文

@@ -157,7 +157,7 @@ function MemberPage() {
                       {s.value != null ? fmt(s.value) : "—"}
                     </div>
                     {s.value != null && s.delta != null && (
-                      <div className={cn("mt-0.5 text-xs text-mist tabular-nums", s.delta > 0 && "text-signal")}>
+                      <div className={cn("mt-0.5 text-xs text-mist tabular-nums", s.delta > 0 && "text-signal-ink")}>
                         近 30 天 {s.delta > 0 ? "+" : ""}
                         {fmt(s.delta)}
                       </div>
@@ -180,7 +180,7 @@ function MemberPage() {
                         href={v.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/10 px-3 py-1 text-sm font-semibold text-signal transition-colors hover:border-signal/50"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/10 px-3 py-1 text-sm font-semibold text-signal-ink transition-colors hover:border-signal/50"
                         title={`${fmtDate(v.createdAt)} · 浏览 ${v.views ?? "—"}`}
                       >
                         <Trophy className="size-3.5" aria-hidden="true" />
@@ -275,7 +275,7 @@ function MemberPage() {
                         <div className="truncate text-sm font-semibold">{n.displayName ?? n.handle}</div>
                         <div className="truncate text-xs text-mist">@{n.handle}</div>
                       </div>
-                      <div className="shrink-0 text-sm text-signal tabular-nums">{n.overlap} 人重合</div>
+                      <div className="shrink-0 text-sm text-signal-ink tabular-nums">{n.overlap} 人重合</div>
                     </Link>
                   ))}
                 </div>

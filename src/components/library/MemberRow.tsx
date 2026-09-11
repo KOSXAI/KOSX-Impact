@@ -67,7 +67,7 @@ export function MemberRow({
             <div
               className={cn(
                 "text-lg font-bold tabular-nums",
-                metric.tone === "signal" && "text-signal",
+                metric.tone === "signal" && "text-signal-ink",
               )}
             >
               {metric.value}

@@ -164,7 +164,7 @@ function PickerSlot({ member, onOpen }: { member: Detail | null; onOpen: () => v
         >
           @{member.member.handle}
         </a>
-        <div className="mt-1 text-xs font-semibold text-signal tabular-nums">
+        <div className="mt-1 text-xs font-semibold text-signal-ink tabular-nums">
           {fmt(member.member.latestFollowers ?? 0)} 粉丝
         </div>
       </div>
@@ -200,11 +200,11 @@ function CompareTable({ left, right }: { left: Detail; right: Detail }) {
         const bWin = row.better === "high" && row.b > row.a;
         return (
           <div key={row.label} className="grid grid-cols-3 items-center gap-2 border-t border-line px-5 py-3.5 first:border-t-0">
-            <div className={cn("text-center text-lg font-bold tabular-nums", aWin && "text-signal")}>
+            <div className={cn("text-center text-lg font-bold tabular-nums", aWin && "text-signal-ink")}>
               {row.sign && row.a > 0 ? "+" : ""}{row.fmt ? fmt(row.a) : row.a}{row.suffix ?? ""}
             </div>
             <div className="text-center text-xs font-semibold text-mist">{row.label}</div>
-            <div className={cn("text-center text-lg font-bold tabular-nums", bWin && "text-signal")}>
+            <div className={cn("text-center text-lg font-bold tabular-nums", bWin && "text-signal-ink")}>
               {row.sign && row.b > 0 ? "+" : ""}{row.fmt ? fmt(row.b) : row.b}{row.suffix ?? ""}
             </div>
           </div>
@@ -274,7 +274,7 @@ function MemberPickerDialog({
                     key={m.id}
                     type="button"
                     onClick={() => onPick(m.id)}
-                    className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-white/5"
+                    className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-wash"
                   >
                     <Avatar url={m.profileImage} name={name} className="size-9 shrink-0" />
                     <span className="min-w-0 flex-1">

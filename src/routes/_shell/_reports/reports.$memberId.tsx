@@ -100,7 +100,7 @@ function ReportPage() {
           </div>
           <button
             onClick={copyShare}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-semibold text-paper transition-opacity hover:opacity-90"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
             title="复制周报文案"
           >
             {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
@@ -124,7 +124,7 @@ function ReportPage() {
           <h2 className="text-xl font-bold">称号之路</h2>
           <div className="mt-4 flex items-baseline justify-between gap-3">
             <span className="text-sm text-mist">当前「{titleOf(report.prevMilestone)}」</span>
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-signal">
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-signal-ink">
               <Flag className="size-3.5" aria-hidden="true" />
               下一关「{nextTitle}」
             </span>
@@ -150,7 +150,7 @@ function ReportPage() {
         {/* 停更警告 */}
         {report.inactive && (
           <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-line bg-soft-surface px-5 py-4 text-sm text-mist">
-            <PauseCircle className="size-4 text-signal" aria-hidden="true" />
+            <PauseCircle className="size-4 text-signal-ink" aria-hidden="true" />
             已 <b className="text-ink tabular-nums">{report.inactiveDays}</b> 天没有新内容
           </div>
         )}
@@ -170,7 +170,7 @@ function ReportPage() {
                       <span className="inline-flex size-5 items-center justify-center rounded-full bg-surface text-xs font-bold text-mist tabular-nums">{i + 1}</span>
                       <span className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</span>
                       {viral && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-signal/30 bg-signal/10 px-2 py-0.5 text-xs font-semibold text-signal">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-signal/30 bg-signal/10 px-2 py-0.5 text-xs font-semibold text-signal-ink">
                           <Trophy className="size-3" aria-hidden="true" />
                           爆款
                         </span>
@@ -186,7 +186,7 @@ function ReportPage() {
                     </div>
                     <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{postExcerpt(p.text, 120) ?? "分享了一条链接"}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-mist">
-                      <span className="inline-flex items-center gap-1 font-semibold text-signal" title="浏览">
+                      <span className="inline-flex items-center gap-1 font-semibold text-signal-ink" title="浏览">
                         <Eye className="size-3.5" aria-hidden="true" />
                         <span className="tabular-nums">{p.views ?? "—"}</span>
                         <span className="sr-only">浏览</span>
@@ -208,7 +208,7 @@ function ReportPage() {
             </ol>
           )}
           <div className="mt-5 border-t border-line pt-4">
-            <Link to="/members/$id" params={{ id: report.memberId }} className={cn("inline-flex items-center gap-1 text-sm font-semibold text-signal underline-offset-4 hover:underline")}>
+            <Link to="/members/$id" params={{ id: report.memberId }} className={cn("inline-flex items-center gap-1 text-sm font-semibold text-signal-ink underline-offset-4 hover:underline")}>
               查看完整档案与成长曲线 →
             </Link>
           </div>

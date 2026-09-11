@@ -3,39 +3,83 @@
 
 /* ============================================================
    KOSX 设计系统（对齐官网 kosx.ai）
-   底：paper #0a0a0a · 信号橙：signal #ff6a00 · 字：ink/mist/muted/fog
-   圆角 14px · 最大宽度 1440px · 深色唯一，无浅色模式
+   底：paper · 信号橙：signal #ff6a00 · 字：ink/mist/muted/fog
+   圆角 14px · 最大宽度 1440px
+   双主题：浅色为默认（:root），深色平移进 .dark；html 上的 class
+   由内联启动脚本 + 头部切换按钮控制（三态 system/light/dark）。
+   深色值 = 2026-09 前的唯一主题，浅色为同源暖灰纸感的新调。
    ============================================================ */
+
+/* dark: 变体从「跟随系统」改为 class 策略，配合三态主题机 */
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --radius: 0.875rem;
+  color-scheme: light;
 
-  /* 官网同款token */
-  --paper: #0a0a0a;
-  --soft-surface: #111111;
-  --surface: #1c1c1e;
-  --line: #2a2a2e;
-  --ink: #f7f7f5;
-  --mist: #d0d0d0;
-  --muted: #9a9a9f;
-  --fog: #8a8a8f;
+  /* ===== 浅色（默认）：暖白纸感，与深色同一套暖灰调 ===== */
+  --paper: #f7f5f2;
+  --soft-surface: #efece7;
+  --surface: #ffffff;
+  --line: #e4e0d9;
+  --ink: #1d1b18;
+  --mist: #57534d;
+  --fog: #a39d94;
   --signal: #ff6a00;
   --signal-deep: #ff3d00;
   --signal-warm: #ffb347;
+  --signal-ink: #c2410c;
   --white: #ffffff;
   --black: #0a0a0a;
 
-  /* shadcn 语义映射 */
+  /* 主按钮：浅色下翻成实心深钮（深色下为白钮） */
+  --primary: #1d1b18;
+  --primary-foreground: #f7f5f2;
+
+  /* 质感槽：深色靠白高光，浅色靠黑弱化——组件一律走这些槽，不再写裸白黑 */
+  --wash: rgba(0, 0, 0, 0.045);
+  --wash-strong: rgba(0, 0, 0, 0.075);
+  --edge: rgba(0, 0, 0, 0.1);
+  --edge-strong: rgba(0, 0, 0, 0.2);
+  --glass: rgba(255, 255, 255, 0.55);
+  --glass-strong: rgba(255, 255, 255, 0.75);
+  --scrim: rgba(0, 0, 0, 0.35);
+  --sheen: rgba(0, 0, 0, 0.04);
+  --card-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+  --dock-from: rgba(0, 0, 0, 0.03);
+  --dock-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.1);
+  --shadow-pop-xl:
+    0 24px 70px -12px rgba(0, 0, 0, 0.14), inset 0 1px 0 0 rgba(255, 255, 255, 0.85);
+  --shadow-glass: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
+  --hover-lift: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.06);
+
+  /* 称号金（金色系徽章/渐晕）：浅色下压深保对比度 */
+  --gold: #d97706;
+  --gold-text: #b45309;
+  --gold-deep: #78350f;
+
+  /* 称号分布分段条（社群全景）：金由浅入深 + 量级色，浅色整体压深一档 */
+  --census-novice: #64748b;
+  --census-g1: #fcd34d;
+  --census-g2: #fbbf24;
+  --census-g3: #f59e0b;
+  --census-g4: #d97706;
+  --census-signal: var(--signal);
+  --census-deep: #b45309;
+  --census-violet: #8b5cf6;
+  --census-rose: #f43f5e;
+
+  /* ===== shadcn 语义映射（变量晚绑定，两个主题共用一份） ===== */
   --background: var(--paper);
   --foreground: var(--ink);
   --card: var(--surface);
   --card-foreground: var(--ink);
   --popover: var(--surface);
   --popover-foreground: var(--ink);
-  --primary: var(--white);
-  --primary-foreground: var(--paper);
   --secondary: var(--soft-surface);
   --secondary-foreground: var(--ink);
+  /* 历史约定：bg-muted = soft-surface（当年 dark 下 muted 被映射覆盖，沿用） */
   --muted: var(--soft-surface);
   --muted-foreground: var(--mist);
   --accent: var(--soft-surface);
@@ -50,6 +94,60 @@
   --chart-4: var(--mist);
   --chart-5: var(--muted);
   --success: var(--signal);
+}
+
+/* ===== 深色：原唯一主题原样平移，深色观感零变化 ===== */
+.dark {
+  color-scheme: dark;
+
+  --paper: #0a0a0a;
+  --soft-surface: #111111;
+  --surface: #1c1c1e;
+  --line: #2a2a2e;
+  --ink: #f7f7f5;
+  --mist: #d0d0d0;
+  --fog: #8a8a8f;
+  --signal: #ff6a00;
+  --signal-deep: #ff3d00;
+  --signal-warm: #ffb347;
+  --white: #ffffff;
+  --black: #0a0a0a;
+
+  --primary: #ffffff;
+  --primary-foreground: #0a0a0a;
+
+  --wash: rgba(255, 255, 255, 0.05);
+  --wash-strong: rgba(255, 255, 255, 0.1);
+  --edge: rgba(255, 255, 255, 0.12);
+  --edge-strong: rgba(255, 255, 255, 0.22);
+  --glass: rgba(0, 0, 0, 0.3);
+  --glass-strong: rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, 0.7);
+  --sheen: rgba(255, 255, 255, 0.05);
+  --card-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  --dock-from: rgba(255, 255, 255, 0.08);
+  --dock-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.7);
+  --shadow-pop-xl:
+    0 24px 70px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  --shadow-glass: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+  --hover-lift: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+
+  --gold: #fbbf24;
+  --gold-text: #fcd34d;
+  --gold-deep: #d97706;
+
+  --census-novice: #94a3b8;
+  --census-g1: #fde68a;
+  --census-g2: #fcd34d;
+  --census-g3: #fbbf24;
+  --census-g4: #f59e0b;
+  --census-signal: var(--signal);
+  --census-deep: #d97706;
+  --census-violet: #a78bfa;
+  --census-rose: #fb7185;
+
+  --signal-ink: var(--signal);
 }
 
 @theme inline {
@@ -73,6 +171,17 @@
   --color-signal: var(--signal);
   --color-signal-deep: var(--signal-deep);
   --color-signal-warm: var(--signal-warm);
+  --color-signal-ink: var(--signal-ink);
+  --color-wash: var(--wash);
+  --color-wash-strong: var(--wash-strong);
+  --color-edge: var(--edge);
+  --color-edge-strong: var(--edge-strong);
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-scrim: var(--scrim);
+  --color-gold: var(--gold);
+  --color-gold-text: var(--gold-text);
+  --color-gold-deep: var(--gold-deep);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -133,17 +242,35 @@
   }
 }
 
+/* 主题切换按钮三态图标：由 html[data-theme-mode] 纯 CSS 驱动，
+   水合前后不换 DOM，首帧图标即正确、零闪烁 */
+.theme-icon {
+  display: none;
+}
+html:not([data-theme-mode]) .theme-icon-system,
+html[data-theme-mode="system"] .theme-icon-system {
+  display: block;
+}
+html[data-theme-mode="light"] .theme-icon-light {
+  display: block;
+}
+html[data-theme-mode="dark"] .theme-icon-dark {
+  display: block;
+}
+
 /* 卡片 hover 抬升与高光微交互（稳重高级，无缩放引发的文字虚焦抖动） */
 @utility card-lift {
   @apply transition-all duration-300 ease-out;
   &:hover {
-    @apply -translate-y-0.5 border-white/20 shadow-lg shadow-black/40;
+    @apply -translate-y-0.5 border-edge-strong;
+    box-shadow: var(--hover-lift);
   }
 }
 
 /* 图标微光底座（Squircle 连续曲率与顶部微折射内高光） */
 @utility icon-dock {
-  @apply rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-transparent shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)];
+  @apply rounded-xl border border-edge bg-gradient-to-b from-(--dock-from) to-transparent;
+  box-shadow: var(--dock-inset);
 }
 
 /* Tab 内容切换入场（轻上浮淡入，SSR 安全：纯 CSS 动画） */

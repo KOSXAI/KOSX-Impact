@@ -37,7 +37,7 @@ export function SegmentedControl<T extends string | number>({
             className={cn(
               "cursor-pointer select-none rounded-full font-semibold transition-colors",
               size === "sm" ? "h-7 px-3 text-xs" : "h-8 px-4 text-sm",
-              active ? "bg-white text-paper" : "text-mist hover:text-ink"
+              active ? "bg-primary text-primary-foreground" : "text-mist hover:text-ink"
             )}
           >
             {o.label}

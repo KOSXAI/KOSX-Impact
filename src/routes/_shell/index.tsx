@@ -74,7 +74,7 @@ function DashboardPage() {
               {totalClimbs > 0 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-white/20 hover:text-ink" tabIndex={0}>
+                    <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-soft-surface px-3 py-1 text-sm text-mist transition-colors hover:border-edge-strong hover:text-ink" tabIndex={0}>
                       🏅 已领 <b className="text-ink tabular-nums">{totalClimbs}</b> 枚称号
                     </span>
                   </TooltipTrigger>
@@ -109,7 +109,7 @@ function DashboardPage() {
                         <span className="font-semibold text-ink">{from.displayName ?? from.handle}</span>
                         <span aria-hidden="true">→</span>
                         <span className="font-semibold text-ink">{to.displayName ?? to.handle}</span>
-                        <b className="text-signal">×{e.count}</b>
+                        <b className="text-signal-ink">×{e.count}</b>
                       </span>
                     );
                   })}
@@ -182,10 +182,10 @@ function DashboardPage() {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <h2 className="text-xl font-bold">社群能量报告</h2>
               <span className="text-xs font-semibold text-mist tabular-nums">
-                近 30 天 <b className="text-signal">+{fmt(stats.totalGrowth30d)}</b> 粉丝 · 已领 <b className="text-ink">{totalClimbs}</b> 枚称号
+                近 30 天 <b className="text-signal-ink">+{fmt(stats.totalGrowth30d)}</b> 粉丝 · 已领 <b className="text-ink">{totalClimbs}</b> 枚称号
               </span>
             </div>
-            <span className="rounded-full border border-signal/40 bg-signal/10 px-4 py-1.5 text-sm font-semibold text-signal">查看报告 →</span>
+            <span className="rounded-full border border-signal/40 bg-signal/10 px-4 py-1.5 text-sm font-semibold text-signal-ink">查看报告 →</span>
           </Link>
         </Reveal>
       </div>
@@ -231,12 +231,12 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
                   <span className="truncate text-sm font-semibold">{name}</span>
                   <span className="ml-auto flex flex-wrap justify-end gap-1">
                     {[...g.items].sort((a, b) => a.threshold - b.threshold).slice(0, 2).map((c) => (
-                      <span key={c.threshold} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                      <span key={c.threshold} className="rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 text-[11px] font-semibold text-gold-text">
                         「{titleOf(c.threshold)}」
                       </span>
                     ))}
                     {g.items.length > 2 && (
-                      <span className="shrink-0 text-[11px] font-semibold text-signal">+{g.items.length - 2} 枚</span>
+                      <span className="shrink-0 text-[11px] font-semibold text-signal-ink">+{g.items.length - 2} 枚</span>
                     )}
                   </span>
                 </Link>
@@ -252,7 +252,7 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
                 <span className="block truncate text-sm font-semibold">{growthChamp.displayName ?? growthChamp.handle}</span>
                 <span className="block text-xs text-mist">近 7 天涨粉先锋</span>
               </span>
-              <span className="shrink-0 text-sm font-bold text-signal tabular-nums">+{fmt(growthChamp.growth7d)}</span>
+              <span className="shrink-0 text-sm font-bold text-signal-ink tabular-nums">+{fmt(growthChamp.growth7d)}</span>
             </Link>
           )}
           {gainRank.length > 0 && (
@@ -262,7 +262,7 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
                 <Link key={m.id} to="/members/$id" params={{ id: m.id }} className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
                   <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-7 shrink-0" />
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                  <span className="shrink-0 text-sm font-bold text-signal tabular-nums">+{fmt(m.viewsTodayGain ?? 0)}</span>
+                  <span className="shrink-0 text-sm font-bold text-signal-ink tabular-nums">+{fmt(m.viewsTodayGain ?? 0)}</span>
                 </Link>
               ))}
             </div>
@@ -283,7 +283,7 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
               >
                 <span className="w-14 shrink-0 text-sm font-semibold">{r.name}</span>
                 <span className="text-xs text-mist tabular-nums">{r.memberCount} 人</span>
-                <span className="text-xs font-semibold text-signal tabular-nums">30 天 +{fmt(r.growth30dTotal)}</span>
+                <span className="text-xs font-semibold text-signal-ink tabular-nums">30 天 +{fmt(r.growth30dTotal)}</span>
                 <span className="ml-auto hidden min-w-0 items-center gap-1.5 sm:flex">
                   {r.top && (
                     <>
@@ -296,7 +296,7 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
             </li>
           ))}
         </ul>
-        <Link to="/members" search={{ view: "track" }} className="mt-3 inline-block text-xs font-semibold text-signal underline-offset-4 hover:underline">
+        <Link to="/members" search={{ view: "track" }} className="mt-3 inline-block text-xs font-semibold text-signal-ink underline-offset-4 hover:underline">
           进博主库看赛道 →
         </Link>
       </section>
@@ -328,7 +328,7 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
             <li className="rounded-xl border border-line bg-soft-surface px-3 py-2 text-sm text-mist">帖子数据采集中，热点马上就来。</li>
           )}
         </ul>
-        <Link to="/posts" className="mt-3 inline-block text-xs font-semibold text-signal underline-offset-4 hover:underline">
+        <Link to="/posts" className="mt-3 inline-block text-xs font-semibold text-signal-ink underline-offset-4 hover:underline">
           全部内容 →
         </Link>
       </section>
@@ -469,7 +469,7 @@ function NextGateRace({ members }: { members: MemberStats[] }) {
                 />
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-sm font-bold text-signal tabular-nums">还差 {fmt(remaining)}</div>
+                <div className="text-sm font-bold text-signal-ink tabular-nums">还差 {fmt(remaining)}</div>
                 <div className="mt-0.5 text-xs text-mist">
                   {etaDays != null ? `预计 ${etaDays} 天 · 「${titleOf(m.nextMilestone)}」` : `下一称号「${titleOf(m.nextMilestone)}」`}
                 </div>

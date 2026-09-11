@@ -39,7 +39,7 @@ export function StatCard({
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-mist sm:text-sm">{label}</span>
         {badge && (
-          <span className="rounded-full border border-signal/30 bg-signal/10 px-2 py-0.5 text-[10px] font-bold text-signal">
+          <span className="rounded-full border border-signal/30 bg-signal/10 px-2 py-0.5 text-[10px] font-bold text-signal-ink">
             {badge}
           </span>
         )}
@@ -47,7 +47,7 @@ export function StatCard({
       <div
         className={cn(
           "mt-2 block text-2xl font-bold tracking-tight tabular-nums sm:text-3xl",
-          highlight ? "font-extrabold text-signal" : "text-ink"
+          highlight ? "font-extrabold text-signal-ink" : "text-ink"
         )}
       >
         {typeof value === "number" ? (
@@ -55,7 +55,7 @@ export function StatCard({
         ) : (
           `${prefix}${value}${suffix}`
         )}
-        {hint && <span className="ml-1.5 text-sm font-semibold text-signal">{hint}</span>}
+        {hint && <span className="ml-1.5 text-sm font-semibold text-signal-ink">{hint}</span>}
       </div>
     </div>
   );

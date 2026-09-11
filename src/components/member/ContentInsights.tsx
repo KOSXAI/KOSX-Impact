@@ -63,7 +63,7 @@ export function ContentInsights({
         {attribution && (
           <a href={attribution.post.url} target="_blank" rel="noopener noreferrer" className="card-lift block rounded-2xl border border-signal/30 bg-surface p-5 transition-colors hover:border-signal/50">
             <div className="text-sm text-mist">爆款带来</div>
-            <div className="mt-1.5 text-2xl font-bold text-signal tabular-nums">+{fmt(attribution.gained)} 粉</div>
+            <div className="mt-1.5 text-2xl font-bold text-signal-ink tabular-nums">+{fmt(attribution.gained)} 粉</div>
             <div className="mt-0.5 line-clamp-1 text-xs text-mist">{postExcerpt(attribution.post.text, 80) ?? "链接帖"}</div>
           </a>
         )}

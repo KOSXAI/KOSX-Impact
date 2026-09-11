@@ -53,7 +53,7 @@ export function InsightsSection({ insights }: { insights: CommunityInsights }) {
         <div>
           <h3 className="text-sm font-semibold text-mist">
             <span className="inline-flex items-center gap-1.5">
-              <PauseCircle className="size-3.5 text-signal" aria-hidden="true" />
+              <PauseCircle className="size-3.5 text-signal-ink" aria-hidden="true" />
               疑似停更（近 14 天无新帖）
             </span>
           </h3>
@@ -102,14 +102,14 @@ function ViralCard({ post: p }: { post: PostItem }) {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="查看 X 原文"
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-line text-mist transition-colors group-hover:border-signal/40 group-hover:text-signal"
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-line text-mist transition-colors group-hover:border-signal/40 group-hover:text-signal-ink"
         >
           <Eye className="size-3.5" />
         </a>
       </div>
       <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{postExcerpt(p.text, 120) ?? "分享了一条链接"}</p>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-mist">
-        <span className="inline-flex items-center gap-1 font-semibold text-signal" title="浏览">
+        <span className="inline-flex items-center gap-1 font-semibold text-signal-ink" title="浏览">
           <Eye className="size-3.5" aria-hidden="true" />
           <span className="tabular-nums">{p.views ?? "—"}</span>
           <span className="sr-only">浏览</span>
