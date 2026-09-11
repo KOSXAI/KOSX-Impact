@@ -240,7 +240,7 @@ function MemberPage() {
                       key={n.id}
                       to="/members/$id"
                       params={{ id: n.id }}
-                      className="card-lift flex items-center gap-3 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-4 transition-colors hover:bg-wash-strong"
+                      className="card-lift flex items-center gap-3 panel-card p-4 transition-colors hover:bg-wash-strong"
                     >
                       <Avatar url={n.profileImage} name={n.displayName ?? n.handle} className="size-9 shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -271,7 +271,7 @@ function MemberPage() {
                       key={n.id}
                       to="/members/$id"
                       params={{ id: n.id }}
-                      className="card-lift flex items-center gap-3 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-4 transition-colors hover:bg-wash-strong"
+                      className="card-lift flex items-center gap-3 panel-card p-4 transition-colors hover:bg-wash-strong"
                     >
                       <Avatar url={n.profileImage} name={n.displayName ?? n.handle} className="size-9 shrink-0" />
                       <div className="min-w-0 flex-1">

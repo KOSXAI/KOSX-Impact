@@ -112,7 +112,7 @@ function ReportPage() {
 
         {/* 赛道分布 */}
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <section className="mt-8 panel-card p-6 sm:p-8">
             <h2 className="text-xl font-bold">赛道分布</h2>
             <ul className="mt-5 space-y-3">
               {stats.trackStats
@@ -139,7 +139,7 @@ function ReportPage() {
 
         {/* 粉丝质量：画像聚合 */}
         <Reveal delay={0.1}>
-          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <section className="mt-8 panel-card p-6 sm:p-8">
             <h2 className="text-xl font-bold">粉丝质量</h2>
             {fanCount === 0 ? (
               <p className="mt-4 text-mist">粉丝画像采样进行中。</p>
@@ -157,7 +157,7 @@ function ReportPage() {
         {/* 影响力与声量 Top */}
         <Reveal delay={0.12}>
           <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">影响力 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {influenceTop.map((m, i) => (
@@ -172,7 +172,7 @@ function ReportPage() {
                 ))}
               </ul>
             </section>
-            <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">被提及 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {mentionTop.map((m, i) => (
@@ -193,7 +193,7 @@ function ReportPage() {
         {/* 邀请裂变荣誉榜：谁带来了最多新成员 */}
         {inviteLeaders.length > 0 && (
           <Reveal delay={0.13}>
-            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="mt-8 panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">推荐荣誉榜</h2>
               <ul className="mt-4 space-y-2.5">
                 {inviteLeaders.map((m, i) => (

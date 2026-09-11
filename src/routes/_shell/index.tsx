@@ -53,7 +53,7 @@ function DashboardPage() {
 
       <Reveal delay={0.04}>
         <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <div className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <div className="panel-card p-6 sm:p-8">
             <div className="text-sm font-medium text-mist">社群累计粉丝</div>
             <AnimatedNumber
               value={stats.totalFollowers}
@@ -83,7 +83,7 @@ function DashboardPage() {
               </Tooltip>
             )}
           </div>
-          <div className="rounded-2xl bg-signal/5 shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <div className="rounded-2xl bg-signal/5 p-6 sm:p-8">
             <div className="text-sm font-medium text-mist">近 30 天新增</div>
             <AnimatedNumber
               value={stats.totalGrowth30d}
@@ -112,7 +112,7 @@ function DashboardPage() {
 
       {/* 里程碑分布 + 总量趋势：大屏收官两件 */}
       <Reveal delay={0.1}>
-        <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+        <section className="mt-8 panel-card p-6 sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-bold">里程碑分布</h2>
             <span className="text-xs font-semibold text-mist tabular-nums">
@@ -130,7 +130,7 @@ function DashboardPage() {
 
       {/* 报告窗格：日报/能量报告/年报缩略入口 + 外部信号收尾 */}
       <Reveal delay={0.12}>
-        <div className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+        <div className="mt-8 panel-card p-6 sm:p-8">
           <h2 className="text-xl font-bold">报告</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Link to="/daily" className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong">

@@ -26,7 +26,7 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "card-lift relative overflow-hidden rounded-2xl bg-surface p-4 shadow-[var(--panel-elev)]",
+        "panel-card card-lift relative overflow-hidden p-4",
         highlight ? "bg-signal/8" : ""
       )}
     >

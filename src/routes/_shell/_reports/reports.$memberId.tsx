@@ -120,7 +120,7 @@ function ReportPage() {
         </div>
 
         {/* 称号进度 */}
-        <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+        <section className="mt-8 panel-card p-6 sm:p-8">
           <h2 className="text-xl font-bold">称号之路</h2>
           <div className="mt-4 flex items-baseline justify-between gap-3">
             <span className="text-sm text-mist">当前「{titleOf(report.prevMilestone)}」</span>
@@ -156,7 +156,7 @@ function ReportPage() {
         )}
 
         {/* 本周内容表现 */}
-        <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+        <section className="mt-8 panel-card p-6 sm:p-8">
           <h2 className="text-xl font-bold">本周内容</h2>
           {report.topPosts.length === 0 ? (
             <p className="mt-4 text-sm text-mist">这周还没有帖子数据，采集跑起来后自动出现。</p>

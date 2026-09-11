@@ -5,8 +5,8 @@ import { type PodiumStyle } from "./podium";
 
 /**
  * 成员行卡外壳：名次数字 + 头像 + 主内容 + 右侧数据的统一骨架。
- * 全站七处榜单行的复制收敛于此：前三名套荣誉渐晕（card-lift + 渐变边框），
- * 其余行可选「裸排」或「带边框底色」（赛道类列表用后者）。
+ * 全站榜单行唯一外壳：一律 panel-card（面板底 + 统一轮廓/投影），不再有「裸排」透明行；
+ * 前三名在此基础上叠荣誉渐晕（card-lift + 渐变边框）。
  */
 export function MemberRankRow({
   rank,
@@ -15,7 +15,6 @@ export function MemberRankRow({
   name,
   middle,
   trailing,
-  bordered = false,
 }: {
   rank: number;
   podium?: PodiumStyle;
@@ -23,13 +22,12 @@ export function MemberRankRow({
   name: string;
   middle: ReactNode;
   trailing: ReactNode;
-  bordered?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5",
-        podium ? `card-lift rounded-2xl bg-surface ${podium.ring}` : bordered && "rounded-2xl bg-surface shadow-[var(--panel-elev)]"
+        "panel-card flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5",
+        podium && `card-lift ${podium.ring}`
       )}
     >
       <div

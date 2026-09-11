@@ -52,7 +52,7 @@
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.1);
   --shadow-pop-xl:
     0 24px 70px -12px rgba(0, 0, 0, 0.14), inset 0 1px 0 0 rgba(255, 255, 255, 0.85);
-  /* 卡片主影：纯白卡浮在灰底上的唯一立体语言（深色下靠底色分层不用影） */
+  /* 卡片主影：纯白卡浮在灰底上的唯一立体语言（深色下换成内描边环承担轮廓） */
   --panel-elev: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 28px -14px rgba(0, 0, 0, 0.1);
   --shadow-glass: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
   --hover-lift: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.06);
@@ -130,7 +130,8 @@
   --card-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
   --dock-from: rgba(255, 255, 255, 0.08);
   --dock-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
-  --panel-elev: 0 0 #0000;
+  --panel-elev:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.7);
   --shadow-pop-xl:
     0 24px 70px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
@@ -260,6 +261,15 @@ html[data-theme-mode="light"] .theme-icon-light {
 }
 html[data-theme-mode="dark"] .theme-icon-dark {
   display: block;
+}
+
+/* 卡片面板唯一外壳：页面里所有「一块内容面板」（榜单行、窗口卡、荣誉卡、空态）
+ * 一律整理为这个壳——圆角 + 面板底 + panel-elev（浅色=投影，深色=内描边环轮廓）。
+ * hover 想抬升就叠 card-lift；不要在组件里手写第二套 bg+shadow 组合。 */
+@utility panel-card {
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: var(--panel-elev);
 }
 
 /* 卡片 hover 抬升（无缩放引发的文字虚焦抖动） */

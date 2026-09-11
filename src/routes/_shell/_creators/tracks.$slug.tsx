@@ -110,7 +110,7 @@ function TrackPage() {
             <div className="flex shrink-0 flex-wrap gap-2">
               <button
                 onClick={copyAllHandles}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-surface shadow-[var(--panel-elev)] px-4 text-sm font-semibold transition-colors hover:bg-wash-strong hover:text-ink"
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-surface px-4 text-sm font-semibold transition-colors hover:bg-wash-strong hover:text-ink"
                 title="一键复制赛道全部 @ 清单，到 X 批量关注"
               >
                 {copiedHandles ? <Check className="size-4 text-signal-ink" /> : <Copy className="size-4" />}
@@ -140,7 +140,7 @@ function TrackPage() {
 
         {/* 赛道成员榜（按粉丝量，前三名荣誉样式） */}
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <section className="mt-8 panel-card p-6 sm:p-8">
             <h2 className="text-xl font-bold">成员榜</h2>
             {sorted.length === 0 ? (
               <p className="mt-4 text-mist">这个赛道还没有成员上榜。</p>
@@ -159,7 +159,7 @@ function TrackPage() {
         {/* 赛道互动 Top：近 30 天单帖浏览（帖子数据跑起来后出现） */}
         {!isOther && trackStat.topPosts.length > 0 && (
           <Reveal delay={0.08}>
-            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="mt-8 panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">单帖互动 Top</h2>
               <ol className="mt-5 space-y-2.5">
                 {trackStat.topPosts.map((p, i) => {
@@ -194,7 +194,7 @@ function TrackPage() {
         {/* 赛道话题标签 */}
         {tags.length > 0 && (
           <Reveal delay={0.08}>
-            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="mt-8 panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">话题标签</h2>
               <div className="mt-4 flex flex-wrap gap-2">
                 {tags.slice(0, 12).map(({ tag, count }) => (
@@ -232,7 +232,6 @@ function TrackMemberRow({
   const name = m.displayName ?? m.handle;
   return (
     <MemberRankRow
-      bordered
       rank={rank}
       podium={podium}
       profileImage={m.profileImage}

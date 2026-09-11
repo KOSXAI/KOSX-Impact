@@ -54,7 +54,7 @@ export function ContentInsights({
       <h2 className="text-2xl font-bold">内容密码</h2>
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {hourLabel && (
-          <div className="card-lift rounded-2xl bg-surface shadow-[var(--panel-elev)] p-5">
+          <div className="card-lift panel-card p-5">
             <div className="text-sm text-mist">黄金时段</div>
             <div className="mt-1.5 text-2xl font-bold tabular-nums">{hourLabel}</div>
             <div className="mt-0.5 text-xs text-mist">北京时间的帖子平均曝光最高</div>
@@ -68,7 +68,7 @@ export function ContentInsights({
           </a>
         )}
         {debate.length > 0 && (
-          <div className="card-lift rounded-2xl bg-surface shadow-[var(--panel-elev)] p-5">
+          <div className="card-lift panel-card p-5">
             <div className="text-sm text-mist">最有讨论度</div>
             <div className="mt-1.5 space-y-1">
               {debate.map((p) => (

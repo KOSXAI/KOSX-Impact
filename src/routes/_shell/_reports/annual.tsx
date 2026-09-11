@@ -56,7 +56,7 @@ function AnnualPage() {
         {/* 月度总粉丝趋势 */}
         {r.monthlyTrend.length >= 2 && (
           <Reveal delay={0.08}>
-            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="mt-8 panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">月度总粉丝</h2>
               <div className="mt-5 flex h-36 items-end gap-1.5">
                 {r.monthlyTrend.map((m) => (
@@ -76,7 +76,7 @@ function AnnualPage() {
         {/* 年度涨粉 Top + 年度声量 Top */}
         <Reveal delay={0.1}>
           <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
+            <section className="panel-card p-6">
               <h2 className="text-xl font-bold">年度涨粉 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {r.topGrowers.map((m, i) => (
@@ -91,7 +91,7 @@ function AnnualPage() {
                 ))}
               </ul>
             </section>
-            <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
+            <section className="panel-card p-6">
               <h2 className="text-xl font-bold">年度声量 Top</h2>
               <ul className="mt-4 space-y-2.5">
                 {r.topMentions.map((m, i) => (
@@ -111,7 +111,7 @@ function AnnualPage() {
 
         {/* 年度登阶 */}
         <Reveal delay={0.12}>
-          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <section className="mt-8 panel-card p-6 sm:p-8">
             <h2 className="text-xl font-bold">年度登阶</h2>
             {r.ytdClimbsList.length === 0 ? (
               <p className="mt-4 text-mist">今年还没有登阶记录，第一枚成就正在路上。</p>
@@ -144,7 +144,7 @@ function AnnualPage() {
         {/* 年度最火内容 */}
         {r.topPosts.length > 0 && (
           <Reveal delay={0.14}>
-            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="mt-8 panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">年度最火内容</h2>
               <ul className="mt-4 space-y-2.5">
                 {r.topPosts.map((p) => (

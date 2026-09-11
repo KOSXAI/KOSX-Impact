@@ -80,7 +80,7 @@ export function ChampionCards({ stats }: { stats: DashboardStats }) {
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
       {/* 涨粉之星 */}
-      <section className="order-1 flex flex-col rounded-2xl bg-surface shadow-[var(--panel-elev)] p-5">
+      <section className="panel-card order-1 flex flex-col p-5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-mist">涨粉之星</h3>
           <Link to="/members" search={{ view: "growth", metric: "growth", range: 7 }} className="shrink-0 text-xs font-semibold text-signal underline-offset-4 hover:underline">完整成长榜 ›</Link>
@@ -156,7 +156,7 @@ export function ChampionCards({ stats }: { stats: DashboardStats }) {
       </section>
 
       {/* 登阶在望 */}
-      <section className="order-3 flex flex-col rounded-2xl bg-surface shadow-[var(--panel-elev)] p-5">
+      <section className="panel-card order-3 flex flex-col p-5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-mist">登阶在望</h3>
           <Link to="/members" search={{ view: "growth", metric: "growth", range: 30 }} className="shrink-0 text-xs font-semibold text-signal underline-offset-4 hover:underline">看全员冲关 ›</Link>

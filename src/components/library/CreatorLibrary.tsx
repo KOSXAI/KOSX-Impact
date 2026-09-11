@@ -645,7 +645,7 @@ export function CreatorLibrary({
       {/* 列表本体：同一份数据，随视图 × 筛选 × 布局变形 */}
       <div className="mt-6">
         {base.length === 0 && view !== "climbs" && view !== "track" ? (
-          <div className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-10 text-center">
+          <div className="panel-card p-10 text-center">
             <p className="text-mist">{preset.empty}</p>
             {hasFilter && (
               <button

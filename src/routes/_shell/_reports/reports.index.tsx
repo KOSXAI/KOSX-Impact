@@ -40,7 +40,7 @@ function ReportsPage() {
           <Link
             to="/daily"
             aria-label="社群日报"
-            className="card-lift rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6"
+            className="card-lift panel-card p-6"
           >
             <span className="inline-flex size-10 items-center justify-center rounded-xl bg-wash text-signal">
               <Newspaper className="size-5" aria-hidden="true" />
@@ -54,7 +54,7 @@ function ReportsPage() {
           <Link
             to="/report"
             aria-label="社群能量报告"
-            className="card-lift rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6"
+            className="card-lift panel-card p-6"
           >
             <span className="inline-flex size-10 items-center justify-center rounded-xl bg-wash text-signal">
               <Zap className="size-5" aria-hidden="true" />
@@ -68,7 +68,7 @@ function ReportsPage() {
           <Link
             to="/annual"
             aria-label="年度报告"
-            className="card-lift rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6"
+            className="card-lift panel-card p-6"
           >
             <span className="inline-flex size-10 items-center justify-center rounded-xl bg-wash text-signal">
               <CalendarRange className="size-5" aria-hidden="true" />

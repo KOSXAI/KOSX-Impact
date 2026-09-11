@@ -67,7 +67,7 @@ function PostsPage() {
           insights.inactiveMembers.length > 0 ||
           insights.tagCloud.length > 0) && (
           <Reveal delay={0.06}>
-            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="mt-8 panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">内容洞察</h2>
               <InsightsSection insights={insights} />
             </section>
@@ -77,7 +77,7 @@ function PostsPage() {
         {/* 内容配方：社群黄金时段 + 什么形态最吃香（近 30 天帖子聚合） */}
         {recipe && (recipe.hours.length > 0 || recipe.forms.length > 0) && (
           <Reveal delay={0.07}>
-            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="mt-8 panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">内容配方</h2>
               <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {recipe.hours.length > 0 && (
@@ -118,7 +118,7 @@ function PostsPage() {
         {/* 社群品味策展：成员们共同关注的大V + 社群帖子中热议的外部账号 */}
         {(following.length > 0 || taste.length > 0) && (
           <Reveal delay={0.07}>
-            <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+            <section className="mt-8 panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">社群品味</h2>
               <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {following.length > 0 && (
@@ -165,7 +165,7 @@ function PostsPage() {
 
         {/* 精华帖：近 30 天 / 全站历史 Top 切换 */}
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <section className="mt-8 panel-card p-6 sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-bold">{scope === "30d" ? "精华帖" : "历史 Top 帖"}</h2>
               <SegmentedControl
@@ -203,7 +203,7 @@ function PostList({ posts }: { posts: PostItem[] }) {
             <article
               className={cn(
                 "p-4 sm:p-5",
-                podium ? `card-lift rounded-2xl bg-surface ${podium.ring}` : "rounded-2xl bg-surface shadow-[var(--panel-elev)]"
+                podium ? `card-lift rounded-2xl bg-surface ${podium.ring}` : "panel-card"
               )}
             >
               <div className="flex items-start gap-3">

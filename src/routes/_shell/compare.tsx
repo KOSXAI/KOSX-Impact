@@ -74,7 +74,7 @@ function ComparePage() {
         <div className="mt-10 grid grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-4">
           <PickerSlot member={left} onOpen={() => setPicking("a")} />
           <div className="flex items-center justify-center" aria-hidden="true">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface shadow-[var(--panel-elev)] text-sm font-black text-mist">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface text-sm font-black text-mist">
               VS
             </span>
           </div>
@@ -98,7 +98,7 @@ function ComparePage() {
                   key={`${a.id}-${b.id}`}
                   type="button"
                   onClick={() => navigate({ to: "/compare", search: { a: a.id, b: b.id } })}
-                  className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full bg-surface shadow-[var(--panel-elev)] px-3.5 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
+                  className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full bg-surface px-3.5 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
                 >
                   <span className="flex -space-x-1.5" aria-hidden="true">
                     <Avatar url={a.profileImage} name={a.displayName ?? a.handle} className="size-5 ring-2 ring-surface" />
@@ -146,7 +146,7 @@ function PickerSlot({ member, onOpen }: { member: Detail | null; onOpen: () => v
   }
   const name = member.member.displayName ?? member.member.handle;
   return (
-    <div className="flex min-h-40 flex-col items-center justify-center gap-2.5 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-5 text-center">
+    <div className="flex min-h-40 flex-col items-center justify-center gap-2.5 panel-card p-5 text-center">
       <Avatar url={member.member.profileImage} name={name} className="size-16" />
       <div className="min-w-0">
         <Link
@@ -194,7 +194,7 @@ function CompareTable({ left, right }: { left: Detail; right: Detail }) {
   ];
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-surface shadow-[var(--panel-elev)]">
+    <div className="overflow-hidden panel-card">
       {cols.map((row) => {
         const aWin = row.better === "high" && row.a > row.b;
         const bWin = row.better === "high" && row.b > row.a;

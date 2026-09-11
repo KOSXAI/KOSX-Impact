@@ -161,7 +161,7 @@ export function MilestoneJourney({
 
       {/* 成长档案：加入天数 / 已领称号 / 当前段位 / 首次登阶——成长回顾摘要（可分享） */}
       <Reveal>
-        <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
+        <section className="panel-card p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-bold">成长档案</h2>
             <button

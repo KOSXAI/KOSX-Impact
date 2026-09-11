@@ -88,7 +88,7 @@ function DailyPage() {
 
         {/* 今日登阶 */}
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <section className="mt-8 panel-card p-6 sm:p-8">
             <h2 className="text-xl font-bold">今日登阶</h2>
             {todayClimbs.length > 0 ? (
               <ul className="mt-4 space-y-3">
@@ -124,7 +124,7 @@ function DailyPage() {
         <Reveal delay={0.1}>
           <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-2">
             {growthChamp && (
-              <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
+              <section className="panel-card p-6">
                 <h2 className="text-xl font-bold">近 30 天涨粉冠军</h2>
                 <Link to="/members/$id" params={{ id: growthChamp.id }} className="mt-4 flex items-center gap-3 rounded-xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong">
                   <Avatar url={growthChamp.profileImage} name={growthChamp.displayName ?? growthChamp.handle} className="size-9 shrink-0" />
@@ -140,7 +140,7 @@ function DailyPage() {
               </section>
             )}
             {bestTrack && bestTrack.memberCount > 0 && (
-              <section className="rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6">
+              <section className="panel-card p-6">
                 <h2 className="text-xl font-bold">赛道表现</h2>
                 <ul className="mt-4 space-y-2.5">
                   {[...stats.trackStats]
@@ -163,7 +163,7 @@ function DailyPage() {
 
         {/* 最爆内容 */}
         <Reveal delay={0.12}>
-          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <section className="mt-8 panel-card p-6 sm:p-8">
             <h2 className="text-xl font-bold">最爆内容</h2>
             <ul className="mt-4 space-y-3">
               {hotPosts.map((p) => (
@@ -223,7 +223,7 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
         </Reveal>
 
         <Reveal delay={0.08}>
-          <section className="mt-8 rounded-2xl bg-surface shadow-[var(--panel-elev)] p-6 sm:p-8">
+          <section className="mt-8 panel-card p-6 sm:p-8">
             <h2 className="text-xl font-bold">当日登阶</h2>
             {archive.climbs.length === 0 ? (
               <p className="mt-4 text-mist">这一天没有登阶记录。</p>
