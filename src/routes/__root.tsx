@@ -16,7 +16,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       // 初始给浅色值；深色用户的真实值由 THEME_BOOT_SCRIPT 首帧前改写
-      { name: "theme-color", content: "#f7f5f2" },
+      { name: "theme-color", content: "#fafafa" },
       // 全站共享的站点级 meta（各页只写页面级 title/og，避免重复标签）
       { property: "og:site_name", content: SITE_NAME },
     ],

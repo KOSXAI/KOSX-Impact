@@ -27,8 +27,8 @@ export interface CachedResponseOptions {
  * 结构升级升 v、数据变化靠 cb 自动换键。
  */
 export const CACHE_KEYS = {
-  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v21：影响力指数质量系数口径对齐公示（大列表收录 +0.15） */
-  dashboard: "/api/dashboard?v=21",
+  /** 看板统计（首页 SSR 与 /api/dashboard 共用）——v22：新增 topicStats/trendingPosts/followNet/fansSample/rankDelta */
+  dashboard: "/api/dashboard?v=22",
   /** 成员列表（/api/members） */
   memberList: "/api/members?v=10",
   /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */

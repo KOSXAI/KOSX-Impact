@@ -17,14 +17,14 @@
   --radius: 0.875rem;
   color-scheme: light;
 
-  /* ===== 浅色（默认）：暖白纸感，与深色同一套暖灰调 ===== */
-  --paper: #f7f5f2;
-  --soft-surface: #efece7;
+  /* ===== 浅色（默认）：中性近白冷灰系——干净不发土，信号橙独自负责暖色 ===== */
+  --paper: #fafafa;
+  --soft-surface: #f3f4f5;
   --surface: #ffffff;
-  --line: #e4e0d9;
-  --ink: #1d1b18;
-  --mist: #57534d;
-  --fog: #a39d94;
+  --line: #e4e4e7;
+  --ink: #18181b;
+  --mist: #52525b;
+  --fog: #a1a1aa;
   --signal: #ff6a00;
   --signal-deep: #ff3d00;
   --signal-warm: #ffb347;
@@ -33,8 +33,8 @@
   --black: #0a0a0a;
 
   /* 主按钮：浅色下翻成实心深钮（深色下为白钮） */
-  --primary: #1d1b18;
-  --primary-foreground: #f7f5f2;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
 
   /* 质感槽：深色靠白高光，浅色靠黑弱化——组件一律走这些槽，不再写裸白黑 */
   --wash: rgba(0, 0, 0, 0.045);

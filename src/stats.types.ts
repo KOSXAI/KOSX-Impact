@@ -63,6 +63,8 @@ export interface MemberStats {
   viewsTodayGain?: number;
   /** 今日粉丝增量（最近一天快照差值，queries 层填充，多维时间榜用） */
   growth1d?: number;
+  /** 名次环比：昨日快照排名 − 今日快照排名，正数=上升（queries 层填充；昨日无快照为 null） */
+  rankDelta?: number | null;
   /** 近 7 天帖子总浏览（queries 层填充） */
   views7d?: number;
   /** 今日发帖数 / 今日评论总数（queries 层填充，多维时间榜用） */
@@ -145,6 +147,30 @@ export interface DashboardStats {
   mutualEdges?: Array<{ from: string; to: string; count: number }>;
   /** 赛道能量统计（queries 层填充，5 正式赛道 + 综合兜底） */
   trackStats: TrackStats[];
+  /** 成员话题统计：成员 tags 聚合出的话题行（queries 层填充，首页话题窗格） */
+  topicStats?: Array<{
+    tag: string;
+    /** 挂该话题的成员数 */
+    memberCount: number;
+    /** 这些成员近 30 天帖子总浏览 */
+    views30d: number;
+    /** 这些成员近 30 天粉丝净增 */
+    growth30d: number;
+  }>;
+  /** 今日爆帖：近 24h 里 views 相比上次抓取增量最大的帖子（queries 层填充，正在发生的口径） */
+  trendingPosts?: PostItem[];
+  /** 社群内部关注网：成员成员互相关注对（follows 表，sync-follows 低频采集；queries 层填充） */
+  followNet?: { mutualPairs: number; trackedMembers: number };
+  /** 粉丝画像总览：fan_profiles 全成员样本聚合（queries 层填充，大屏质量 chip） */
+  fansSample?: {
+    sampledAt: string;
+    sampleSize: number;
+    avgFollowers: number | null;
+    /** 万粉（KOL）粉丝占比 0-100 */
+    pct10k: number | null;
+    /** 认证账号占比 0-100 */
+    verifiedPct: number | null;
+  };
 }
 
 /** 粉丝圈画像（SocialData followers 采样聚合，fan_profiles 表） */
@@ -266,6 +292,8 @@ export interface PostItem {
   bookmarks: number | null;
   /** 原文外链（x.com/{handle}/status/{tweetId}） */
   url: string;
+  /** 相邻两次抓取的浏览增量（views − views_prev，今日爆帖数据源；queries 层填充） */
+  viewsGain?: number | null;
   /** 成员展示信息（看板 topPosts 用；成员页内嵌区块可不带） */
   member?: { id: string; handle: string; displayName: string | null; profileImage: string | null };
 }

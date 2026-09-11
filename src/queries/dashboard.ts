@@ -272,7 +272,60 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       }
     }
 
-    // 社群内容洞察：爆款帖汇总（浏览降序 Top8）+ 停更名单（天数降序）+ 话题标签云
+    // 名次环比：昨日各成员粉丝量排名 vs 今日排名（快照窗口内倒数第二个不同自然日的快照为昨日基准）
+    {
+      const snapOf = (rowIndex: number, which: "latest" | "prev") => {
+        const snaps = memberStats[rowIndex].snapshots;
+        if (snaps.length === 0) return null;
+        if (which === "latest") return snaps[snaps.length - 1].followers;
+        const latestDay = snaps[snaps.length - 1].recordedAt.slice(0, 10);
+        for (let i = snaps.length - 2; i >= 0; i--) {
+          if (snaps[i].recordedAt.slice(0, 10) !== latestDay) return snaps[i].followers;
+        }
+        return null;
+      };
+      const rankNowPairs: Array<{ id: string; v: number }> = [];
+      const rankPrevPairs: Array<{ id: string; v: number }> = [];
+      for (let i = 0; i < memberStats.length; i++) {
+        const latest = snapOf(i, "latest");
+        const prev = snapOf(i, "prev");
+        if (latest != null) rankNowPairs.push({ id: memberStats[i].id, v: latest });
+        if (prev != null) rankPrevPairs.push({ id: memberStats[i].id, v: prev });
+      }
+      const rankMap = (pairs: typeof rankNowPairs) => {
+        pairs.sort((a, b) => b.v - a.v);
+        return new Map(pairs.map((p, idx) => [p.id, idx + 1]));
+      };
+      const today = rankMap(rankNowPairs);
+      const yesterday = rankMap(rankPrevPairs);
+      for (const ms of stats.members) {
+        const a = today.get(ms.id);
+        const b = yesterday.get(ms.id);
+        ms.rankDelta = a != null && b != null ? b - a : null;
+      }
+    }
+
+    // 今日爆帖：近 24h 刷新过且 views 相比上次抓取上涨的帖子，按增量降序（正在发生的口径）
+    {
+      const refreshSince = new Date(Date.now() - 26 * 3600_000).toISOString();
+      const memberInfo = new Map(memberStats.map((m) => [m.id, m]));
+      const trending: PostItem[] = [];
+      for (const [memberId, posts] of postsByMember) {
+        const row = memberInfo.get(memberId);
+        if (!row) continue;
+        const member = { id: row.id, handle: row.handle, displayName: row.displayName, profileImage: row.profileImage };
+        for (const p of posts) {
+          if (!p.postRecordedAt || p.postRecordedAt < refreshSince) continue;
+          if (p.views == null || p.viewsPrev == null || p.views <= p.viewsPrev) continue;
+          trending.push({
+            ...mapPostRow(p, row.handle),
+            viewsGain: p.views - p.viewsPrev,
+            member,
+          });
+        }
+      }
+      stats.trendingPosts = trending.sort((a, b) => (b.viewsGain ?? 0) - (a.viewsGain ?? 0)).slice(0, 6);
+    }
     const viralPosts: PostItem[] = [];
     const inactiveMembers: DashboardStats["insights"]["inactiveMembers"] = [];
     for (const ms of stats.members) {
@@ -295,6 +348,94 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       .sort((a, b) => b.count - a.count)
       .slice(0, 15);
     stats.insights = { viralPosts: viralPosts.slice(0, 8), inactiveMembers, tagCloud };
+
+    // 成员话题统计：tags 聚合的「话题 → 成员数 / 近 30 天帖子总浏览 / 粉丝净增」（首页话题窗格数据源）
+    {
+      const views30dOfMember = new Map(stats.members.map((m) => [m.id, m.views30d ?? 0]));
+      const growth30dOfMember = new Map(stats.members.map((m) => [m.id, m.growth30d]));
+      const memberByTag = new Map<string, typeof memberStats>();
+      for (const m of memberStats) {
+        for (const t of m.tags) {
+          const list = memberByTag.get(t) ?? [];
+          list.push(m);
+          memberByTag.set(t, list);
+        }
+      }
+      stats.topicStats = [...memberByTag.entries()]
+        .map(([tag, list]) => ({
+          tag,
+          memberCount: list.length,
+          views30d: list.reduce((s, m) => s + (views30dOfMember.get(m.id) ?? 0), 0),
+          growth30d: list.reduce((s, m) => s + (growth30dOfMember.get(m.id) ?? 0), 0),
+        }))
+        .filter((t) => t.memberCount > 0)
+        .sort((a, b) => b.memberCount - a.memberCount || b.views30d - a.views30d)
+        .slice(0, 12);
+    }
+
+    // 社群内部关注网：follows 表成员成员互相关注对（表未迁移时静默降级，首页隐藏信号）
+    try {
+      const { results: followRows } = await env.DB.prepare(
+        "SELECT follower_user_id, followed_user_id FROM follows"
+      ).all();
+      const edges = followRows as never as Array<{ follower_user_id: string; followed_user_id: string }>;
+      const activeUserIds = new Set(
+        (await env.DB.prepare("SELECT user_id FROM members WHERE status = 'active' AND user_id IS NOT NULL").all())
+          .results.map((r) => String((r as { user_id: string }).user_id))
+      );
+      const edgeSet = new Set<string>();
+      for (const r of edges) {
+        const from = String(r.follower_user_id);
+        const to = String(r.followed_user_id);
+        // 只统计两端都是活跃成员的对，避免离场成员污染信号带
+        if (activeUserIds.has(from) && activeUserIds.has(to)) edgeSet.add(`${from}\u0000${to}`);
+      }
+      let mutualPairs = 0;
+      for (const key of edgeSet) {
+        const [from, to] = key.split("\u0000");
+        if (edgeSet.has(`${to}\u0000${from}`)) mutualPairs++;
+      }
+      if (mutualPairs > 0) {
+        stats.followNet = { mutualPairs: mutualPairs / 2, trackedMembers: activeUserIds.size };
+      }
+    } catch {
+      // follows 表还没建时（首次部署前 / 本地旧库）不带该字段
+    }
+
+    // 粉丝画像总览：fan_profiles 全成员样本按样本量加权（大屏数据质量 chip；月度采样管道已存在）
+    try {
+      const { results: fanRows } = await env.DB.prepare(
+        `SELECT m.id AS memberId, fp.sampled_at AS sampledAt, fp.sample_size AS sampleSize,
+                fp.avg_followers AS avgFollowers, fp.pct_followers_10k AS pct10k, fp.verified_pct AS verifiedPct
+         FROM fan_profiles fp JOIN members m ON m.id = fp.member_id
+         WHERE m.status = 'active' AND fp.sample_size > 0`
+      ).all();
+      type FanRowDTO = { memberId: string; sampledAt: string; sampleSize: number; avgFollowers: number | null; pct10k: number | null; verifiedPct: number | null };
+      const fans = fanRows as never as FanRowDTO[];
+      if (fans.length > 0) {
+        const totalSample = fans.reduce((s, f) => s + f.sampleSize, 0);
+        const weighted = (pick: (f: FanRowDTO) => number | null) => {
+          let sum = 0;
+          let n = 0;
+          for (const f of fans) {
+            const v = pick(f);
+            if (v == null) continue;
+            sum += v * f.sampleSize;
+            n += f.sampleSize;
+          }
+          return n > 0 ? sum / n : null;
+        };
+        stats.fansSample = {
+          sampledAt: fans.map((f) => f.sampledAt).sort().at(-1)!,
+          sampleSize: totalSample,
+          avgFollowers: weighted((f) => f.avgFollowers),
+          pct10k: weighted((f) => f.pct10k),
+          verifiedPct: weighted((f) => f.verifiedPct),
+        };
+      }
+    } catch {
+      // fan_profiles 表缺失时静默降级
+    }
 
     // 赛道能量统计：成员规模 / 总粉丝 / 30 天增长 / 赛道内互动 Top3（帖子互动榜数据源）
     const trackStats: TrackStats[] = [...TRACKS, TRACK_OTHER].map((t) => {
