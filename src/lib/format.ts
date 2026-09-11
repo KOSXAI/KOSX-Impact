@@ -8,12 +8,16 @@ export function fmtDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
-/** 帖子正文摘要：正文只有一条链接（X 的 t.co 包裹）时返回 null，由调用方渲染占位文案 */
+/** 帖子正文摘要：剥掉全文/截断尾部的裸链接（X 的 t.co 包裹）后为空时返回 null，由调用方渲染占位文案 */
 export function postExcerpt(text: string | null | undefined, max = 34): string | null {
   if (!text) return null;
-  const t = text.trim();
-  if (/^https?:\/\/\S+$/.test(t)) return null;
-  return t.length > max ? `${t.slice(0, max)}…` : t;
+  const stripped = text
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[·|—-]+$/, "");
+  if (!stripped) return null;
+  return stripped.length > max ? `${stripped.slice(0, max)}…` : stripped;
 }
 
 export function badge(threshold: number): string {

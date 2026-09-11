@@ -8,9 +8,8 @@ import { Avatar } from "@/components/member/Avatar";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { MentionsSection } from "@/components/dashboard/MentionsSection";
 import { MILESTONES, TITLE_FILL, groupClimbs, titleOf } from "@/milestones";
-import { TRACKS } from "@/tracks";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { fmt, postExcerpt } from "@/lib/format";
+import { fmt, fmtDate, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -52,7 +51,7 @@ function DashboardPage() {
             <StatCard label="社群粉丝" value={stats.totalFollowers} />
           </RevealItem>
           <RevealItem>
-            <StatCard label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" highlight badge="30D" />
+            <StatCard label="近 30 天新增" value={stats.totalGrowth30d} prefix="+" highlight />
           </RevealItem>
           <RevealItem>
             <StatCard label="万粉成员" value={stats.tenKMembers} />
@@ -153,8 +152,8 @@ function DashboardPage() {
                   </div>
                 );
               })()}
-              {/* 声量迷你趋势：最近 14 天按日计数 */}
-              {stats.mentionsTrend && stats.mentionsTrend.length > 0 && (
+              {/* 声量迷你趋势：最近 14 天按日计数（点太少时空间大于信息，不渲染免出空白条） */}
+              {stats.mentionsTrend && stats.mentionsTrend.length >= 3 && (
                 <div className="mt-4 flex h-10 items-end gap-1 border-b border-line pb-px">
                   {(() => {
                     const max = Math.max(...stats.mentionsTrend!.map((t) => t.count), 1);
@@ -180,8 +179,11 @@ function DashboardPage() {
             to="/report"
             className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-signal/25 bg-gradient-to-r from-signal/10 to-transparent px-6 py-5 transition-colors hover:border-signal/50"
           >
-            <div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <h2 className="text-xl font-bold">社群能量报告</h2>
+              <span className="text-xs font-semibold text-mist tabular-nums">
+                近 30 天 <b className="text-signal">+{fmt(stats.totalGrowth30d)}</b> 粉丝 · 已领 <b className="text-ink">{totalClimbs}</b> 枚称号
+              </span>
             </div>
             <span className="rounded-full border border-signal/40 bg-signal/10 px-4 py-1.5 text-sm font-semibold text-signal">查看报告 →</span>
           </Link>
@@ -197,17 +199,21 @@ function DashboardPage() {
 function TodayOverview({ stats }: { stats: DashboardStats }) {
   const today = new Date().toISOString().slice(0, 10);
   const todayClimbs = stats.recentMilestones.filter((m) => m.achievedAt.slice(0, 10) === today);
+  // 「今天」整天无登阶并不少见：空态回退近 7 天登阶，别让卡只剩两行
+  const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10);
+  const climbs = todayClimbs.length > 0 ? todayClimbs : stats.recentMilestones.filter((m) => m.achievedAt.slice(0, 10) >= weekAgo);
+  const climbsLabel = todayClimbs.length > 0 ? "今日登阶" : "本周登阶";
   const growthChamp = [...stats.members].sort((a, b) => b.growth7d - a.growth7d)[0];
   const hotPosts = (stats.insights.viralPosts.length ? stats.insights.viralPosts : stats.topPosts).slice(0, 3);
   const gainRank = [...stats.members]
     .filter((m) => (m.viewsTodayGain ?? 0) > 0)
     .sort((a, b) => (b.viewsTodayGain ?? 0) - (a.viewsTodayGain ?? 0))
     .slice(0, 3);
-  const trackRows = TRACKS.map((t) => {
-    const ms = stats.members.filter((m) => m.tracks.includes(t.name));
-    const top = [...ms].sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0))[0];
-    return { name: t.name, count: ms.length, top };
-  }).filter((x) => x.count > 0);
+  // 赛道行直接吃 trackStats（成员数 / 粉丝规模 / 30 天净增），榜首取成员列表首个（已按粉丝量降序）
+  const trackRows = stats.trackStats
+    .filter((t) => t.name !== "综合")
+    .sort((a, b) => b.totalFollowers - a.totalFollowers)
+    .map((t) => ({ ...t, top: stats.members.find((m) => m.tracks.includes(t.name)) ?? null }));
 
   return (
     <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -215,8 +221,9 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
       <section className="rounded-2xl border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold text-mist">今日动态</h2>
         <div className="mt-3 space-y-2.5">
-          {todayClimbs.length > 0 ? (
-            groupClimbs(todayClimbs).slice(0, 3).map((g) => {
+          <div className="text-xs font-semibold text-mist">{climbsLabel}</div>
+          {climbs.length > 0 ? (
+            groupClimbs(climbs).slice(0, 3).map((g) => {
               const name = g.items[0].displayName ?? g.items[0].handle;
               return (
                 <Link key={g.key} to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-signal/20 bg-signal/8 px-3 py-2 transition-colors hover:border-signal/40">
@@ -236,7 +243,7 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
               );
             })
           ) : (
-            <div className="rounded-xl border border-line bg-soft-surface px-3 py-2 text-sm text-mist">今天还没有新登阶，称号正在路上。</div>
+            <div className="rounded-xl border border-line bg-soft-surface px-3 py-2 text-sm text-mist">最近还没有成员登阶，称号正在路上。</div>
           )}
           {growthChamp && (growthChamp.growth7d ?? 0) > 0 && (
             <Link to="/members/$id" params={{ id: growthChamp.id }} className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
@@ -263,43 +270,56 @@ function TodayOverview({ stats }: { stats: DashboardStats }) {
         </div>
       </section>
 
-      {/* 赛道速览 */}
+      {/* 赛道速览：规模 → 30 天净增 → 赛道榜首，点击直达博主库该赛道 */}
       <section className="rounded-2xl border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold text-mist">赛道速览</h2>
         <ul className="mt-3 space-y-2">
           {trackRows.map((r) => (
-            <li key={r.name} className="flex items-center gap-2 text-sm">
-              <span className="w-12 shrink-0 font-semibold">{r.name}</span>
-              <span className="shrink-0 text-xs text-mist tabular-nums">{r.count} 人</span>
-              {r.top && (
-                <Link to="/members/$id" params={{ id: r.top.id }} className="min-w-0 flex-1 truncate text-right text-xs text-mist underline-offset-4 hover:text-ink hover:underline">
-                  榜首 @{r.top.handle}
-                </Link>
-              )}
+            <li key={r.name}>
+              <Link
+                to="/members"
+                search={{ view: "track", track: r.name }}
+                className="flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40"
+              >
+                <span className="w-14 shrink-0 text-sm font-semibold">{r.name}</span>
+                <span className="text-xs text-mist tabular-nums">{r.memberCount} 人</span>
+                <span className="text-xs font-semibold text-signal tabular-nums">30 天 +{fmt(r.growth30dTotal)}</span>
+                <span className="ml-auto hidden min-w-0 items-center gap-1.5 sm:flex">
+                  {r.top && (
+                    <>
+                      <Avatar url={r.top.profileImage} name={r.top.displayName ?? r.top.handle} className="size-5 shrink-0" />
+                      <span className="max-w-28 truncate text-xs text-mist">{r.top.displayName ?? `@${r.top.handle}`}</span>
+                    </>
+                  )}
+                </span>
+              </Link>
             </li>
           ))}
         </ul>
-        <Link to="/members" className="mt-3 inline-block text-xs font-semibold text-signal underline-offset-4 hover:underline">
-          去广场看赛道 →
+        <Link to="/members" search={{ view: "track" }} className="mt-3 inline-block text-xs font-semibold text-signal underline-offset-4 hover:underline">
+          进博主库看赛道 →
         </Link>
       </section>
 
-      {/* 内容热点 */}
+      {/* 内容热点：作者行 + 两行摘要 + 互动三数 */}
       <section className="rounded-2xl border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold text-mist">内容热点</h2>
         <ul className="mt-3 space-y-2">
           {hotPosts.length > 0 ? (
             hotPosts.map((p) => (
               <li key={p.tweetId}>
-                <a href={p.url} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-2 rounded-xl border border-line bg-soft-surface px-3 py-2 transition-colors hover:border-signal/40">
-                  {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-7 shrink-0" />}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs text-mist">
-                      {p.member ? (p.member.displayName ?? p.member.handle) : ""} · {postExcerpt(p.text) ?? "链接帖"}
-                    </span>
-                    <span className="block text-xs font-semibold tabular-nums">
-                      {p.views != null ? `${fmt(p.views)} 浏览` : `${fmt(p.likes ?? 0)} 赞`}
-                    </span>
+                <a href={p.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-line bg-soft-surface px-3 py-2.5 transition-colors hover:border-signal/40">
+                  <span className="flex items-center gap-1.5 text-xs text-mist">
+                    {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-4 shrink-0" />}
+                    <span className="min-w-0 flex-1 truncate font-semibold text-ink">{p.member ? (p.member.displayName ?? p.member.handle) : ""}</span>
+                    <span className="shrink-0 tabular-nums">{fmtDate(p.createdAt)}</span>
+                  </span>
+                  <span className="mt-1 block line-clamp-2 text-sm text-ink">{postExcerpt(p.text) ?? "链接帖"}</span>
+                  <span className="mt-1 block text-xs font-semibold text-mist tabular-nums">
+                    {p.views != null && <>{fmt(p.views)} 浏览</>}
+                    {(p.likes ?? 0) > 0 && <> · {fmt(p.likes ?? 0)} 赞</>}
+                    {(p.retweets ?? 0) > 0 && <> · {fmt(p.retweets ?? 0)} 转</>}
+                    {p.views == null && (p.likes ?? 0) === 0 && <>热度数据待采集</>}
                   </span>
                 </a>
               </li>

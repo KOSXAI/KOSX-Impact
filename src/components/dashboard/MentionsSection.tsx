@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { MentionItem } from "@/stats";
 import { ExternalLink, Quote } from "lucide-react";
 import { fmtDate } from "@/lib/format";
@@ -12,15 +13,17 @@ const SENTIMENT_DOT: Record<string, string> = {
 
 /**
  * 看板「品牌声量」：定时搜索 X 上关于 KOSX 的站外提及（最近 20 条）。
- * 品牌活跃度的直接证据；空数据隐藏整个区块。
+ * 品牌活跃度的直接证据；空数据隐藏整个区块。默认只展开前 3 条，其余折叠防列表刷屏。
  */
 export function MentionsSection({ mentions }: { mentions: MentionItem[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? mentions : mentions.slice(0, 3);
   if (mentions.length === 0) return null;
   return (
     <div className="mt-6 border-t border-line pt-6">
       <h3 className="text-sm font-semibold text-mist">最近站外提及</h3>
       <ol className="mt-3 space-y-2">
-        {mentions.slice(0, 10).map((m, i) => (
+        {visible.map((m, i) => (
           <li
             key={`${m.keyword}-${m.url ?? m.collectedAt}-${i}`}
             className="flex flex-wrap items-start gap-x-3 gap-y-1 rounded-2xl border border-line bg-soft-surface px-4 py-3"
@@ -52,7 +55,17 @@ export function MentionsSection({ mentions }: { mentions: MentionItem[] }) {
             )}
           </li>
         ))}
-      </ol>
-    </div>
-  );
+        </ol>
+        {mentions.length > 3 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            aria-expanded={expanded}
+            className="mt-3 w-full cursor-pointer rounded-full border border-line bg-soft-surface px-4 py-2 text-xs font-semibold text-mist transition-colors hover:border-white/20 hover:text-ink"
+          >
+            {expanded ? "收起" : `展开全部 ${mentions.length} 条`}
+          </button>
+        )}
+      </div>
+    );
 }
