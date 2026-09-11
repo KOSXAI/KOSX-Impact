@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/member/Avatar";
 import { VIEW_PRESETS, type LibrarySearch, type ViewKey, type MetricCtx, type MetricValue } from "@/components/library/presets";
@@ -7,7 +7,7 @@ import { groupClimbs, titleOf } from "@/milestones";
 import type { DashboardStats, MemberStats, PostItem, TrackStats } from "@/stats";
 
 /**
- * 榜单窗格墙：博主库九视图 + 内容热点 + 社群话题 = 11 窗格（3 列网格）。
+ * 榜单窗格墙：成员榜单（tab 切换七个视图）+ 赛道分组 + 登阶记录 + 内容热点 + 社群话题。
  * 每窗格现算真实 Top5 行；名次环比只在总排行显示；点击进完整榜。
  */
 
@@ -104,9 +104,9 @@ function PostRow({ p }: { p: PostItem }) {
       href={p.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-baseline gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
+      className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
     >
-      {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-5 shrink-0" />}
+      {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-6 shrink-0" />}
       <span className="min-w-0 flex-1 truncate text-xs text-mist">{postExcerpt(p.text) ?? "链接帖"}</span>
       <span className="shrink-0 text-xs font-bold text-mist tabular-nums">{value}</span>
     </a>
@@ -114,8 +114,9 @@ function PostRow({ p }: { p: PostItem }) {
 }
 
 export function WindowGrid({ stats }: { stats: DashboardStats }) {
-  // 九视图成员窗格：同口径现算（复用 VIEW_PRESETS 的过滤/排序/主指标）
-  const memberWindows = VIEW_ORDER.filter((k) => k !== "track" && k !== "climbs").map((k) => {
+  // 七个成员视图啪入一个窗格，tab 切换（同口径现算：复用 VIEW_PRESETS 的过滤/排序/主指标）
+  const [activeView, setActiveView] = useState<ViewKey>("total");
+  const memberViews = VIEW_ORDER.filter((k) => k !== "track" && k !== "climbs").map((k) => {
     const preset = VIEW_PRESETS[k];
     const rows = [...stats.members]
       .filter((m) => (preset.filter ? preset.filter(m) : true))
@@ -123,6 +124,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
       .slice(0, 5);
     return { key: k, preset, rows };
   });
+  const active = memberViews.find((v) => v.key === activeView) ?? memberViews[0];
 
   // 赛道分组窗格：按粉丝规模降序的赛道 chips
   const trackChips = stats.trackStats
@@ -138,28 +140,37 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {memberWindows.map(({ key, preset, rows }) => (
-        <WindowShell
-          key={key}
-          title={preset.label}
-          to="/members"
-          search={VIEW_LINK[key]}
-        >
-          {rows.length > 0 ? (
-            rows.map((m, i) => (
+      {/* 成员榜单：tab 切换七个视图 */}
+      <WindowShell title="成员榜单" to="/members" search={VIEW_LINK[active.key]} hint="七个榜单视角，切到哪个看哪个">
+      <div className="flex flex-wrap gap-1.5">
+          {memberViews.map(({ key, preset }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveView(key)}
+              aria-pressed={key === active.key}
+              className={key === active.key ? "rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground" : "rounded-full bg-soft-surface px-2.5 py-1 text-xs font-semibold text-mist transition-colors hover:text-ink"}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex min-h-48 flex-col justify-start gap-1.5">
+          {active.rows.length > 0 ? (
+            active.rows.map((m, i) => (
               <MemberRow
                 key={m.id}
                 rank={i + 1}
                 m={m}
-                metric={preset.metric(m, LIB_CTX)}
-                delta={key === "total" ? (m.rankDelta ?? null) : null}
+                metric={active.preset.metric(m, LIB_CTX)}
+                delta={active.key === "total" ? (m.rankDelta ?? null) : null}
               />
             ))
           ) : (
-            <p className="px-2 py-3 text-xs text-mist">{preset.empty}</p>
+            <p className="px-2 py-3 text-xs text-mist">{active.preset.empty}</p>
           )}
-        </WindowShell>
-      ))}
+        </div>
+      </WindowShell>
 
       {/* 赛道分组窗格 */}
       <WindowShell title="赛道分组" to="/members" search={{ view: "track" }}>
@@ -169,7 +180,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               key={t.name}
               to="/members"
               search={{ view: "track", track: t.name }}
-              className="flex items-baseline gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
+              className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
             >
               <span className="text-sm font-semibold">{t.name}</span>
               <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">{t.memberCount} 人</span>
@@ -219,7 +230,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               key={t.tag}
               to="/members"
               search={{ tag: t.tag }}
-              className="flex items-baseline gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
+              className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-wash"
             >
               <span className="shrink-0 text-sm font-semibold text-ink">{t.tag}</span>
               <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">{t.memberCount} 人在做</span>
