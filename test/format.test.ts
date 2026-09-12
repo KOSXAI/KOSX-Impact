@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { badge, postExcerpt } from "../src/lib/format";
+import { badge, parsePostContent, postExcerpt } from "../src/lib/format";
 
 describe("badge", () => {
   it("千/万/十万级档位正确缩写", () => {
@@ -29,5 +29,21 @@ describe("postExcerpt", () => {
     expect(postExcerpt("正文 https://t.co/xxxxx 尾巴也要留下")).toBe("正文 尾巴也要留下");
     const long = "a".repeat(40) + " https://t.co/xxxxx";
     expect(postExcerpt(long)).toBe("a".repeat(34) + "…");
+  });
+});
+
+describe("parsePostContent", () => {
+  it("保留段落换行，压平行内空白、合并 3+ 连续换行", () => {
+    expect(parsePostContent("第一段\n\n\n第二段  \n 第三段").text).toBe("第一段\n\n第二段\n第三段");
+  });
+  it("抽出全部 t.co 链接（去重）并从正文剥离", () => {
+    const { text, links } = parsePostContent("看这个 https://t.co/abc 很赞\nhttps://t.co/abc https://t.co/def");
+    expect(text).toBe("看这个 很赞");
+    expect(links).toEqual(["https://t.co/abc", "https://t.co/def"]);
+  });
+  it("纯链接 / 空内容：正文为 null，链接保留", () => {
+    expect(parsePostContent("https://t.co/only")).toEqual({ text: null, links: ["https://t.co/only"] });
+    expect(parsePostContent(null)).toEqual({ text: null, links: [] });
+    expect(parsePostContent("   ")).toEqual({ text: null, links: [] });
   });
 });

@@ -4,12 +4,13 @@ import { fetchDashboard, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals,
 import type { PostItem } from "@/stats";
 import { Avatar } from "@/components/member/Avatar";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
+import { PostText } from "@/components/content/PostText";
 import { Reveal } from "@/components/motion";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Metric } from "@/components/ui/Metric";
 import { PODIUM } from "@/components/leaderboard/podium";
 import { ExternalLink, Eye, Heart, MessageCircle, Repeat2, Users, TrendingUp } from "lucide-react";
-import { fmt, fmtDate, postExcerpt } from "@/lib/format";
+import { fmt, fmtDate } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -237,7 +238,7 @@ function PostList({ posts }: { posts: PostItem[] }) {
                       <ExternalLink className="size-3" />
                     </a>
                   </div>
-                  <p className="mt-2 line-clamp-3 text-sm leading-relaxed">{postExcerpt(p.text, 120) ?? "分享了一条链接"}</p>
+                  <PostText text={p.text} className="mt-2" />
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
                     <Metric icon={<Eye className="size-3.5" />} value={p.views} label="浏览" />
                     <Metric icon={<Heart className="size-3.5" />} value={p.likes} label="点赞" />

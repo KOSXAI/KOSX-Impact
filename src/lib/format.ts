@@ -20,6 +20,24 @@ export function postExcerpt(text: string | null | undefined, max = 34): string |
   return stripped.length > max ? `${stripped.slice(0, max)}…` : stripped;
 }
 
+/**
+ * 帖子全文解析：正文保留原有分段（压平行内空白、合并 3+ 连续换行），
+ * 抽出其中的 t.co 链接单独返回——X 把媒体/外链都包成 t.co，正文里留着是噪声。
+ */
+export function parsePostContent(raw: string | null | undefined): { text: string | null; links: string[] } {
+  if (!raw) return { text: null, links: [] };
+  const links: string[] = [];
+  for (const m of raw.matchAll(/https?:\/\/\S+/g)) if (!links.includes(m[0])) links.push(m[0]);
+  const text = raw
+    .replace(/https?:\/\/\S+/g, "")
+    .split("\n")
+    .map((line) => line.replace(/[ \t\u3000]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\n+|\n+$/g, "");
+  return { text: text || null, links };
+}
+
 export function badge(threshold: number): string {
   const short = (v: number): string =>
     Number.isInteger(v) ? String(v) : v.toFixed(1).replace(/\.0$/, "");
