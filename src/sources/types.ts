@@ -27,6 +27,30 @@ export interface FollowerStats {
   favouritesCount?: number;
 }
 
+/** 帖子附件媒体（照片/视频/GIF）：展示层直出，无需再请求 X */
+export interface PostMedia {
+  kind: "photo" | "video" | "gif";
+  /** 封面图 URL（视频/GIF 为封面帧，照片为原图） */
+  url: string;
+  /** 正文里对应的 t.co 短链（展示层据此从「查看链接」里剔除，避免与图片重复） */
+  tco?: string | null;
+  /** 视频最优 mp4 直链（video.twimg.com，可热链播放）；照片/GIF 为 null */
+  videoUrl?: string | null;
+  width?: number | null;
+  height?: number | null;
+  durationMs?: number | null;
+}
+
+/** 引用帖内嵌原文卡（quoted_status 摘取的最小展示集） */
+export interface QuotedPost {
+  handle: string;
+  name: string | null;
+  profileImage: string | null;
+  text: string | null;
+  url: string | null;
+  media?: PostMedia | null;
+}
+
 /** 一条帖子的互动数据（User Tweets 端点响应，与 posts 表字段对应） */
 export interface PostData {
   tweetId: string;
@@ -39,6 +63,12 @@ export interface PostData {
   quotes: number | null;
   bookmarks: number | null;
   lang: string | null;
+  /** 附件媒体（照片 1-4 张 / 视频 / GIF）；无媒体为 null */
+  media: PostMedia[] | null;
+  /** X 原生帖子类型：tweet | reply | quote | retweet */
+  tweetType: string | null;
+  /** 引用帖内嵌原文卡；非引用帖为 null */
+  quoted: QuotedPost | null;
 }
 
 /**

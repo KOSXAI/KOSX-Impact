@@ -99,8 +99,8 @@ describe("collectWithSource", () => {
       },
       async fetchRecentPosts() {
         return [
-          { tweetId: "t1", createdAt: "2026-09-05T00:00:00Z", fullText: "hi", views: 100, likes: 10, replies: 2, retweets: 1, quotes: 0, bookmarks: 3, lang: "zh" },
-          { tweetId: "t2", createdAt: "2026-09-06T00:00:00Z", fullText: null, views: null, likes: 5, replies: 0, retweets: 0, quotes: 0, bookmarks: 0, lang: null },
+          { tweetId: "t1", createdAt: "2026-09-05T00:00:00Z", fullText: "hi", views: 100, likes: 10, replies: 2, retweets: 1, quotes: 0, bookmarks: 3, lang: "zh", media: null, tweetType: "tweet", quoted: null },
+          { tweetId: "t2", createdAt: "2026-09-06T00:00:00Z", fullText: null, views: null, likes: 5, replies: 0, retweets: 0, quotes: 0, bookmarks: 0, lang: null, media: null, tweetType: null, quoted: null },
         ];
       },
     };
@@ -113,6 +113,65 @@ describe("collectWithSource", () => {
       { tweetId: "t1", views: 100 },
       { tweetId: "t2", views: null },
     ]);
+  });
+
+  it("帖子附件媒体/类型/引用帖落库（JSON 列）", async () => {
+    await seedBaselines();
+    const source: FollowerSource = {
+      name: "stub",
+      async fetchStats() {
+        return { followers: 1500, userId: "44196397" };
+      },
+      async fetchRecentPosts() {
+        return [
+          {
+            tweetId: "m1",
+            createdAt: "2026-09-07T00:00:00Z",
+            fullText: "配图",
+            views: 100,
+            likes: 10,
+            replies: 0,
+            retweets: 0,
+            quotes: 0,
+            bookmarks: 0,
+            lang: "zh",
+            media: [{ kind: "photo", url: "https://pbs.twimg.com/media/x.jpg", tco: "https://t.co/x", videoUrl: null, width: 800, height: 600, durationMs: null }],
+            tweetType: "tweet",
+            quoted: null,
+          },
+          {
+            tweetId: "m2",
+            createdAt: "2026-09-08T00:00:00Z",
+            fullText: "无媒体",
+            views: 5,
+            likes: 1,
+            replies: 0,
+            retweets: 0,
+            quotes: 0,
+            bookmarks: 0,
+            lang: null,
+            media: null,
+            tweetType: "quote",
+            quoted: { handle: "bob", name: "Bob", profileImage: null, text: "原文", url: "https://x.com/bob/status/1", media: null },
+          },
+        ];
+      },
+    };
+    await collectWithSource(env, source, testRoster, undefined, 0);
+
+    const { results } = await env.DB.prepare(
+      "SELECT tweet_id AS tweetId, media, tweet_type AS tweetType, quoted FROM posts WHERE member_id = 'alice' ORDER BY created_at"
+    ).all() as { results: Array<{ tweetId: string; media: string | null; tweetType: string | null; quoted: string | null }> };
+
+    const m1 = results.find((r) => r.tweetId === "m1")!;
+    expect(JSON.parse(m1.media!)).toEqual([{ kind: "photo", url: "https://pbs.twimg.com/media/x.jpg", tco: "https://t.co/x", videoUrl: null, width: 800, height: 600, durationMs: null }]);
+    expect(m1.tweetType).toBe("tweet");
+    expect(m1.quoted).toBeNull();
+
+    const m2 = results.find((r) => r.tweetId === "m2")!;
+    expect(m2.media).toBeNull();
+    expect(m2.tweetType).toBe("quote");
+    expect(JSON.parse(m2.quoted!)).toMatchObject({ handle: "bob", text: "原文" });
   });
 
   it("跨过阈值时写入登阶事件", async () => {

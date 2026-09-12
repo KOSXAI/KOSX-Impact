@@ -216,8 +216,8 @@ async function writeRecentPosts(
     `INSERT INTO posts
        (tweet_id, member_id, created_at, views_count, views_prev,
         like_count, reply_count, retweet_count, quote_count, bookmark_count,
-        text, lang, recorded_at)
-     VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+        text, lang, media, tweet_type, quoted, recorded_at)
+     VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
      ON CONFLICT(tweet_id) DO UPDATE SET
        views_count = excluded.views_count,
        views_prev = posts.views_count,
@@ -228,6 +228,9 @@ async function writeRecentPosts(
        bookmark_count = excluded.bookmark_count,
        text = excluded.text,
        lang = excluded.lang,
+       media = excluded.media,
+       tweet_type = excluded.tweet_type,
+       quoted = excluded.quoted,
        recorded_at = excluded.recorded_at`
   );
   const writes = posts.map((p) =>
@@ -243,6 +246,9 @@ async function writeRecentPosts(
       p.bookmarks,
       p.fullText,
       p.lang,
+      p.media ? JSON.stringify(p.media) : null,
+      p.tweetType,
+      p.quoted ? JSON.stringify(p.quoted) : null,
       nowIso
     )
   );

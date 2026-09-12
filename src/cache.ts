@@ -43,10 +43,10 @@ export const CACHE_KEYS = {
   ogLeaderboard: "/og/leaderboard.png?v=1",
   /** 站点 OG 分享卡（PNG） */
   ogSite: "/og/site.png?v=1",
-  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v20：新增 collectFailed 首采失败态 */
-  memberDetail: (id: string) => `/api/members/${id}?v=20`,
-  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v3：兜底排序修复（NULL 互动项毒化加法和） */
-  topPosts: "/api/top-posts?v=3",
+  /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v21：帖子上榜富媒体（media/quoted/tweet_type） */
+  memberDetail: (id: string) => `/api/members/${id}?v=21`,
+  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v4：帖子上榜富媒体（media/quoted/tweet_type） */
+  topPosts: "/api/top-posts?v=4",
   /** sitemap.xml（SSR 之外的 Worker 直出，键只作 Cache API 存储用） */
   sitemap: "/sitemap.xml?v=2",
   /** 以下为无独立 API 端点的查询层键（/q/ 前缀仅作缓存键，不构成可请求路径） */

@@ -4,7 +4,7 @@ import { fetchDashboard, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals,
 import type { PostItem } from "@/stats";
 import { Avatar } from "@/components/member/Avatar";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
-import { PostText } from "@/components/content/PostText";
+import { PostBody } from "@/components/content/PostText";
 import { Reveal } from "@/components/motion";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Metric } from "@/components/ui/Metric";
@@ -238,7 +238,7 @@ function PostList({ posts }: { posts: PostItem[] }) {
                       <ExternalLink className="size-3" />
                     </a>
                   </div>
-                  <PostText text={p.text} className="mt-2" />
+                  <PostBody post={p} className="mt-2" />
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
                     <Metric icon={<Eye className="size-3.5" />} value={p.views} label="浏览" />
                     <Metric icon={<Heart className="size-3.5" />} value={p.likes} label="点赞" />

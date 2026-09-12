@@ -15,6 +15,7 @@ import {
   POST_FIELDS,
   mapPostRow,
   median,
+  TOP_POST_DISPLAY_FIELDS,
   TOP_POST_FIELDS,
   parseStrArray,
   type MemberRow,
@@ -39,7 +40,7 @@ export async function getTopPosts(
       // views 缺失时用 赞+评论+转推 估算排序（COALESCE 兜底，避免高互动帖被筛掉）；
       // 各互动项自身也要 COALESCE——SQLite 里 NULL 参与加法会把整个兜底值毒化成 NULL
       const { results: rows } = await env.DB.prepare(
-        `SELECT ${TOP_POST_FIELDS}
+        `SELECT ${TOP_POST_DISPLAY_FIELDS}
          FROM posts p
          JOIN members m ON m.id = p.member_id
          WHERE m.status = 'active' AND p.created_at >= ?1

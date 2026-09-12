@@ -1,4 +1,4 @@
-import type { FollowerSource, FollowerStats, PostData } from "./types";
+import type { FollowerSource, FollowerStats, PostData, PostMedia, QuotedPost } from "./types";
 
 const API_BASE = "https://api.socialdata.tools";
 
@@ -7,6 +7,68 @@ const FREE_REQUESTS_PER_MINUTE = 3;
 const MIN_INTERVAL_MS = 61_000 / FREE_REQUESTS_PER_MINUTE;
 
 type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+/** User Tweets 响应里的单条媒体（Twitter v1.1 entities.media 结构，仅取展示所需字段） */
+interface RawMedia {
+  type?: string;
+  media_url_https?: string;
+  /** 正文里对应的 t.co 短链 */
+  url?: string;
+  original_info?: { width?: number; height?: number };
+  video_info?: { duration_millis?: number; variants?: Array<{ content_type?: string; bitrate?: number; url?: string }> };
+}
+
+/** 从 entities.media / extended_entities.media 提取展示用媒体数组；无媒体返回 null */
+export function extractMedia(tweet: { extended_entities?: { media?: RawMedia[] }; entities?: { media?: RawMedia[] } }): PostMedia[] | null {
+  const raw = tweet.extended_entities?.media ?? tweet.entities?.media ?? [];
+  const out: PostMedia[] = [];
+  for (const m of raw) {
+    if (!m.media_url_https)
+      continue;
+    const kind: PostMedia["kind"] = m.type === "video" ? "video" : m.type === "animated_gif" ? "gif" : "photo";
+    // 视频取码率最高的 mp4 直链（video.twimg.com 可热链）；照片/GIF 无直链
+    const best =
+      kind === "photo"
+        ? null
+        : (m.video_info?.variants ?? [])
+            .filter((v) => v.content_type === "video/mp4" && v.url)
+            .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0]?.url ?? null;
+    out.push({
+      kind,
+      url: m.media_url_https,
+      tco: m.url ?? null,
+      videoUrl: best,
+      width: m.original_info?.width ?? null,
+      height: m.original_info?.height ?? null,
+      durationMs: m.video_info?.duration_millis ?? null,
+    });
+  }
+  return out.length > 0 ? out : null;
+}
+
+/** 引用帖内嵌原文卡：从 quoted_status 摘最小展示集（用户/正文/外链/首图） */
+export function extractQuoted(tweet: {
+  is_quote_status?: boolean;
+  quoted_status?: {
+    id_str?: string;
+    full_text?: string | null;
+    user?: { screen_name?: string; name?: string; profile_image_url_https?: string };
+    extended_entities?: { media?: RawMedia[] };
+    entities?: { media?: RawMedia[] };
+  } | null;
+}): QuotedPost | null {
+  const q = tweet.quoted_status;
+  if (!q || !q.user?.screen_name) return null;
+  const media = extractMedia(q);
+  return {
+    handle: q.user.screen_name,
+    name: q.user.name ?? null,
+    profileImage: q.user.profile_image_url_https ?? null,
+    text: q.full_text ?? null,
+    url: q.id_str ? `https://x.com/${encodeURIComponent(q.user.screen_name)}/status/${q.id_str}` : null,
+    media: media?.[0] ?? null, // 引用卡内只放首图，控卡身高度
+  };
+}
 
 export class SocialDataError extends Error {
   /** HTTP 状态码；网络/解析类错误为 0 */
@@ -104,6 +166,11 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
         quote_count?: number | null;
         bookmark_count?: number | null;
         lang?: string | null;
+        type?: string | null;
+        extended_entities?: { media?: RawMedia[] };
+        entities?: { media?: RawMedia[] };
+        is_quote_status?: boolean;
+        quoted_status?: Parameters<typeof extractQuoted>[0]["quoted_status"];
       }> }>(`/twitter/user/${encodeURIComponent(userId)}/tweets`);
       const tweets = Array.isArray(data.tweets) ? data.tweets : [];
       return tweets
@@ -119,6 +186,9 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
           quotes: typeof t.quote_count === "number" ? t.quote_count : null,
           bookmarks: typeof t.bookmark_count === "number" ? t.bookmark_count : null,
           lang: t.lang ?? null,
+          media: extractMedia(t),
+          tweetType: t.type ?? null,
+          quoted: extractQuoted(t),
         }));
     },
   };

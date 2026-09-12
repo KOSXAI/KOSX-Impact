@@ -279,12 +279,36 @@ export interface MemberDetail {
   }>;
 }
 
+/** 帖子附件媒体（照片/视频/GIF，展示层直出） */
+export interface PostMediaItem {
+  kind: "photo" | "video" | "gif";
+  /** 封面图 URL（视频/GIF 为封面帧，照片为原图） */
+  url: string;
+  /** 正文里对应的 t.co 短链（展示层据此从「查看链接」剔除，避免与图重复） */
+  tco?: string | null;
+  /** 视频最优 mp4 直链；照片/GIF 为 null */
+  videoUrl?: string | null;
+  width?: number | null;
+  height?: number | null;
+  durationMs?: number | null;
+}
+
+/** 引用帖内嵌原文卡 */
+export interface QuotedPostItem {
+  handle: string;
+  name: string | null;
+  profileImage: string | null;
+  text: string | null;
+  url: string | null;
+  media?: PostMediaItem | null;
+}
+
 /** 单帖活跃度数据（浏览/赞/评论等互动数 + 内容摘要） */
 export interface PostItem {
   tweetId: string;
   /** 发帖时间（ISO） */
   createdAt: string;
-  /** 帖子正文（展示层只出摘要，不外链全文） */
+  /** 帖子正文全文（展示层按需截断/折叠） */
   text: string | null;
   views: number | null;
   likes: number | null;
@@ -294,6 +318,12 @@ export interface PostItem {
   bookmarks: number | null;
   /** 原文外链（x.com/{handle}/status/{tweetId}） */
   url: string;
+  /** 附件媒体（照片 1-4 张 / 视频 / GIF）；无媒体为 null 或 undefined */
+  media?: PostMediaItem[] | null;
+  /** X 原生帖子类型：tweet | reply | quote | retweet */
+  tweetType?: string | null;
+  /** 引用帖内嵌原文卡；非引用帖为 null */
+  quoted?: QuotedPostItem | null;
   /** 相邻两次抓取的浏览增量（views − views_prev，今日爆帖数据源；queries 层填充） */
   viewsGain?: number | null;
   /** 成员展示信息（看板 topPosts 用；成员页内嵌区块可不带） */

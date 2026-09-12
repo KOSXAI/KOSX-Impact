@@ -7,7 +7,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readSocialDataKey, createThrottledGet, lit, BUMP_CACHE_BUST_SQL } from "./_lib.mjs";
+import { readSocialDataKey, createThrottledGet, lit, jsonOrNull, extractMedia, extractQuoted, BUMP_CACHE_BUST_SQL } from "./_lib.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const rosterDoc = JSON.parse(readFileSync(resolve(root, "data/members.json"), "utf-8"));
@@ -34,14 +34,15 @@ for (const member of roster) {
       if (!t.id_str) continue;
       // 幂等 upsert（不用 REPLACE——REPLACE 删旧重建会丢 views_prev，与 src/collector.ts 同一套口径）
       sql.push(
-        `INSERT INTO posts (tweet_id, member_id, created_at, views_count, views_prev, like_count, reply_count, retweet_count, quote_count, bookmark_count, text, lang, recorded_at)
-         VALUES (${lit(t.id_str)}, ${lit(member.id)}, ${lit(t.tweet_created_at)}, ${t.views_count ?? "NULL"}, NULL, ${t.favorite_count ?? "NULL"}, ${t.reply_count ?? "NULL"}, ${t.retweet_count ?? "NULL"}, ${t.quote_count ?? "NULL"}, ${t.bookmark_count ?? "NULL"}, ${lit(t.full_text)}, ${lit(t.lang)}, ${lit(now)})
+        `INSERT INTO posts (tweet_id, member_id, created_at, views_count, views_prev, like_count, reply_count, retweet_count, quote_count, bookmark_count, text, lang, media, tweet_type, quoted, recorded_at)
+         VALUES (${lit(t.id_str)}, ${lit(member.id)}, ${lit(t.tweet_created_at)}, ${t.views_count ?? "NULL"}, NULL, ${t.favorite_count ?? "NULL"}, ${t.reply_count ?? "NULL"}, ${t.retweet_count ?? "NULL"}, ${t.quote_count ?? "NULL"}, ${t.bookmark_count ?? "NULL"}, ${lit(t.full_text)}, ${lit(t.lang)}, ${jsonOrNull(extractMedia(t))}, ${lit(t.type)}, ${jsonOrNull(extractQuoted(t))}, ${lit(now)})
          ON CONFLICT(tweet_id) DO UPDATE SET
            views_count = excluded.views_count, views_prev = posts.views_count,
            like_count = excluded.like_count, reply_count = excluded.reply_count,
            retweet_count = excluded.retweet_count, quote_count = excluded.quote_count,
            bookmark_count = excluded.bookmark_count, text = excluded.text,
-           lang = excluded.lang, recorded_at = excluded.recorded_at;`
+           lang = excluded.lang, media = excluded.media, tweet_type = excluded.tweet_type,
+           quoted = excluded.quoted, recorded_at = excluded.recorded_at;`
       );
     }
     membersOk++;

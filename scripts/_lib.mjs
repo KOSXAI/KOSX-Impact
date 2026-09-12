@@ -48,6 +48,53 @@ export function createThrottledGet(apiKey, intervalMs = 650) {
 /** SQL 字面量：null → NULL，单引号翻倍 */
 export const lit = (v) => (v == null ? "NULL" : `'${String(v).replace(/'/g, "''")}'`);
 
+/** 值为空返回 NULL，否则 JSON 字符串字面量（media/quoted 列用） */
+export const jsonOrNull = (v) => (v == null ? "NULL" : lit(JSON.stringify(v)));
+
+/**
+ * 从 User Tweets 单条媒体的 entities.media / extended_entities.media 提取展示数组。
+ * 与 src/sources/socialdata.ts 的 extractMedia 保持同口径（Worker 侧有类型版，勿双向依赖）。
+ */
+export function extractMedia(tweet) {
+  const raw = tweet.extended_entities?.media ?? tweet.entities?.media ?? [];
+  const out = [];
+  for (const m of raw) {
+    if (!m.media_url_https) continue;
+    const kind = m.type === "video" ? "video" : m.type === "animated_gif" ? "gif" : "photo";
+    const best =
+      kind === "photo"
+        ? null
+        : (m.video_info?.variants ?? [])
+            .filter((v) => v.content_type === "video/mp4" && v.url)
+            .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0]?.url ?? null;
+    out.push({
+      kind,
+      url: m.media_url_https,
+      tco: m.url ?? null,
+      videoUrl: best,
+      width: m.original_info?.width ?? null,
+      height: m.original_info?.height ?? null,
+      durationMs: m.video_info?.duration_millis ?? null,
+    });
+  }
+  return out.length > 0 ? out : null;
+}
+
+/** 引用帖内嵌原文卡（quoted_status 最小展示集，首图一张），与 Worker 侧同口径 */
+export function extractQuoted(tweet) {
+  const q = tweet.quoted_status;
+  if (!q || !q.user?.screen_name) return null;
+  const media = extractMedia(q);
+  return {
+    handle: q.user.screen_name,
+    name: q.user.name ?? null,
+    profileImage: q.user.profile_image_url_https ?? null,
+    text: q.full_text ?? null,
+    url: q.id_str ? `https://x.com/${encodeURIComponent(q.user.screen_name)}/status/${q.id_str}` : null,
+    media: media?.[0] ?? null,
+  };
+}
+
 /** 数据写库后 cache_bust +1：读端点缓存键换新，各数据中心立即可见 */
 export const BUMP_CACHE_BUST_SQL = `INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
   ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1;`;

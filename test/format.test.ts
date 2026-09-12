@@ -46,4 +46,9 @@ describe("parsePostContent", () => {
     expect(parsePostContent(null)).toEqual({ text: null, links: [] });
     expect(parsePostContent("   ")).toEqual({ text: null, links: [] });
   });
+  it("exclude：媒体 t.co 不进「查看链接」", () => {
+    const { text, links } = parsePostContent("看图 https://t.co/pic 外链 https://t.co/other", ["https://t.co/pic"]);
+    expect(text).toBe("看图 外链");
+    expect(links).toEqual(["https://t.co/other"]);
+  });
 });

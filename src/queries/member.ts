@@ -12,6 +12,7 @@ import { SITE_URL } from "../lib/site";
 import {
   MEMBER_FIELDS,
   POST_FIELDS,
+  POST_DISPLAY_FIELDS,
   mapPostRow,
   parseJsonArray,
   parseStrArray,
@@ -21,7 +22,7 @@ import {
 /** 成员近 N 帖 + 互动合计（返回 null 表示该成员尚无帖子数据） */
 async function getPostActivity(env: Env, memberId: string, handle: string, limit = 20): Promise<MemberDetail["postActivity"]> {
   const { results: rows } = await env.DB.prepare(
-    `SELECT ${POST_FIELDS} FROM posts WHERE member_id = ?1 ORDER BY created_at DESC LIMIT ?2`
+    `SELECT ${POST_DISPLAY_FIELDS} FROM posts WHERE member_id = ?1 ORDER BY created_at DESC LIMIT ?2`
   ).bind(memberId, limit).all();
   const posts = (rows as never as PostRow[]).map((r) => mapPostRow(r, handle));
   if (posts.length === 0) return null;

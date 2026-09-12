@@ -1,7 +1,7 @@
 import type { PostActivity as PostActivityData } from "@/stats";
 import { Card, CardContent } from "@/components/ui/card";
 import { Metric } from "@/components/ui/Metric";
-import { PostText } from "@/components/content/PostText";
+import { PostBody } from "@/components/content/PostText";
 import { AnimatedNumber, Reveal } from "@/components/motion";
 import { ExternalLink, Eye, Heart, MessageCircle, Repeat2 } from "lucide-react";
 import { fmtDate } from "@/lib/format";
@@ -38,7 +38,7 @@ export function PostActivity({ activity }: { activity: PostActivityData }) {
                   <div className="flex items-start gap-3 rounded-2xl bg-soft-surface px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <div className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</div>
-                      <PostText text={p.text} className="mt-1" />
+                      <PostBody post={p} className="mt-1" />
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
                         <Metric icon={<Eye className="size-3.5" />} value={p.views} label="浏览" />
                         <Metric icon={<Heart className="size-3.5" />} value={p.likes} label="点赞" />
