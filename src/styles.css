@@ -62,6 +62,14 @@
   --gold-text: #b45309;
   --gold-deep: #78350f;
 
+  /* 涨跌与领奖台 2/3 名（银/铜）：按主题翻色保对比度，组件层禁止再写裸色 */
+  --delta-up: #047857;
+  --delta-down: #be123c;
+  --silver: #6b7280;
+  --silver-deep: #3f3f46;
+  --bronze: #a35a2a;
+  --bronze-deep: #7c3f16;
+
   /* 称号分布分段条（社群全景）：金由浅入深 + 量级色，浅色整体压深一档 */
   --census-novice: #64748b;
   --census-g1: #fcd34d;
@@ -142,6 +150,13 @@
   --gold-text: #fcd34d;
   --gold-deep: #d97706;
 
+  --delta-up: #34d399;
+  --delta-down: #fb7185;
+  --silver: #d4d4d8;
+  --silver-deep: #8a8a93;
+  --bronze: #e8975a;
+  --bronze-deep: #a5652c;
+
   --census-novice: #94a3b8;
   --census-g1: #fde68a;
   --census-g2: #fcd34d;
@@ -187,6 +202,12 @@
   --color-gold: var(--gold);
   --color-gold-text: var(--gold-text);
   --color-gold-deep: var(--gold-deep);
+  --color-delta-up: var(--delta-up);
+  --color-delta-down: var(--delta-down);
+  --color-silver: var(--silver);
+  --color-silver-deep: var(--silver-deep);
+  --color-bronze: var(--bronze);
+  --color-bronze-deep: var(--bronze-deep);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);

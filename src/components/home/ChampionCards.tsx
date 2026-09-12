@@ -166,7 +166,7 @@ export function ChampionCards({ stats }: { stats: DashboardStats }) {
             <div className="flex flex-1 flex-col justify-center">
               <ChampHead m={racers[0].m} value={<>还差 {fmt(racers[0].remaining)}</>} />
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-mist">
-                <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[11px] font-bold text-amber-300">
+                <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[11px] font-bold text-gold-text">
                   至 {badge(racers[0].m.nextMilestone)}「{titleOf(racers[0].m.nextMilestone)}」
                 </span>
                 {racers[0].etaDays != null && <span className="tabular-nums">照目前速度 {etaText(racers[0].etaDays)}</span>}

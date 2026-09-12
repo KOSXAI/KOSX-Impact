@@ -45,7 +45,7 @@ function DashboardPage() {
   const fans = stats.fansSample;
 
   return (
-    <div className="mx-auto max-w-6xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
+    <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       {/* 第一屏 · 数据大屏：双特大数定基调，纯统计 */}
       <Reveal y={18}>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{SITE_NAME}</h1>

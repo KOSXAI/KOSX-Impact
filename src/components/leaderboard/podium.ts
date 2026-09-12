@@ -5,12 +5,12 @@ export const PODIUM = [
     rankNum: "from-gold-text to-gold-deep",
   },
   {
-    ring: "bg-gradient-to-r from-slate-400/14 to-transparent",
-    rankNum: "from-slate-300 to-slate-500",
+    ring: "bg-gradient-to-r from-silver/14 to-transparent",
+    rankNum: "from-silver to-silver-deep",
   },
   {
-    ring: "bg-gradient-to-r from-orange-500/14 to-transparent",
-    rankNum: "from-orange-400 to-orange-700",
+    ring: "bg-gradient-to-r from-bronze/14 to-transparent",
+    rankNum: "from-bronze to-bronze-deep",
   },
 ] as const;
 

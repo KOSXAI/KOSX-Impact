@@ -42,9 +42,9 @@ const VIEW_ORDER: ViewKey[] = [
 function RankDelta({ delta }: { delta: number | null }) {
   if (delta == null || delta === 0) return null;
   if (delta > 0) {
-    return <span className="shrink-0 text-[11px] font-bold text-emerald-400 tabular-nums">↑{delta}</span>;
+    return <span className="shrink-0 text-[11px] font-bold text-delta-up tabular-nums">↑{delta}</span>;
   }
-  return <span className="shrink-0 text-[11px] font-bold text-rose-400 tabular-nums">↓{Math.abs(delta)}</span>;
+  return <span className="shrink-0 text-[11px] font-bold text-delta-down tabular-nums">↓{Math.abs(delta)}</span>;
 }
 
 function WindowShell({ title, hint, to, search, children }: {
@@ -205,7 +205,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
             >
               <Avatar url={memberById.get(g.memberId)?.profileImage} name={g.items[0].displayName ?? g.items[0].handle} className="size-6 shrink-0" />
               <span className="min-w-0 flex-1 truncate text-sm">{g.items[0].displayName ?? g.items[0].handle}</span>
-              <span className="shrink-0 truncate text-xs font-bold text-amber-300">「{titleOf(g.items[0].threshold)}」</span>
+              <span className="shrink-0 truncate text-xs font-bold text-gold-text">「{titleOf(g.items[0].threshold)}」</span>
             </Link>
           ))
         ) : (
