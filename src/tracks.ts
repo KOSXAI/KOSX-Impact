@@ -60,7 +60,6 @@ export const TRACK_OTHER: Track = {
 };
 
 /** 全部赛道名（含综合）：分类脚本枚举白名单，跑偏项拒绝 */
-export const TRACK_NAMES: string[] = [...TRACKS.map((t) => t.name), TRACK_OTHER.name];
 
 /** 按赛道名取 Track（未知名返回 undefined） */
 export function trackOf(name: string): Track | undefined {

@@ -106,13 +106,19 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
         rec.set.add(m.id);
         followingCount.set(h, rec);
       }
-    } catch {
-      /* 单成员跳过 */
+    } catch (error) {
+      /* 单成员跳过，不阻塞整轮；留一行定位失败样本 */
+      console.error(`[sync-signals] 成员 ${m.handle} 共同关注采样失败:`, error instanceof Error ? error.message : error);
     }
   }
 
-  // 社群品味：帖子正文里被提及最多的外部账号（排除成员自身，零额外 API）
-  const { results: posts } = await env.DB.prepare("SELECT text FROM posts").all();
+  // 社群品味：帖子正文里被提及最多的外部账号（排除成员自身，零额外 API）。
+  // 只读近 30 天窗口：D1 按扫描行计费，无 WHERE 全表 SELECT text 随帖子量线性变贵
+  const { results: posts } = await env.DB.prepare(
+    "SELECT text FROM posts WHERE created_at >= ?1"
+  )
+    .bind(new Date(Date.now() - 30 * 86_400_000).toISOString())
+    .all();
   const memberHandles = new Set(top.map((m) => m.handle.toLowerCase()));
   const tasteCount = new Map<string, number>();
   for (const r of posts as never as Array<{ text: string | null }>) {

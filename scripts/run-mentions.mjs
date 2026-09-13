@@ -19,6 +19,7 @@ const DAYS = parseInt(take("--days", "7"), 10);
 const OUT = take("--out", "/tmp/mentions-raw.json");
 const ADVANCE = argv.includes("--advance");
 const FLAGS = new Set(["--days", "--out", "--advance"]);
+const MAX_PAGES = 10; // 每关键词最多翻几页：不翻页时第 2 页起的提及永久丢失（--advance 已推进游标）
 const KEYWORDS = ["KOSX", "impact.kosx.ai", "万粉影响力计划"];
 const wantKeywords = argv.filter((a, i) => !a.startsWith("--") && !FLAGS.has(argv[i - 1]));
 const keywords = wantKeywords.length ? wantKeywords : KEYWORDS;
@@ -53,8 +54,19 @@ for (let i = 0; i < keywords.length; i++) {
   try {
     // 精确短语 + 增量起点（since_time）+ 排除回复（提及噪音多来自互动回复，先取正文提及）
     const query = encodeURIComponent(`"${keyword}" since_time:${since} -filter:replies`);
-    const page = await get(`/twitter/search?query=${query}&type=Latest`);
-    const tweets = (page.tweets ?? []).map((t) => ({
+    // 翻页拉全：不翻页时第 2 页起的提及永久丢失（--advance 已推进游标）
+    const rawTweets = [];
+    let cursor = null;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const res = await get(
+        `/twitter/search?query=${query}&type=Latest${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`
+      );
+      rawTweets.push(...(res.tweets ?? []));
+      cursor = res.cursor ?? res.next_cursor ?? null;
+      if (!cursor) break;
+    }
+    const tweets = rawTweets
+      .map((t) => ({
       tweet_id: t.id_str ?? null,
       handle: t.user?.screen_name ?? null,
       name: t.user?.name ?? null,

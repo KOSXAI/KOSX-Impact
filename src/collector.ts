@@ -2,6 +2,7 @@ import { detectMilestones, MILESTONE_THRESHOLDS } from "./milestones";
 import type { RosterFile } from "./roster";
 import { roster, syncRoster } from "./roster";
 import { getSource } from "./sources";
+import { SocialDataError } from "./sources/socialdata";
 import type { FollowerSource, FollowerStats, PostData } from "./sources/types";
 
 export interface CollectSummary {
@@ -22,6 +23,24 @@ interface ActiveMember {
 
 /** 帖子保留窗口：精华帖近 30 天，90 天保留 3 倍余量，控表增长 */
 const POST_RETENTION_DAYS = 90;
+
+/** 社群级熔断：连吃 402（余额耗尽）后整点/兜底通道停止出站烧钱，1 小时后自动恢复 */
+const BREAKER_KEY = "sd_circuit_open_until";
+const BREAKER_COOLDOWN_MS = 3_600_000;
+
+/** 熔断是否处于打开状态（打开 = SocialData 余额疑似耗尽，跳过一切出站调用） */
+export async function sdBreakerOpen(env: Env): Promise<boolean> {
+  const row = (await env.DB.prepare("SELECT value FROM site_meta WHERE key = ?1").bind(BREAKER_KEY)
+    .first()) as { value: string } | null;
+  return row != null && new Date(row.value).getTime() > Date.now();
+}
+
+/** 拉 402 时合闸：接下来的 1 小时不再对 SocialData 发任何请求（分片/兜底双通道都跳过） */
+async function tripBreaker(env: Env): Promise<void> {
+  await env.DB.prepare(
+    "INSERT INTO site_meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+  ).bind(BREAKER_KEY, new Date(Date.now() + BREAKER_COOLDOWN_MS).toISOString()).run();
+}
 
 /**
  * 滚动采集分片：成员按 id 哈希均匀分布到 24 个小时槽，每次 cron 只采当前小时槽。
@@ -62,8 +81,12 @@ export async function collectWithSource(
   ).all()) as { results: ActiveMember[] };
 
   // 兜底通道：先清自助更新队列（FIFO、小批量），与分片采集共用同一数据源实例，
-  // 数据源内置的节流在两次调用间统一生效
-  const refreshDrain = await drainRefreshQueue(env, source);
+  // 数据源内置的节流在两次调用间统一生效；熔断打开时两通道一起短路，不烧余额
+  const breakerOpen = await sdBreakerOpen(env);
+  if (breakerOpen) console.warn(`[collect] SocialData 熔断打开（402 冷却中），本轮跳过全部出站采集`);
+  const refreshDrain = breakerOpen
+    ? { ok: 0, failed: 0, memberIds: [] as string[] }
+    : await drainRefreshQueue(env, source);
 
   const now = new Date();
   const hourUtc = hourOverride ?? now.getUTCHours();
@@ -78,6 +101,12 @@ export async function collectWithSource(
   };
 
   for (const member of sampled) {
+    // 余额耗尽即合闸：本轮剩余成员与后续 cron 都跳过，直到冷却结束（避免 402 死循环烧钱）
+    if (await sdBreakerOpen(env)) {
+      summary.shard!.sampled = summary.ok + summary.failed.length;
+      console.warn(`[collect] 熔断打开，分片提前收车（已采 ${summary.ok}/失败 ${summary.failed.length}）`);
+      break;
+    }
     try {
       const stats = await source.fetchStats(member.handle);
       await writeSnapshot(env, member.id, stats, nowIso);
@@ -92,6 +121,7 @@ export async function collectWithSource(
           summary.posts!.upserted += posts.length;
           summary.posts!.cleaned += cleaned;
         } catch (error) {
+          if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) throw error;
           summary.posts!.failed++;
           console.error(`[collect] @${member.handle} 帖子采集失败：`, error);
         }
@@ -102,15 +132,24 @@ export async function collectWithSource(
         error: error instanceof Error ? error.message : String(error),
       });
       console.error(`[collect] @${member.handle} 采集失败：`, error);
+      if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) {
+        await tripBreaker(env);
+        break;
+      }
     }
   }
+
+  // 控表增长：过期 done/failed 清理 + 卡死 processing 回收（无论熔断与否都执行，纯本地写）
+  await pruneRefreshQueue(env);
 
   // 新数据可见性由 cache_bust 版本号保证（writeSnapshot 已 +1）：
   // 读端点缓存键换新后各数据中心新请求必然回源重建，无需（也无法）跨区 purge
   return summary;
 }
 
-/** 写当日快照：同一天重复采集以最新值为准。
+/** 写当日快照：当日已有快照（cron 先写过）时不删不重建，原位 UPSERT 单行——
+ *  自助刷新既保住当日数据点的存在（旧 delete+insert 会让曲线当天只剩一个点），
+ *  又以最新值覆盖（growth 曲线当日点始终是最新一次采集值）。
  *  昵称策略（与头像同语句更新）：自助成员（self_registered=1）跟随 X 实时昵称，
  *  名册成员以名册为准、仅在缺失时回填 X 昵称。
  *  同批内递增 cache_bust：读端点缓存键随之换新，数据变化在各区数据中心立即可见。 */
@@ -122,11 +161,15 @@ async function writeSnapshot(
 ): Promise<void> {
   await env.DB.batch([
     env.DB.prepare(
-      "DELETE FROM snapshots WHERE member_id = ?1 AND date(recorded_at) = date(?2)"
-    ).bind(memberId, now),
-    env.DB.prepare(
       `INSERT INTO snapshots (member_id, followers, following, posts, listed_count, favourites_count, recorded_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+       ON CONFLICT(member_id, date(recorded_at)) DO UPDATE SET
+         followers = excluded.followers,
+         following = excluded.following,
+         posts = excluded.posts,
+         listed_count = excluded.listed_count,
+         favourites_count = excluded.favourites_count,
+         recorded_at = excluded.recorded_at`
     ).bind(
       memberId,
       stats.followers,
@@ -298,13 +341,20 @@ export interface RefreshDrainResult {
   memberIds: string[];
 }
 
-/** 处理一条 pending：拉真实数据 → 复用与 cron 采集完全相同的写入管线 → 标记结果 */
+/** 处理一条 pending：先原子领取（status→processing，即时通道与 cron 兜底并发抢同一 job 时
+ *  只有一方 changes=1 生效，杜绝双方同时拉 SocialData 双份扣额度），再拉真实数据写库。
+ *  领取后崩溃的 job 由 collect 的过期清理回收。 */
 async function processRefreshJob(
   env: Env,
   source: FollowerSource,
   jobId: number,
   memberId: string
 ): Promise<boolean> {
+  const claim = await env.DB.prepare(
+    "UPDATE refresh_queue SET status = 'processing' WHERE id = ?1 AND status = 'pending'"
+  ).bind(jobId).run();
+  if ((claim.meta.changes ?? 0) === 0) return false;
+
   const member = (await env.DB.prepare(
     "SELECT handle FROM members WHERE id = ?1 AND status = 'active'"
   ).bind(memberId).first()) as { handle: string } | null;
@@ -326,9 +376,17 @@ async function processRefreshJob(
     return true;
   } catch (error) {
     // 保留 pending 供下次提交/cron 重试；累计超过上限转 failed
+    // （job 已被本协程领取为 processing，读取以 processing 判位）
+    if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) {
+      await env.DB.prepare(
+        "UPDATE refresh_queue SET status = 'pending', processed_at = NULL, error = ?2 WHERE id = ?1"
+      ).bind(jobId, `${String(error.message).slice(0, 200)}（额度/限流，留队待恢复）`).run();
+      await tripBreaker(env);
+      return false;
+    }
     const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
     const row = (await env.DB.prepare(
-      "SELECT attempts FROM refresh_queue WHERE id = ?1 AND status = 'pending'"
+      "SELECT attempts FROM refresh_queue WHERE id = ?1 AND status = 'processing'"
     ).bind(jobId).first()) as { attempts: number } | null;
     if (!row) return false;
     await env.DB.prepare(
@@ -358,6 +416,7 @@ export async function drainRefreshQueue(
   source: FollowerSource,
   limit: number = REFRESH_DRAIN_LIMIT
 ): Promise<RefreshDrainResult> {
+  if (await sdBreakerOpen(env)) return { ok: 0, failed: 0, memberIds: [] };
   const { results: jobs } = (await env.DB.prepare(
     "SELECT id, member_id AS memberId FROM refresh_queue WHERE status = 'pending' ORDER BY requested_at, id LIMIT ?"
   ).bind(limit).all()) as { results: Array<{ id: number; memberId: string }> };
@@ -370,7 +429,25 @@ export async function drainRefreshQueue(
       summary.memberIds.push(job.memberId);
     } else {
       summary.failed++;
+      // 熔断被本轮失败合闸：收车，剩余 job 留队待冷却后重试
+      if (await sdBreakerOpen(env)) break;
     }
   }
   return summary;
+}
+
+/** 定期清理（collect 每 cron 调用）：
+ *  - done/failed 行只保留 30 天（lookupRefreshMember 的 lastProcessedAt 读 MAX(done)，不受影响）
+ *  - 领取后崩溃卡死在 processing 的 job 回收为 failed（领取超 1 小时-page 未落结果） */
+async function pruneRefreshQueue(env: Env): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare(
+      `DELETE FROM refresh_queue WHERE status NOT IN ('pending','processing')
+       AND processed_at IS NOT NULL AND julianday(processed_at) < julianday('now', '-30 days')`
+    ),
+    env.DB.prepare(
+      `UPDATE refresh_queue SET status = 'failed', error = '处理超时回收'
+       WHERE status = 'processing' AND julianday(requested_at) < julianday('now', '-1 hour')`
+    ),
+  ]);
 }

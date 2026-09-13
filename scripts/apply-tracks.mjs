@@ -11,7 +11,7 @@
 //
 // 用法：node scripts/apply-tracks.mjs /path/to/output.json
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,9 +36,13 @@ const data = JSON.parse(readFileSync(inputPath, "utf8"));
 const members = Array.isArray(data.members) ? data.members : [];
 console.log(`读取 ${members.length} 位成员的分类结果`);
 
-function runSql(sql) {
+function runSql(stmt) {
+  // 经临时文件执行（--file），不走 shell 命令行——tags 来自 agent JSON，
+  // 引号/反引号/注释符任意出现都不再影响执行边界
+  const file = "/tmp/apply-tracks.sql";
+  writeFileSync(file, stmt + ";\n");
   return JSON.parse(
-    execSync(`wrangler d1 execute kosx-impact --remote --json --command "${sql.replace(/"/g, '\\"')}"`, {
+    execSync(`wrangler d1 execute kosx-impact --remote --json --file=${file}`, {
       encoding: "utf-8",
     })
   );

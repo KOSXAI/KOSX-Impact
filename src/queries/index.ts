@@ -7,7 +7,7 @@
  * 分模块：dashboard（看板 / 精华帖）/ member（成员详情）/ community（社群信号 ·
  * 内容配方 · 报告维度）/ archive（年度 · 社日归档）/ shared（公共件）。
  */
-export { getDashboardStats, getTopPosts } from "./dashboard";
+export { getDashboardStats, getTopPosts, getInsights, getMemberPicker } from "./dashboard";
 export { getMemberDetail } from "./member";
 export { getCommunitySignals, getContentRecipe, getFanOverview, getTopEngagementMembers, getInviteLeaders } from "./community";
 export { getAnnualReport, getDailyArchive } from "./archive";

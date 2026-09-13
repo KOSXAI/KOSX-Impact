@@ -52,16 +52,15 @@ for (let i = 0; i < pending.length; i++) {
   const data = await res.json();
   const followers = data.followers_count;
   const img = data.profile_image_url_https?.replace("_normal.", "_400x400.");
-  // 姓名：名册没填时用 X 显示名补齐——名册是事实来源，若名册留空，
-  // 下次采集同步（syncRoster）会用 NULL 覆盖数据库里的昵称，看板就退化成 handle
+  // 姓名：名册没填时用 X 显示名补齐（syncRoster 已改为 COALESCE 只回填缺失值，不覆盖既有昵称）
   if (!m.displayName && data.name) {
     m.displayName = data.name;
     nameBackfilled++;
   }
-  const name = m.displayName ?? null;
-  const nameSql = name ? `'${String(name).replace(/'/g, "''")}'` : "NULL";
-  // 档案字段随首快照一并落库：等下一次滚动分片要等最多 24 小时，入职当天就该有完整档案卡
-  const text = (v) => (v ? `'${String(v).replace(/'/g, "''")}'` : "NULL");
+  // 单引号翻倍的 SQL 字面量封装（bio/location/name 来自 X 用户输入，不转义会生成坏 SQL）
+  const esc = (v) => `'${String(v).replace(/'/g, "''")}'`;
+  const text = esc;
+  const nameSql = name ? esc(name) : "NULL";
   const profile = {
     bio: text(data.description),
     location: text(data.location),
@@ -73,13 +72,13 @@ for (let i = 0; i < pending.length; i++) {
   console.log(`✓ @${m.handle} -> ${followers} 粉${name ? ` · ${name}` : "（无显示名，请人工补充 displayName）"}`);
   sql.push(
     `INSERT INTO members (id, handle, display_name, status, joined_at, profile_image, bio, location, url, banner_url, x_created_at, verified)
-     VALUES ('${m.id}', '${m.handle}', ${nameSql}, 'active', '${m.joinedAt}', ${img ? `'${img}'` : "NULL"}, ${profile.bio}, ${profile.location}, ${profile.url}, ${profile.banner}, ${profile.xCreatedAt}, ${profile.verified})
+     VALUES (${esc(m.id)}, ${esc(m.handle)}, ${nameSql}, 'active', ${esc(m.joinedAt)}, ${img ? `'${img}'` : "NULL"}, ${profile.bio}, ${profile.location}, ${profile.url}, ${profile.banner}, ${profile.xCreatedAt}, ${profile.verified})
   ON CONFLICT(id) DO UPDATE SET handle = excluded.handle, display_name = excluded.display_name, profile_image = excluded.profile_image,
      bio = COALESCE(excluded.bio, bio), location = COALESCE(excluded.location, location), url = COALESCE(excluded.url, url),
      banner_url = COALESCE(excluded.banner_url, banner_url), x_created_at = COALESCE(excluded.x_created_at, x_created_at),
      verified = COALESCE(excluded.verified, verified);`,
     `INSERT INTO snapshots (member_id, followers, following, posts, listed_count, favourites_count, recorded_at)
-     VALUES ('${m.id}', ${followers}, ${data.friends_count ?? "NULL"}, ${data.statuses_count ?? "NULL"}, ${data.listed_count ?? "NULL"}, ${data.favourites_count ?? "NULL"}, '${now}');`
+     VALUES (${esc(m.id)}, ${ followers}, ${data.friends_count ?? "NULL"}, ${data.statuses_count ?? "NULL"}, ${data.listed_count ?? "NULL"}, ${data.favourites_count ?? "NULL"}, ${esc(now)});`
   );
 }
 

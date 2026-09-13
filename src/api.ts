@@ -8,7 +8,7 @@ import { computeMemberStats, computeDashboardStats } from "./stats";
 import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
 import { syncMemberMentions, syncCommunitySignals } from "./sync-signals";
 import { roster } from "./roster";
-import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
+import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerCapReached, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
 import { getSource } from "./sources";
 import { SocialDataError } from "./sources/socialdata";
 import { TRACKS } from "./tracks";
@@ -99,6 +99,11 @@ api.post("/api/refresh", async (c) => {
   let member = await lookupRefreshMember(c.env, handle);
   const isNewRegistration = !member;
   if (isNewRegistration && !body?.register) return c.json({ error: "not_member" }, 404);
+  // 自助注册名额闸门：新注册每条都要烧 SocialData 额度并永久扩大分片成本，
+  // 全站每日新增有上限（正常加入远够用），触顶一律拒绝，防脚本刷额度
+  if (isNewRegistration && (await registerCapReached(c.env, nowIso))) {
+    return c.json({ error: "register_cap_reached", message: "今日自助加入名额已满，请明天再试。" }, 429);
+  }
 
   const source = getSource(c.env);
 
@@ -143,9 +148,12 @@ api.post("/api/refresh", async (c) => {
     await processOldestPending(c.env, getSource(c.env));
   }
 
+  // 读回口径必须锚定本条请求刚提交的 job（requested_at = 本次时间戳）：
+  // 即时通道可能处理的是队列里更旧的一条 pending，且历史上同类 job 的
+  // done/failed 行还在，按「最新一行」读回会把别人的结果或旧值当成自己的
   const job = (await c.env.DB.prepare(
-    "SELECT status, followers_after AS followersAfter FROM refresh_queue WHERE member_id = ?1 ORDER BY id DESC LIMIT 1"
-  ).bind(member.id).first()) as { status: string; followersAfter: number | null } | null;
+    "SELECT status, followers_after AS followersAfter FROM refresh_queue WHERE member_id = ?1 AND requested_at = ?2 ORDER BY id DESC LIMIT 1"
+  ).bind(member.id, nowIso).first()) as { status: string; followersAfter: number | null } | null;
 
   // 写库时 cache_bust 已 +1：读端点缓存键自动换新，新请求回源即见新数据，
   // 无需手动清缓存（跨数据中心 purge 本就只能清触发方所在区域）
@@ -165,7 +173,10 @@ export async function renderMemberCardSvg(
   env: Env,
   variant: "default" | "countdown" | "track" = "default"
 ): Promise<Response> {
-  return cachedResponse(new Request(`${SITE_URL}/card/${id}?v=${variant}`), 3600, async () => {
+  // 键必须带 cache_bust 数据版本：数据一变键必换（嵌入到个人主页的外链图，
+  // 若不跟数据版本，采集后升级的数据最长要等 1 小时边缘缓存过期才可见）
+  const bust = await readCacheBust(env);
+  return cachedResponse(new Request(`${SITE_URL}/card/${id}?v=${variant}&cb=${bust}`), 3600, async () => {
     const member = await env.DB.prepare("SELECT * FROM members WHERE id = ? AND status = 'active'").bind(id).first();
     if (!member) {
       return new Response(renderNotFoundCard(id), {

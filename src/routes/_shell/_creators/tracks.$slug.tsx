@@ -10,18 +10,12 @@ import { TitleBadge } from "@/components/member/TitleBadge";
 import { PODIUM } from "@/components/leaderboard/podium";
 import { MemberRankRow } from "@/components/leaderboard/MemberRankRow";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
-import { Blocks, CandlestickChart, Check, Copy, Eye, Globe, PenTool, Shapes, Share2, Sparkles, type LucideIcon } from "lucide-react";
+import { Check, Copy, Eye, Shapes, Share2 } from "lucide-react";
 import { fmt, fmtDate, postExcerpt } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
-
-const TRACK_ICONS: Record<string, LucideIcon> = {
-  Sparkles,
-  CandlestickChart,
-  Blocks,
-  PenTool,
-  Globe,
-  Shapes,
-};
+// 图标映射共享单一来源（与成员广场/库视图同源，新赛道加图标只改 TrackChip 一处）
+import { TRACK_ICONS } from "@/components/member/TrackChip";
+import { postEngagementValue } from "@/queries/shared";
 
 export const Route = createFileRoute("/_shell/_creators/tracks/$slug")({
   loader: async ({ params }) => {
@@ -131,10 +125,10 @@ function TrackPage() {
         {/* 赛道能量卡（综合为过渡桶，只出人数） */}
         <Reveal delay={0.06}>
           <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <EnergyCard label="赛道成员" value={trackStat.memberCount} />
-            {!isOther && <EnergyCard label="社群粉丝" value={trackStat.totalFollowers} />}
-            {!isOther && <EnergyCard label="近 30 天新增" value={trackStat.growth30dTotal} prefix="+" />}
-            {!isOther && <EnergyCard label="近 30 天内容" value={trackStat.topPosts.length ? `${trackStat.topPosts.length} 帖上榜` : "数据采集中"} />}
+            <StatCard label="赛道成员" value={trackStat.memberCount} />
+            {!isOther && <StatCard label="社群粉丝" value={trackStat.totalFollowers} />}
+            {!isOther && <StatCard label="近 30 天新增" value={trackStat.growth30dTotal} prefix="+" />}
+            {!isOther && <StatCard label="近 30 天内容" value={trackStat.topPosts.length ? `${trackStat.topPosts.length} 帖上榜` : "数据采集中"} />}
           </div>
         </Reveal>
 
@@ -180,7 +174,7 @@ function TrackPage() {
                       <a href={p.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-right text-sm font-bold text-signal-ink tabular-nums" title="查看 X 原文">
                         <span className="inline-flex items-center gap-1">
                           <Eye className="size-3.5" aria-hidden="true" />
-                          {fmt(p.views ?? (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0))}
+                          {fmt(postEngagementValue(p))}
                         </span>
                       </a>
                     </li>
@@ -213,10 +207,6 @@ function TrackPage() {
         )}
     </div>
   );
-}
-
-function EnergyCard({ label, value, prefix = "" }: { label: string; value: number | string; prefix?: string }) {
-  return <StatCard label={label} value={value} prefix={prefix} />;
 }
 
 /** 赛道成员行：排名 + 头像 + 名字 + 称号 + 标签 + 粉丝量（前三名渐晕） */

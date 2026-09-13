@@ -105,6 +105,29 @@ export function median(nums: number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+/**
+ * 帖子排序兜底值：views 缺失时用五项互动合计估算（全站唯一口径）。
+ * views_count 恒缺失（X 收藏/引用计数也常缺），兜底必须与 SQL 版
+ * COALESCE(views, like+reply+retweet+quote+bookmark) 完全一致，否则同一帖子在各榜单排名不一致。
+ */
+export function postEngagementValue(p: {
+  views?: number | null;
+  likes?: number | null;
+  replies?: number | null;
+  retweets?: number | null;
+  quotes?: number | null;
+  bookmarks?: number | null;
+}): number {
+  return (
+    p.views ??
+    (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0) + (p.quotes ?? 0) + (p.bookmarks ?? 0)
+  );
+}
+
+/** SQL 版兜底排序片段（与 postEngagementValue 同口径）：NULL 参与加法会把兜底值毒化成 NULL，逐项 COALESCE */
+export const POST_VALUE_FALLBACK_SQL =
+  "COALESCE(views_count, COALESCE(like_count, 0) + COALESCE(reply_count, 0) + COALESCE(retweet_count, 0) + COALESCE(quote_count, 0) + COALESCE(bookmark_count, 0))";
+
 /** posts 表行 → PostItem（拼 x.com 原文外链）；媒体/引用帖 JSON 解析失败一律回退 null */
 export function mapPostRow(row: PostRow, handle: string): PostItem {
   const item: PostItem = {

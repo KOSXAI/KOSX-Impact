@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { fetchDashboard, fetchMemberDetail } from "@/data.functions";
+import { fetchMemberDetail, fetchMemberPicker } from "@/data.functions";
 import type { MemberStats } from "@/stats";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
@@ -22,12 +22,13 @@ export const Route = createFileRoute("/_shell/compare")({
   }),
   loader: async ({ location }) => {
     const s = location.search as { a?: string; b?: string };
-    const [all, left, right] = await Promise.all([
-      fetchDashboard(),
+    // 选人列表用独立轻量缓存（id/展示/最新粉丝/赛道），不连带拉整份 dashboard
+    const [members, left, right] = await Promise.all([
+      fetchMemberPicker(),
       s.a ? fetchMemberDetail({ data: s.a }) : Promise.resolve(null),
       s.b ? fetchMemberDetail({ data: s.b }) : Promise.resolve(null),
     ]);
-    return { members: all.members, left, right };
+    return { members, left, right };
   },
   head: ({ loaderData }) => {
     const name = (d: { member: { displayName: string | null; handle: string } } | null | undefined) =>
@@ -214,12 +215,21 @@ function CompareTable({ left, right }: { left: Detail; right: Detail }) {
   );
 }
 
+/* 选人列表来自轻量 picker 缓存，只用到展示与排序字段 */
+type PickerMember = {
+  id: string;
+  handle: string;
+  displayName: string | null;
+  profileImage: string | null;
+  latestFollowers: number | null;
+};
+
 /** 空状态的快捷开始：粉丝量前三的两两组合 */
-function hotPairs(members: MemberStats[]) {
+function hotPairs(members: PickerMember[]) {
   const top = [...members]
     .sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0))
     .slice(0, 3);
-  const pairs: Array<[MemberStats, MemberStats]> = [];
+  const pairs: Array<[PickerMember, PickerMember]> = [];
   for (let i = 0; i < top.length; i++) {
     for (let j = i + 1; j < top.length; j++) pairs.push([top[i], top[j]]);
   }
@@ -235,7 +245,7 @@ function MemberPickerDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  members: MemberStats[];
+  members: PickerMember[];
   excludeId: string | null;
   onPick: (id: string) => void;
 }) {

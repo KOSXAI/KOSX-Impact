@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchDashboard, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals, fetchContentRecipe } from "@/data.functions";
+import { fetchInsights, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals, fetchContentRecipe } from "@/data.functions";
 import type { PostItem } from "@/stats";
 import { Avatar } from "@/components/member/Avatar";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
@@ -16,14 +16,15 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_shell/posts")({
   loader: async () => {
-    const [stats, posts, allPosts, signals, recipe] = await Promise.all([
-      fetchDashboard(),
+    // insights 用独立轻量缓存（爆款/停更/标签云），不连带拉整份 dashboard
+    const [insights, posts, allPosts, signals, recipe] = await Promise.all([
+      fetchInsights(),
       fetchTopPosts(),
       fetchTopPostsAll(),
       fetchCommunitySignals(),
       fetchContentRecipe(),
     ]);
-    return { insights: stats.insights, posts, allPosts, signals, recipe };
+    return { insights, posts, allPosts, signals, recipe };
   },
   head: () => ({
     meta: [

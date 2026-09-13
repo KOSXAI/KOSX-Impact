@@ -38,6 +38,18 @@ const SLOT_INTERVAL_MS = 21_000;
 /** 重复提交防抖窗口：窗口内再点一律视为「稍后再试」，不新增队列行 */
 const RESUBMIT_WINDOW_MS = 60_000;
 
+/** 自助注册全站每日新增上限：该端点可被脚本刷 socialdata 余额（每条注册 = 出站调用 + 永久分片成本），
+ *  正常加入是低频事件（全社群 <100 人/数月），触碰上限即说明是灌水，一律拒绝 */
+export const REGISTER_DAILY_CAP = 20;
+
+/** 今日自助注册名额是否已满（按 members.joined_at 当日计数，幂等窗口=当天） */
+export async function registerCapReached(env: Env, nowIso: string): Promise<boolean> {
+  const row = (await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM members WHERE self_registered = 1 AND joined_at = ?1"
+  ).bind(nowIso.slice(0, 10)).first()) as { n: number } | null;
+  return (row?.n ?? 0) >= REGISTER_DAILY_CAP;
+}
+
 /**
  * 归一化用户输入为 X handle：接受主页链接（x.com/xxx、twitter.com/xxx，
  * 带协议或不带、带查询串或多级路径）或 @xxx / xxx；无效返回 null。

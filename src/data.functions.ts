@@ -5,11 +5,21 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { env } from "cloudflare:workers";
-import { getDashboardStats, getMemberDetail, getTopPosts, getFanOverview, getTopEngagementMembers, getAnnualReport, getCommunitySignals, getDailyArchive, getInviteLeaders, getContentRecipe } from "./queries";
+import { getDashboardStats, getMemberDetail, getTopPosts, getFanOverview, getTopEngagementMembers, getAnnualReport, getCommunitySignals, getDailyArchive, getInviteLeaders, getContentRecipe, getInsights, getMemberPicker } from "./queries";
 import type { DashboardStats, MemberDetail, PostItem } from "./stats";
 
 export const fetchDashboard = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardStats> => getDashboardStats(env as Env)
+);
+
+/** 内容洞察轻量包（/posts 页用：爆款/停更/标签云），不连带拉整份 dashboard */
+export const fetchInsights = createServerFn({ method: "GET" }).handler(
+  async () => getInsights(env as Env)
+);
+
+/** 对比页选人列表（/compare 页用），不连带拉整份 dashboard */
+export const fetchMemberPicker = createServerFn({ method: "GET" }).handler(
+  async () => getMemberPicker(env as Env)
 );
 
 /** 社群能量报告数据：粉丝画像质量聚合 + 强互动成员（/report 页面用） */

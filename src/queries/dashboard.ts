@@ -15,9 +15,11 @@ import {
   POST_FIELDS,
   mapPostRow,
   median,
+  POST_VALUE_FALLBACK_SQL,
   TOP_POST_DISPLAY_FIELDS,
   TOP_POST_FIELDS,
   parseStrArray,
+  postEngagementValue,
   type MemberRow,
   type PostRow,
   type SnapshotRow,
@@ -37,14 +39,20 @@ export async function getTopPosts(
     3600,
     async () => {
       const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
-      // views 缺失时用 赞+评论+转推 估算排序（COALESCE 兜底，避免高互动帖被筛掉）；
+      // views 缺失时用五项互动合计估算排序（postEngagementValue 同口径，避免高互动帖被筛掉）；
       // 各互动项自身也要 COALESCE——SQLite 里 NULL 参与加法会把整个兜底值毒化成 NULL
       const { results: rows } = await env.DB.prepare(
         `SELECT ${TOP_POST_DISPLAY_FIELDS}
          FROM posts p
          JOIN members m ON m.id = p.member_id
          WHERE m.status = 'active' AND p.created_at >= ?1
-         ORDER BY COALESCE(p.views_count, COALESCE(p.like_count, 0) + COALESCE(p.reply_count, 0) + COALESCE(p.retweet_count, 0)) DESC LIMIT ?2`
+         ORDER BY ${POST_VALUE_FALLBACK_SQL
+           .replace("views_count", "p.views_count")
+           .replace("like_count", "p.like_count")
+           .replace("reply_count", "p.reply_count")
+           .replace("retweet_count", "p.retweet_count")
+           .replace("quote_count", "p.quote_count")
+           .replace("bookmark_count", "p.bookmark_count")} DESC LIMIT ?2`
       ).bind(cutoff, limit).all();
       const posts = (rows as never as Array<PostRow & {
         memberId: string;
@@ -62,6 +70,98 @@ export async function getTopPosts(
   );
   const body = (await res.json()) as { posts: PostItem[] };
   return body.posts;
+}
+
+/**
+ * 内容洞察（/posts 页专用）：爆款帖 / 停更成员 / 话题标签云。
+ * 只需 members + 近 30 天 posts 两张表联查——/posts 页不再为拿 insights
+ * 拉整份 dashboard（旧 loader 连带触发互推图谱/关注网/粉丝画像等全部重查询）。
+ */
+export async function getInsights(env: Env): Promise<DashboardStats["insights"]> {
+  const bust = await readCacheBust(env);
+  const res = await cachedResponse(
+    new Request(`${SITE_URL}${CACHE_KEYS.insights}&cb=${bust}`),
+    3600,
+    async () => {
+      const now = new Date().toISOString();
+      const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
+      const { results: memberRows } = await env.DB.prepare(
+        `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage, m.tags
+         FROM members m WHERE m.status = 'active' ORDER BY joined_at`
+      ).all();
+      const members = memberRows as never as Array<{
+        id: string;
+        handle: string;
+        displayName: string | null;
+        profileImage: string | null;
+        tags: string | null;
+      }>;
+      const { results: postRows } = await env.DB.prepare(
+        `SELECT p.tweet_id AS tweetId, p.created_at AS createdAt, p.text,
+                p.views_count AS views, p.views_prev AS viewsPrev, p.recorded_at AS postRecordedAt,
+                p.like_count AS likes, p.reply_count AS replies,
+                p.retweet_count AS retweets, p.quote_count AS quotes, p.bookmark_count AS bookmarks,
+                p.member_id AS memberId
+         FROM posts p JOIN members m ON m.id = p.member_id
+         WHERE m.status = 'active' AND p.created_at >= ?1`
+      ).bind(cutoff30d).all();
+      const postsByMember = new Map<string, PostRow[]>();
+      for (const r of postRows as never as Array<PostRow & { memberId: string }>) {
+        const list = postsByMember.get(r.memberId) ?? [];
+        list.push(r);
+        postsByMember.set(r.memberId, list);
+      }
+
+      const viralPosts: PostItem[] = [];
+      const inactiveMembers: DashboardStats["insights"]["inactiveMembers"] = [];
+      for (const m of members) {
+        const posts = postsByMember.get(m.id) ?? [];
+        const ins = computeMemberInsights(posts, now);
+        const member = { id: m.id, handle: m.handle, displayName: m.displayName, profileImage: m.profileImage };
+        for (const v of detectViral(posts)) {
+          viralPosts.push({ ...mapPostRow(v as PostRow, m.handle), member });
+        }
+        if (ins.inactive && typeof ins.inactiveDays === "number") {
+          inactiveMembers.push({ memberId: m.id, handle: m.handle, displayName: m.displayName, days: ins.inactiveDays });
+        }
+      }
+      viralPosts.sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+      inactiveMembers.sort((a, b) => b.days - a.days);
+      const tagCounts = new Map<string, number>();
+      for (const m of members) {
+        for (const t of parseStrArray(m.tags)) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+      }
+      const tagCloud = [...tagCounts.entries()]
+        .map(([tag, count]) => ({ tag, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 15);
+      const insights = { viralPosts: viralPosts.slice(0, 8), inactiveMembers, tagCloud };
+      return new Response(JSON.stringify(insights), { headers: { "Content-Type": "application/json" } });
+    }
+  );
+  return (await res.json()) as DashboardStats["insights"];
+}
+
+/** 对比页选人列表（轻量）：id/handle/展示头像/最新粉丝/赛道，替代拉整份 dashboard */
+export async function getMemberPicker(
+  env: Env
+): Promise<Array<{ id: string; handle: string; displayName: string | null; profileImage: string | null; latestFollowers: number | null; tracks: string[] }>> {
+  const bust = await readCacheBust(env);
+  const res = await cachedResponse(
+    new Request(`${SITE_URL}${CACHE_KEYS.memberPicker}&cb=${bust}`),
+    3600,
+    async () => {
+      const { results: rows } = await env.DB.prepare(
+        `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage, m.tracks,
+                (SELECT s.followers FROM snapshots s WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS latestFollowers
+         FROM members m WHERE m.status = 'active' ORDER BY joined_at`
+      ).all();
+      const members = (rows as never as Array<{ id: string; handle: string; displayName: string | null; profileImage: string | null; latestFollowers: number | null; tracks: string | null }>)
+        .map((m) => ({ ...m, tracks: parseStrArray(m.tracks) }));
+      return new Response(JSON.stringify(members), { headers: { "Content-Type": "application/json" } });
+    }
+  );
+  return (await res.json()) as Array<{ id: string; handle: string; displayName: string | null; profileImage: string | null; latestFollowers: number | null; tracks: string[] }>;
 }
 
 /** 看板统计（/api/dashboard 与首页 SSR 共用，缓存键 ${SITE_URL}/api/dashboard&cb=数据版本） */
@@ -125,7 +225,8 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { results: post30dRows } = await env.DB.prepare(
       `SELECT member_id AS memberId, ${POST_FIELDS}
-       FROM posts WHERE created_at >= ?1`
+       FROM posts WHERE created_at >= ?1
+         AND EXISTS (SELECT 1 FROM members m WHERE m.id = posts.member_id AND m.status = 'active')`
     ).bind(cutoff30d).all();
     const postsByMember = new Map<string, PostRow[]>();
     for (const r of post30dRows as never as Array<PostRow & { memberId: string }>) {
@@ -230,23 +331,24 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     {
       const handleToId = new Map<string, string>();
       for (const m of memberStats) handleToId.set(m.handle.toLowerCase(), m.id);
-      const regexCache = new Map<string, RegExp>();
+      // 单条合并正则（@handle1|handle2|...）一次扫描全帖文本：旧版逐成员建正则、
+      // 逐帖逐成员两两扫是成员×帖子的平方级， grows 后会撞 Workers CPU 上限；
+      // handle 归一化后仅 [a-z0-9_]，无需转义
+      const re = new RegExp(`@(${[...handleToId.keys()].join("|")})(?![\\w])`, "g");
       const edgeMap = new Map<string, number>();
       for (const [fromId, posts] of postsByMember) {
         for (const p of posts) {
           if (!p.text) continue;
           const text = p.text.toLowerCase();
-          for (const [handle, toId] of handleToId) {
-            if (toId === fromId) continue;
-            let re = regexCache.get(handle);
-            if (!re) {
-              re = new RegExp(`@${handle}(?![\\w])`);
-              regexCache.set(handle, re);
-            }
-            if (re.test(text)) {
-              const key = `${fromId}\u0000${toId}`;
-              edgeMap.set(key, (edgeMap.get(key) ?? 0) + 1);
-            }
+          const seenTo = new Set<string>();
+          re.lastIndex = 0;
+          for (let match = re.exec(text); match; match = re.exec(text)) {
+            const toId = handleToId.get(match[1]);
+            // 口径与旧版一致：一帖内同一成员被 @ 多次也只计 1 条边
+            if (!toId || toId === fromId || seenTo.has(toId)) continue;
+            seenTo.add(toId);
+            const key = `${fromId}\u0000${toId}`;
+            edgeMap.set(key, (edgeMap.get(key) ?? 0) + 1);
           }
         }
       }
@@ -464,7 +566,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
           });
         }
       }
-      const viewKey = (p: PostItem) => p.views ?? (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0);
+      const viewKey = postEngagementValue;
       return {
         name: t.name,
         slug: t.slug,

@@ -30,9 +30,20 @@ for (const member of members) {
   process.stdout.write(`@${handle} … `);
   try {
     // 被提及 = 别人发的、提到 @handle 的帖子（排除 replies 噪音，剔除本人自提）
-    const query = encodeURIComponent(`@${handle} -filter:replies`);
-    const page = await throttledFetch(`/twitter/search?query=${query}&type=Latest`);
-    const tweets = Array.isArray(page.tweets) ? page.tweets : [];
+    // since_time 限近 30 天：老提及不在本轮口径内，翻页只翻窗口内的
+    const since = Math.floor((Date.now() - 30 * 86_400_000) / 1000);
+    const query = encodeURIComponent(`@${handle} -filter:replies since_time:${since}`);
+    // 翻页拉全：超 1 页的提及原先只能拿到最近一页，属系统性低估
+    const tweets = [];
+    let cursor = null;
+    for (let page = 0; page < 5; page++) {
+      const res = await throttledFetch(
+        `/twitter/search?query=${query}&type=Latest${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`
+      );
+      tweets.push(...(Array.isArray(res.tweets) ? res.tweets : []));
+      cursor = res.cursor ?? res.next_cursor ?? null;
+      if (!cursor) break;
+    }
     let kept = 0;
     for (const t of tweets) {
       if (!t.id_str) continue;
