@@ -26,7 +26,7 @@
   "dependencies": {
     "@resvg/resvg-wasm": "^2.6.2",
     "@tanstack/react-router": "^1.170.32",
-    "@tanstack/react-start": "^1.168.49",
+    "@tanstack/react-start": "^1.168.52",
     "hono": "^4.13.5",
     "motion": "^13.2.0",
     "radix-ui": "^1.6.7",
