@@ -107,6 +107,10 @@ function PostsPage() {
                           <span className="text-xs text-mist tabular-nums">{f.count} 帖</span>
                           <span className="ml-auto text-sm font-bold tabular-nums">{fmt(f.avgViews)}</span>
                           <span className="text-xs text-mist">平均曝光</span>
+                          <span className="w-14 shrink-0 text-right text-xs font-semibold text-signal-ink tabular-nums">
+                            {f.engagementRate != null ? `${(f.engagementRate * 100).toFixed(1)}%` : "—"}
+                          </span>
+                          <span className="text-xs text-mist">互动率</span>
                         </li>
                       ))}
                     </ul>

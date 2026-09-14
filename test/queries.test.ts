@@ -65,11 +65,13 @@ async function seedPost(
     bookmarks?: number | null;
     text?: string | null;
     recordedAt?: string;
+    media?: Array<{ kind: string; url: string; videoUrl?: string }> | null;
+    tweetType?: string | null;
   } = {}
 ) {
   await env.DB.prepare(
-    `INSERT INTO posts (tweet_id, member_id, created_at, views_count, views_prev, like_count, reply_count, retweet_count, quote_count, bookmark_count, text, lang, recorded_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'zh', ?)`
+    `INSERT INTO posts (tweet_id, member_id, created_at, views_count, views_prev, like_count, reply_count, retweet_count, quote_count, bookmark_count, text, lang, media, tweet_type, recorded_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'zh', ?, ?, ?)`
   ).bind(
     tweetId,
     memberId,
@@ -82,6 +84,8 @@ async function seedPost(
     over.quotes ?? null,
     over.bookmarks ?? null,
     over.text ?? null,
+    over.media ? JSON.stringify(over.media) : null,
+    over.tweetType ?? null,
     over.recordedAt ?? new Date().toISOString()
   ).run();
 }
@@ -226,22 +230,107 @@ describe("getCommunitySignals", () => {
 });
 
 describe("getContentRecipe", () => {
-  it("北京时间小时桶聚合 + 形态分类（同小时 ≥2 帖才出桶）", async () => {
+  // 统一把测试帖钉在北京时间 10 点（02:00Z），避免用默认 createdAt 时小时桶随机
+  const atHour = (() => {
+    const d = new Date(Date.now() - 2 * 86_400_000);
+    d.setUTCHours(2, 0, 0, 0);
+    return d.toISOString();
+  })();
+
+  it("北京时间小时桶聚合 + 形态分类（媒体优先，不再靠正文 t.co 判断）", async () => {
     await seedMember("alice", "alice_x");
-    // 两帖同一 UTC 小时（02:00Z → 北京 10 点）：一帖带链接、一帖长文本
-    const hour = new Date(Date.now() - 2 * 86_400_000);
-    hour.setUTCHours(2, 0, 0, 0);
-    const at = hour.toISOString();
     const longText = "这是一条没有链接的长文本帖。".repeat(10);
-    await seedPost("alice", "f1", { createdAt: at, views: 100, text: "看这里 https://example.com/x" });
-    await seedPost("alice", "f2", { createdAt: at, views: 300, text: longText });
+    // 带链接 3 帖（均值 100）、长文 3 帖（均值 300）
+    for (let i = 0; i < 3; i++) {
+      await seedPost("alice", `f${i}`, { createdAt: atHour, views: 100, text: `看这里 https://example.com/${i}` });
+      await seedPost("alice", `g${i}`, { createdAt: atHour, views: 300, text: longText });
+    }
 
     const r = await getContentRecipe(env);
-    expect(r.hours).toEqual([{ hour: 10, count: 2, avgViews: 200 }]);
+    expect(r.hours).toEqual([{ hour: 10, count: 6, avgViews: 200 }]);
     const labels = r.forms.map((f) => f.label);
     expect(labels).toContain("带链接");
-    expect(labels).toContain("长文本");
+    expect(labels).toContain("长文");
     const link = r.forms.find((f) => f.label === "带链接");
-    expect(link).toMatchObject({ count: 1, avgViews: 100 });
+    expect(link).toMatchObject({ count: 3, avgViews: 100 });
+    // 互动率 = 互动合计/浏览；这批帖无互动 → 0
+    expect(link!.engagementRate).toBe(0);
+  });
+
+  it("媒体帖按附件归类，不再因正文 t.co 误判成「带链接」", async () => {
+    await seedMember("alice", "alice_x");
+    // 纯图片帖：正文只有一条 t.co（X 的附件包裹形式）——旧口径会误判成「带链接」
+    for (let i = 0; i < 3; i++) {
+      await seedPost("alice", `m${i}`, { createdAt: atHour, views: 1000, text: "看这个 https://t.co/pic", media: [{ kind: "photo", url: "https://pbs.twimg.com/a.jpg" }] });
+    }
+    // 视频帖 3 条各带 50 赞：验证互动率池化
+    for (let i = 0; i < 3; i++) {
+      await seedPost("alice", `v${i}`, { createdAt: atHour, views: 1000, text: "视频 https://t.co/vid", media: [{ kind: "video", url: "https://pbs.twimg.com/v.jpg", videoUrl: "https://video.twimg.com/v.mp4" }], likes: 50 });
+    }
+
+    const r = await getContentRecipe(env);
+    const labels = r.forms.map((f) => f.label);
+    expect(labels).toContain("单图");
+    expect(labels).not.toContain("带链接"); // 媒体帖全部归入媒体形态
+    expect(r.forms.find((f) => f.label === "单图")).toMatchObject({ count: 3, avgViews: 1000 });
+    expect(r.forms.find((f) => f.label === "视频")).toMatchObject({ count: 3, avgViews: 1000 });
+    // 互动率池化：视频类 150/3000 = 0.05
+    expect(r.forms.find((f) => f.label === "视频")!.engagementRate).toBeCloseTo(0.05);
+  });
+
+  it("多图与动图归类：>1 张照片算多图，动图并入视频", async () => {
+    await seedMember("alice", "alice_x");
+    for (let i = 0; i < 3; i++) {
+      await seedPost("alice", `p${i}`, {
+        createdAt: atHour,
+        views: 500,
+        text: "多图",
+        media: [
+          { kind: "photo", url: "https://pbs.twimg.com/1.jpg" },
+          { kind: "photo", url: "https://pbs.twimg.com/2.jpg" },
+        ],
+      });
+      await seedPost("alice", `a${i}`, { createdAt: atHour, views: 500, text: "动图", media: [{ kind: "gif", url: "https://pbs.twimg.com/g.jpg" }] });
+    }
+
+    const r = await getContentRecipe(env);
+    const labels = r.forms.map((f) => f.label);
+    expect(labels).toContain("多图");
+    expect(labels).toContain("视频"); // gif 并入视频
+    expect(r.forms.find((f) => f.label === "多图")).toMatchObject({ count: 3 });
+    expect(r.forms.find((f) => f.label === "视频")).toMatchObject({ count: 3 });
+    expect(labels).not.toContain("单图");
+  });
+
+  it("样本不足 3 条的形态不出（个位数样本均值是噪声）", async () => {
+    await seedMember("alice", "alice_x");
+    await seedPost("alice", "s1", { createdAt: atHour, views: 100, text: "短文本" });
+    await seedPost("alice", "s2", { createdAt: atHour, views: 100, text: "短文本2" });
+
+    const r = await getContentRecipe(env);
+    expect(r.forms).toEqual([]); // 仅 2 帖，未达阈值
+    expect(r.hours).toEqual([{ hour: 10, count: 2, avgViews: 100 }]); // 小时桶阈值是 2，照常出
+  });
+
+  it("回复与转推不计入配方（回复/转推是互动而非发布）", async () => {
+    await seedMember("alice", "alice_x");
+    await seedPost("alice", "r1", { createdAt: atHour, views: 99999, text: "回复", tweetType: "reply" });
+    await seedPost("alice", "r2", { createdAt: atHour, views: 99999, text: "转推", tweetType: "retweet" });
+    await seedPost("alice", "r3", { createdAt: atHour, views: 10, text: "原创" });
+    await seedPost("alice", "r4", { createdAt: atHour, views: 10, text: "原创2" });
+
+    const r = await getContentRecipe(env);
+    // 若回复/转推被计入，均值会被 99999 拉高
+    expect(r.hours.every((h) => h.avgViews <= 10)).toBe(true);
+  });
+
+  it("无浏览数的帖子不计入（本区块讲曝光）", async () => {
+    await seedMember("alice", "alice_x");
+    await seedPost("alice", "n1", { createdAt: atHour, views: null, text: "无浏览" });
+    await seedPost("alice", "n2", { createdAt: atHour, views: 100, text: "有浏览" });
+    await seedPost("alice", "n3", { createdAt: atHour, views: 200, text: "有浏览2" });
+
+    const r = await getContentRecipe(env);
+    expect(r.hours).toEqual([{ hour: 10, count: 2, avgViews: 150 }]);
   });
 });

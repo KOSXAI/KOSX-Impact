@@ -179,10 +179,9 @@ export async function renderMemberCardSvg(
   const bust = await readCacheBust(env);
   return cachedResponse(new Request(`${SITE_URL}/card/${id}?v=${variant}&cb=${bust}`), 3600, async () => {
     const member = await env.DB.prepare(
-      `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt,
-              baseline_followers AS baselineFollowers, tracks
+      `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt, tracks
        FROM members WHERE id = ? AND status = 'active'`
-    ).bind(id).first<{ id: string; handle: string; displayName: string | null; joinedAt: string; baselineFollowers: number | null; tracks: string | null }>();
+    ).bind(id).first<{ id: string; handle: string; displayName: string | null; joinedAt: string; tracks: string | null }>();
     if (!member) {
       return new Response(renderNotFoundCard(id), {
         status: 404,
@@ -192,7 +191,8 @@ export async function renderMemberCardSvg(
     const { results: snapshots } = await env.DB.prepare(
       "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ? ORDER BY recorded_at"
     ).bind(id).all<SnapshotRow>();
-    const stats = computeMemberStats(member, snapshots, new Date().toISOString(), member.baselineFollowers);
+    // 名册基线只在名册回填首快照时用（members 表无该列，基线快照已由 syncRoster 写入 snapshots）
+    const stats = computeMemberStats(member, snapshots, new Date().toISOString());
     // 赛道/标签：members 表 JSON 文本 → 数组（赛道变体展示）
     stats.tracks = parseStrArray(member.tracks);
     let trackRanks: Array<{ track: string; rank: number; total: number }> | undefined;

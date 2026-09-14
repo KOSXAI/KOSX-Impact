@@ -52,8 +52,8 @@ export const CACHE_KEYS = {
   /** 以下为无独立 API 端点的查询层键（/q/ 前缀仅作缓存键，不构成可请求路径） */
   /** 社群信号：共同关注 / 社群热议（内容页策展） */
   communitySignals: "/q/community-signals?v=1",
-  /** 内容配方：黄金时段 + 形态（30 天 posts 全扫聚合，最重的未缓存查询） */
-  contentRecipe: "/q/content-recipe?v=1",
+  /** 内容配方：黄金时段 + 形态（30 天 posts 全扫聚合，最重的未缓存查询）——v2：媒体形态分类 + 互动率 */
+  contentRecipe: "/q/content-recipe?v=2",
   /** 内容洞察（/posts 页专用轻量包：爆款/停更/标签云，替代拉整份 dashboard） */
   insights: "/q/insights?v=1",
   /** 对比页选人列表（id/handle/展示头像/最新粉丝，替代拉整份 dashboard） */

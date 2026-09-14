@@ -18,29 +18,72 @@ export async function getCommunitySignals(env: Env): Promise<CommunitySignalRow[
   });
 }
 
-type PostFormRow = { text: string | null; views: number | null; createdAt: string };
+type PostFormRow = {
+  text: string | null;
+  views: number | null;
+  createdAt: string;
+  tweetType: string | null;
+  mediaKind: string | null;
+  mediaCount: number | null;
+  likes: number | null;
+  replies: number | null;
+  retweets: number | null;
+  quotes: number | null;
+  bookmarks: number | null;
+};
 
-/** 内容配方（内容页「社群黄金时段 / 什么形态最吃香」）：近 30 天帖子按形态与北京时间小时桶聚合平均曝光 */
+/**
+ * 帖子形态分类：媒体优先。
+ * X 把附件也包成正文里的一条 t.co，只看正文有没有链接会把图片/视频帖误判成「带链接」
+ * （实测该误判把「带链接」类均值抬到 3 万，全是单图纯媒体帖）——先看 media 再退回文本。
+ * 动图归入视频（X 上 animated_gif 本就是视频的一种变体，且样本仅个位数）。
+ */
+function formOf(p: PostFormRow): string {
+  if (p.mediaKind === "video" || p.mediaKind === "gif") return "视频";
+  if (p.mediaKind === "photo") return (p.mediaCount ?? 1) > 1 ? "多图" : "单图";
+  const text = p.text ?? "";
+  if (/https?:\/\//.test(text)) return "带链接";
+  return text.length > 120 ? "长文" : "短文本";
+}
+
+/** 单帖互动合计（赞+评+转+引+藏；缺失项按 0 计） */
+function engagementOf(p: PostFormRow): number {
+  return (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0) + (p.quotes ?? 0) + (p.bookmarks ?? 0);
+}
+
+/**
+ * 内容配方（内容页「社群黄金时段 / 什么形态最吃香」）：近 30 天帖子按形态与北京时间小时桶聚合。
+ *
+ * 口径三则：
+ * - 只看本人原创与引用帖（回复/转推是互动不是发布，转推均值仅 20 浏览会严重拉低时段与形态均值）
+ * - 只统计有浏览数的帖子（本区块讲曝光，无浏览数据无从计入）
+ * - 除平均曝光外给出互动率（互动合计/浏览的池化比值）——曝光随账号量级走，互动率才是跨账号可比的口径
+ */
 export async function getContentRecipe(env: Env): Promise<{
-  forms: Array<{ label: string; count: number; avgViews: number }>;
+  forms: Array<{ label: string; count: number; avgViews: number; engagementRate: number | null }>;
   hours: Array<{ hour: number; count: number; avgViews: number }>;
 }> {
   return cachedQuery(env, CACHE_KEYS.contentRecipe, 3600, async () => {
     const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { results: posts } = await env.DB.prepare(
-      `SELECT text, views_count AS views, created_at AS createdAt FROM posts WHERE created_at >= ?1`
+      `SELECT text, views_count AS views, created_at AS createdAt, tweet_type AS tweetType,
+              json_extract(media, '$[0].kind') AS mediaKind, json_array_length(media) AS mediaCount,
+              like_count AS likes, reply_count AS replies, retweet_count AS retweets,
+              quote_count AS quotes, bookmark_count AS bookmarks
+       FROM posts
+       WHERE created_at >= ?1 AND views_count IS NOT NULL
+         AND (tweet_type IS NULL OR tweet_type IN ('tweet', 'quote'))`
     ).bind(cutoff).all<PostFormRow>();
-    const formMap = new Map<string, { count: number; views: number }>();
+
+    const formMap = new Map<string, { count: number; views: number; engagement: number }>();
     const hourMap = new Map<number, { count: number; views: number }>();
     for (const p of posts) {
       const v = p.views ?? 0;
-      const text = (p.text ?? "").toLowerCase();
-      const hasLink = /https?:\/\//.test(text);
-      const isLong = text.length > 120;
-      const form = hasLink ? "带链接" : isLong ? "长文本" : "短文本";
-      const f = formMap.get(form) ?? { count: 0, views: 0 };
+      const form = formOf(p);
+      const f = formMap.get(form) ?? { count: 0, views: 0, engagement: 0 };
       f.count++;
       f.views += v;
+      f.engagement += engagementOf(p);
       formMap.set(form, f);
       const hour = (new Date(p.createdAt).getUTCHours() + 8) % 24;
       const h = hourMap.get(hour) ?? { count: 0, views: 0 };
@@ -49,9 +92,16 @@ export async function getContentRecipe(env: Env): Promise<{
       hourMap.set(hour, h);
     }
     return {
+      // 样本 <3 的形态不出（个位数样本的均值是噪声不是信号）
       forms: [...formMap.entries()]
-        .map(([label, d]) => ({ label, count: d.count, avgViews: d.count ? Math.round(d.views / d.count) : 0 }))
-        .sort((a, b) => b.count - a.count),
+        .filter(([, d]) => d.count >= 3)
+        .map(([label, d]) => ({
+          label,
+          count: d.count,
+          avgViews: Math.round(d.views / d.count),
+          engagementRate: d.views > 0 ? d.engagement / d.views : null,
+        }))
+        .sort((a, b) => b.avgViews - a.avgViews),
       hours: [...hourMap.entries()]
         .map(([hour, d]) => ({ hour, count: d.count, avgViews: d.count ? Math.round(d.views / d.count) : 0 }))
         .filter((x) => x.count >= 2)
