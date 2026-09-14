@@ -12,6 +12,7 @@ import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerCapReache
 import { getSource } from "./sources";
 import { SocialDataError } from "./sources/socialdata";
 import { TRACKS } from "./tracks";
+import { LATEST_FOLLOWERS_SQL, parseStrArray, rankInTrack, type SnapshotRow } from "./queries/shared";
 import { titleOf } from "./milestones";
 import { badge } from "./lib/format";
 import { SITE_URL } from "./lib/site";
@@ -177,7 +178,11 @@ export async function renderMemberCardSvg(
   // 若不跟数据版本，采集后升级的数据最长要等 1 小时边缘缓存过期才可见）
   const bust = await readCacheBust(env);
   return cachedResponse(new Request(`${SITE_URL}/card/${id}?v=${variant}&cb=${bust}`), 3600, async () => {
-    const member = await env.DB.prepare("SELECT * FROM members WHERE id = ? AND status = 'active'").bind(id).first();
+    const member = await env.DB.prepare(
+      `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt,
+              baseline_followers AS baselineFollowers, tracks
+       FROM members WHERE id = ? AND status = 'active'`
+    ).bind(id).first<{ id: string; handle: string; displayName: string | null; joinedAt: string; baselineFollowers: number | null; tracks: string | null }>();
     if (!member) {
       return new Response(renderNotFoundCard(id), {
         status: 404,
@@ -186,43 +191,19 @@ export async function renderMemberCardSvg(
     }
     const { results: snapshots } = await env.DB.prepare(
       "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ? ORDER BY recorded_at"
-    ).bind(id).all();
-    // SELECT * 返回 snake_case 列名，computeMemberStats 需要 camelCase 字段
-    const m = member as Record<string, unknown>;
-    const stats = computeMemberStats(
-      {
-        id: m.id as string,
-        handle: m.handle as string,
-        displayName: (m.display_name as string | null) ?? null,
-        joinedAt: m.joined_at as string,
-      },
-      snapshots as never,
-      new Date().toISOString(),
-      m.baseline_followers as number | null
-    );
+    ).bind(id).all<SnapshotRow>();
+    const stats = computeMemberStats(member, snapshots, new Date().toISOString(), member.baselineFollowers);
     // 赛道/标签：members 表 JSON 文本 → 数组（赛道变体展示）
-    try {
-      const rawTracks = (m.tracks as string | null) ?? null;
-      if (rawTracks) stats.tracks = JSON.parse(rawTracks).filter((x: unknown) => typeof x === "string");
-    } catch {
-      /* 解析失败留空 */
-    }
+    stats.tracks = parseStrArray(member.tracks);
     let trackRanks: Array<{ track: string; rank: number; total: number }> | undefined;
     if (variant === "track" && stats.tracks.length > 0) {
-      // 赛道内名次：全量成员 + 最新快照（低频卡片图，缓存 1h 可接受）
+      // 赛道内名次：全量成员 + 最新快照（低频卡片图，缓存 1h 可接受）；排名口径走全站共享 rankInTrack
       const { results: allRows } = await env.DB.prepare(
-        `SELECT m.id, m.tracks, (SELECT s.followers FROM snapshots s WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS f
+        `SELECT m.id, m.tracks, ${LATEST_FOLLOWERS_SQL} AS followers
          FROM members m WHERE m.status = 'active'`
-      ).all();
-      const parsed = (allRows as never as Array<{ id: string; tracks: string | null; f: number | null }>).map((r) => ({
-        id: r.id,
-        f: r.f ?? 0,
-        tracks: (() => { try { return r.tracks ? (JSON.parse(r.tracks) as string[]) : []; } catch { return []; } })(),
-      }));
-      trackRanks = stats.tracks.map((track) => {
-        const inTrack = parsed.filter((x) => x.tracks.includes(track)).sort((a, b) => b.f - a.f);
-        return { track, rank: inTrack.findIndex((x) => x.id === id) + 1, total: inTrack.length };
-      });
+      ).all<{ id: string; tracks: string | null; followers: number | null }>();
+      const parsed = allRows.map((r) => ({ id: r.id, followers: r.followers, tracks: parseStrArray(r.tracks) }));
+      trackRanks = stats.tracks.map((track) => ({ track, ...rankInTrack(parsed, id, track) }));
     }
     return new Response(renderMemberCard(stats, { variant, trackRanks }), {
       headers: { "Content-Type": "image/svg+xml" },
@@ -236,22 +217,23 @@ export async function renderMemberCardSvg(
 export async function renderOgSvg(env: Env): Promise<Response> {
   return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.og}`), 21600, async () => {
     const now = new Date().toISOString();
-    const { results: memberRows } = await env.DB.prepare(
+    const { results: memberList } = await env.DB.prepare(
       `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt
        FROM members WHERE status = 'active'`
-    ).all();
-    const memberList = memberRows as never as Array<{ id: string; handle: string; displayName: string | null; joinedAt: string }>;
+    ).all<{ id: string; handle: string; displayName: string | null; joinedAt: string }>();
 
     // 每成员最新 1 条快照（走索引，恒定行读取）
     const latestStmt = env.DB.prepare(
       "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 1"
     );
-    const snapshotBatches = await env.DB.batch(memberList.map((m) => latestStmt.bind(m.id)));
+    const snapshotBatches = await env.DB.batch<{ memberId: string; followers: number; recordedAt: string }>(
+      memberList.map((m) => latestStmt.bind(m.id))
+    );
 
     const stats: DashboardStats = computeDashboardStats(
       roster,
       memberList.map((m, i) => {
-        const rows = (snapshotBatches[i]?.results ?? []) as never as Array<{ followers: number; recordedAt: string }>;
+        const rows = snapshotBatches[i]?.results ?? [];
         return { ...m, snapshots: rows };
       }),
       [],
@@ -322,8 +304,8 @@ async function renderSitemap(env: Env): Promise<Response> {
       `SELECT id,
               (SELECT MAX(s.recorded_at) FROM snapshots s WHERE s.member_id = m.id) AS lastmod
        FROM members m WHERE m.status = 'active' ORDER BY joined_at`
-    ).all();
-    const members = memberRows as never as Array<{ id: string; lastmod: string | null }>;
+    ).all<{ id: string; lastmod: string | null }>();
+    const members = memberRows;
     // 静态页与赛道页的最后变动时间 = 全站最新一次快照（数据一天一更，跟着数据走）
     const dataDay = members.reduce<string | null>((max, m) => (m.lastmod && (!max || m.lastmod > max) ? m.lastmod : max), null)?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
     const urls = [

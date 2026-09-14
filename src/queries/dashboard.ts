@@ -25,6 +25,18 @@ import {
   type SnapshotRow,
 } from "./shared";
 
+/** D1 行类型集中定义（列别名即形状，.all<T>() / .batch<T>() / .first<T>() 直接标注） */
+type TopPostJoinRow = PostRow & { memberId: string; handle: string; displayName: string | null; profileImage: string | null };
+type InsightMemberRow = { id: string; handle: string; displayName: string | null; profileImage: string | null; tags: string | null };
+type InsightPostRow = PostRow & { memberId: string };
+type PickerRow = { id: string; handle: string; displayName: string | null; profileImage: string | null; latestFollowers: number | null; tracks: string | null };
+type FailedQueueRow = { memberId: string };
+type MilestoneJoinRow = { memberId: string; handle: string; displayName: string | null; threshold: number; achievedAt: string };
+type MentionCountRow = { memberId: string; n: number };
+type MentionTrendRow = { d: string; n: number };
+type FollowEdgeRow = { follower_user_id: string; followed_user_id: string };
+type FanRow = { memberId: string; sampledAt: string; sampleSize: number; avgFollowers: number | null; pct10k: number | null; verifiedPct: number | null };
+
 // Env 由 worker-configuration.d.ts / env.d.ts 全局声明（无单独模块）
 
 /** 精华帖：近 N 天全社群单帖浏览 Top（posts 表 + members 联查，带成员展示信息）。走 /api/top-posts 缓存键 */
@@ -53,13 +65,8 @@ export async function getTopPosts(
            .replace("retweet_count", "p.retweet_count")
            .replace("quote_count", "p.quote_count")
            .replace("bookmark_count", "p.bookmark_count")} DESC LIMIT ?2`
-      ).bind(cutoff, limit).all();
-      const posts = (rows as never as Array<PostRow & {
-        memberId: string;
-        handle: string;
-        displayName: string | null;
-        profileImage: string | null;
-      }>).map((r) => ({
+      ).bind(cutoff, limit).all<TopPostJoinRow>();
+      const posts = rows.map((r) => ({
         ...mapPostRow(r, r.handle),
         member: { id: r.memberId, handle: r.handle, displayName: r.displayName, profileImage: r.profileImage },
       }));
@@ -88,14 +95,8 @@ export async function getInsights(env: Env): Promise<DashboardStats["insights"]>
       const { results: memberRows } = await env.DB.prepare(
         `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage, m.tags
          FROM members m WHERE m.status = 'active' ORDER BY joined_at`
-      ).all();
-      const members = memberRows as never as Array<{
-        id: string;
-        handle: string;
-        displayName: string | null;
-        profileImage: string | null;
-        tags: string | null;
-      }>;
+      ).all<InsightMemberRow>();
+      const members = memberRows;
       const { results: postRows } = await env.DB.prepare(
         `SELECT p.tweet_id AS tweetId, p.created_at AS createdAt, p.text,
                 p.views_count AS views, p.views_prev AS viewsPrev, p.recorded_at AS postRecordedAt,
@@ -104,9 +105,9 @@ export async function getInsights(env: Env): Promise<DashboardStats["insights"]>
                 p.member_id AS memberId
          FROM posts p JOIN members m ON m.id = p.member_id
          WHERE m.status = 'active' AND p.created_at >= ?1`
-      ).bind(cutoff30d).all();
+      ).bind(cutoff30d).all<InsightPostRow>();
       const postsByMember = new Map<string, PostRow[]>();
-      for (const r of postRows as never as Array<PostRow & { memberId: string }>) {
+      for (const r of postRows) {
         const list = postsByMember.get(r.memberId) ?? [];
         list.push(r);
         postsByMember.set(r.memberId, list);
@@ -155,9 +156,8 @@ export async function getMemberPicker(
         `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage, m.tracks,
                 (SELECT s.followers FROM snapshots s WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS latestFollowers
          FROM members m WHERE m.status = 'active' ORDER BY joined_at`
-      ).all();
-      const members = (rows as never as Array<{ id: string; handle: string; displayName: string | null; profileImage: string | null; latestFollowers: number | null; tracks: string | null }>)
-        .map((m) => ({ ...m, tracks: parseStrArray(m.tracks) }));
+      ).all<PickerRow>();
+      const members = rows.map((m) => ({ ...m, tracks: parseStrArray(m.tracks) }));
       return new Response(JSON.stringify(members), { headers: { "Content-Type": "application/json" } });
     }
   );
@@ -174,13 +174,13 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     const now = new Date().toISOString();
     const { results: memberRows } = await env.DB.prepare(
       `SELECT ${MEMBER_FIELDS} FROM members WHERE status = 'active' ORDER BY joined_at`
-    ).all();
-    const memberList = memberRows as never as MemberRow[];
+    ).all<MemberRow>();
+    const memberList = memberRows;
     // 每成员最近 31 条快照（窗口查询，走 idx_snapshots_member_date，行读取恒定）
     const snapshotStmt = env.DB.prepare(
       "SELECT member_id AS memberId, followers, listed_count AS listedCount, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 31"
     );
-    const snapshotBatches = await env.DB.batch(memberList.map((m) => snapshotStmt.bind(m.id)));
+    const snapshotBatches = await env.DB.batch<SnapshotRow>(memberList.map((m) => snapshotStmt.bind(m.id)));
 
     // 首采失败态：从未有快照且刷新队列最近一次记录为 failed（查无账号/持续报错），
     // 与「排队中」区分用；只查有失败记录的无快照成员， fans 面很小
@@ -192,8 +192,8 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
            AND NOT EXISTS (SELECT 1 FROM snapshots s WHERE s.member_id = rq.member_id)
            AND EXISTS (SELECT 1 FROM members m WHERE m.id = rq.member_id AND m.status = 'active')
          GROUP BY rq.member_id`
-      ).all();
-      for (const r of failedRows as never as Array<{ memberId: string }>) failedIds.add(r.memberId);
+      ).all<FailedQueueRow>();
+      for (const r of failedRows) failedIds.add(r.memberId);
     }
 
     const { results: milestoneRows } = await env.DB.prepare(
@@ -201,7 +201,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
        FROM milestones ms
        JOIN members m ON m.id = ms.member_id
        WHERE m.status = 'active'`
-    ).all();
+    ).all<MilestoneJoinRow>();
 
     // 全社群单帖浏览 Top 8（posts 表 + members 联查，带成员展示信息）
     const { results: topPostRows } = await env.DB.prepare(
@@ -210,13 +210,8 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
        JOIN members m ON m.id = p.member_id
        WHERE m.status = 'active' AND p.views_count IS NOT NULL
        ORDER BY p.views_count DESC LIMIT 8`
-    ).all();
-    const topPosts: PostItem[] = (topPostRows as never as Array<PostRow & {
-      memberId: string;
-      handle: string;
-      displayName: string | null;
-      profileImage: string | null;
-    }>).map((r) => ({
+    ).all<TopPostJoinRow>();
+    const topPosts: PostItem[] = topPostRows.map((r) => ({
       ...mapPostRow(r, r.handle),
       member: { id: r.memberId, handle: r.handle, displayName: r.displayName, profileImage: r.profileImage },
     }));
@@ -227,9 +222,9 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       `SELECT member_id AS memberId, ${POST_FIELDS}
        FROM posts WHERE created_at >= ?1
          AND EXISTS (SELECT 1 FROM members m WHERE m.id = posts.member_id AND m.status = 'active')`
-    ).bind(cutoff30d).all();
+    ).bind(cutoff30d).all<PostRow & { memberId: string }>();
     const postsByMember = new Map<string, PostRow[]>();
-    for (const r of post30dRows as never as Array<PostRow & { memberId: string }>) {
+    for (const r of post30dRows) {
       const list = postsByMember.get(r.memberId) ?? [];
       list.push({ tweetId: r.tweetId, createdAt: r.createdAt, text: r.text, views: r.views, viewsPrev: r.viewsPrev, postRecordedAt: r.postRecordedAt, likes: r.likes, replies: r.replies, retweets: r.retweets, quotes: r.quotes, bookmarks: r.bookmarks });
       postsByMember.set(r.memberId, list);
@@ -240,8 +235,8 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       `SELECT keyword, author_handle AS authorHandle, author_name AS authorName, text,
               tweet_url AS url, sentiment, collected_at AS collectedAt
        FROM mentions ORDER BY collected_at DESC LIMIT 20`
-    ).all();
-    const mentions: MentionItem[] = mentionRows as never as MentionItem[];
+    ).all<MentionItem>();
+    const mentions: MentionItem[] = mentionRows;
 
     // 成员被提及热度：member_mentions 近 30 天按成员计数（被提及榜数据源）
     const mentionCounts = new Map<string, number>();
@@ -250,8 +245,8 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       const { results: mmRows } = await env.DB.prepare(
         `SELECT member_id AS memberId, COUNT(*) AS n FROM member_mentions
          WHERE mentioned_at >= ?1 GROUP BY member_id`
-      ).bind(cutoffMention).all();
-      for (const r of mmRows as never as Array<{ memberId: string; n: number }>) {
+      ).bind(cutoffMention).all<{ memberId: string; n: number }>();
+      for (const r of mmRows) {
         mentionCounts.set(r.memberId, r.n);
       }
     }
@@ -264,14 +259,14 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       const { results: mtRows } = await env.DB.prepare(
         `SELECT substr(collected_at, 1, 10) AS d, COUNT(*) AS n FROM mentions
          WHERE substr(collected_at, 1, 10) >= ?1 GROUP BY d ORDER BY d`
-      ).bind(cutoffMentionT).all();
-      for (const r of mtRows as never as Array<{ d: string; n: number }>) {
+      ).bind(cutoffMentionT).all<MentionTrendRow>();
+      for (const r of mtRows) {
         mentionsTrend.push({ date: r.d, count: r.n });
       }
     }
 
     const memberStats = memberList.map((m, i) => {
-      const rows = (snapshotBatches[i]?.results ?? []) as never as SnapshotRow[];
+      const rows: SnapshotRow[] = snapshotBatches[i]?.results ?? [];
       // 窗口内是倒序取的，统计层期望正序
       const snapshots = rows.slice().reverse();
       // 赛道/标签：members 表 JSON 文本 → 数组（挂到 stats.members 供 computeDashboardStats 透传）
@@ -279,7 +274,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     });
 
     // 与 API JSON 响应同构：computeDashboardStats 输出即 DashboardStats（trend 由快照窗口推导）
-    const stats = computeDashboardStats(roster, memberStats, milestoneRows as never, now);
+    const stats = computeDashboardStats(roster, memberStats, milestoneRows, now);
     // 帖子互动 Top：纯函数层返回空数组，这里用真实查询覆盖
     stats.topPosts = topPosts;
     stats.mentions = mentions;
@@ -494,11 +489,12 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     try {
       const { results: followRows } = await env.DB.prepare(
         "SELECT follower_user_id, followed_user_id FROM follows"
-      ).all();
-      const edges = followRows as never as Array<{ follower_user_id: string; followed_user_id: string }>;
+      ).all<FollowEdgeRow>();
+      const edges = followRows;
       const activeUserIds = new Set(
-        (await env.DB.prepare("SELECT user_id FROM members WHERE status = 'active' AND user_id IS NOT NULL").all())
-          .results.map((r) => String((r as { user_id: string }).user_id))
+        (
+          await env.DB.prepare("SELECT user_id FROM members WHERE status = 'active' AND user_id IS NOT NULL").all<{ user_id: string }>()
+        ).results.map((r) => String(r.user_id))
       );
       const edgeSet = new Set<string>();
       for (const r of edges) {
@@ -526,12 +522,11 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
                 fp.avg_followers AS avgFollowers, fp.pct_followers_10k AS pct10k, fp.verified_pct AS verifiedPct
          FROM fan_profiles fp JOIN members m ON m.id = fp.member_id
          WHERE m.status = 'active' AND fp.sample_size > 0`
-      ).all();
-      type FanRowDTO = { memberId: string; sampledAt: string; sampleSize: number; avgFollowers: number | null; pct10k: number | null; verifiedPct: number | null };
-      const fans = fanRows as never as FanRowDTO[];
+      ).all<FanRow>();
+      const fans = fanRows;
       if (fans.length > 0) {
         const totalSample = fans.reduce((s, f) => s + f.sampleSize, 0);
-        const weighted = (pick: (f: FanRowDTO) => number | null) => {
+        const weighted = (pick: (f: FanRow) => number | null) => {
           let sum = 0;
           let n = 0;
           for (const f of fans) {

@@ -42,7 +42,7 @@ async function bumpCacheBust(env: Env): Promise<void> {
 export async function syncMemberMentions(env: Env): Promise<{ ok: number; total: number }> {
   const { results: members } = await env.DB.prepare(
     "SELECT id, handle FROM members WHERE status = 'active'"
-  ).all();
+  ).all<{ id: string; handle: string }>();
   const stmt = env.DB.prepare(
     `INSERT OR REPLACE INTO member_mentions (member_id, tweet_id, author_handle, author_name, text, mentioned_at, collected_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -50,7 +50,7 @@ export async function syncMemberMentions(env: Env): Promise<{ ok: number; total:
   const now = new Date().toISOString();
   let total = 0;
   let ok = 0;
-  for (const m of members as never as Array<{ id: string; handle: string }>) {
+  for (const m of members) {
     try {
       const query = encodeURIComponent(`@${m.handle} -filter:replies`);
       const page = await throttledGet<{ tweets?: SocialTweet[] }>(env, `/twitter/search?query=${query}&type=Latest`);
@@ -87,8 +87,8 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
     `SELECT m.id, m.handle, m.user_id,
             (SELECT s.followers FROM snapshots s WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS f
      FROM members m WHERE m.status = 'active'`
-  ).all();
-  const top = (members as never as Array<{ id: string; handle: string; user_id: string | null; f: number | null }>)
+  ).all<{ id: string; handle: string; user_id: string | null; f: number | null }>();
+  const top = members
     .filter((m) => m.user_id)
     .sort((a, b) => (b.f ?? 0) - (a.f ?? 0))
     .slice(0, 8);
@@ -118,10 +118,10 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
     "SELECT text FROM posts WHERE created_at >= ?1"
   )
     .bind(new Date(Date.now() - 30 * 86_400_000).toISOString())
-    .all();
+    .all<{ text: string | null }>();
   const memberHandles = new Set(top.map((m) => m.handle.toLowerCase()));
   const tasteCount = new Map<string, number>();
-  for (const r of posts as never as Array<{ text: string | null }>) {
+  for (const r of posts) {
     if (!r.text) continue;
     const matches = r.text.toLowerCase().match(/@([a-z0-9_]{2,30})/g) ?? [];
     for (const raw of matches) {

@@ -128,6 +128,28 @@ export function postEngagementValue(p: {
 export const POST_VALUE_FALLBACK_SQL =
   "COALESCE(views_count, COALESCE(like_count, 0) + COALESCE(reply_count, 0) + COALESCE(retweet_count, 0) + COALESCE(quote_count, 0) + COALESCE(bookmark_count, 0))";
 
+/**
+ * 成员最新快照粉丝量的 SQL 片段（子查询走 idx_snapshots_member_date，行读取恒定）。
+ * 手抄副本曾散落 4+ 处，口径改动（如换窗口）只改这里。
+ */
+export const LATEST_FOLLOWERS_SQL =
+  "(SELECT s.followers FROM snapshots s WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1)";
+
+/**
+ * 同赛道成员排名（全站唯一口径：按最新快照粉丝量降序，rank 从 1 起）。
+ * 服务端查询层与展示层（卡片 SVG / 成员页 / 赛道页 / 库视图）共用，改口径只改这里。
+ */
+export function rankInTrack(
+  rows: Array<{ id: string; tracks: string[]; followers: number | null }>,
+  memberId: string,
+  track: string
+): { rank: number; total: number } {
+  const inTrack = rows
+    .filter((r) => r.tracks.includes(track))
+    .sort((a, b) => (b.followers ?? 0) - (a.followers ?? 0));
+  return { rank: inTrack.findIndex((r) => r.id === memberId) + 1, total: inTrack.length };
+}
+
 /** posts 表行 → PostItem（拼 x.com 原文外链）；媒体/引用帖 JSON 解析失败一律回退 null */
 export function mapPostRow(row: PostRow, handle: string): PostItem {
   const item: PostItem = {
