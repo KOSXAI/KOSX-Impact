@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Avatar } from "@/components/member/Avatar";
 import type { PostMediaItem, QuotedPostItem } from "@/stats";
-import { Play } from "lucide-react";
+import { Loader2, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** blob 拉取的体积上限：超过就不内联播放（整段下载会卡住页面），退回跳 X 原文 */
+const VIDEO_BLOB_MAX = 64 * 1024 * 1024;
 
 /** 单张图的展示比例：按原始宽高算，未知时回退 4:3；竖向超高图封顶 3:4 免得撑爆列表 */
 function aspectOf(m: PostMediaItem): string {
@@ -15,7 +18,7 @@ function aspectOf(m: PostMediaItem): string {
 
 /**
  * 帖子附件媒体：照片网格（1–4 张，点击放大看原图）、
- * 视频/GIF 封面 + 播放钮（点开内联 <video> 播放，video.twimg.com 可热链）、
+ * 视频/GIF 封面 + 播放钮（点开内联播放，见 VideoBlock 的防盗链说明）、
  * 引用帖内嵌原文卡。纯展示，数据已在采集时落库。
  */
 export function PostMedia({ media, quoted }: { media?: PostMediaItem[] | null; quoted?: QuotedPostItem | null }) {
@@ -89,26 +92,62 @@ function PhotoGrid({ photos }: { photos: PostMediaItem[] }) {
   );
 }
 
-/** 视频/GIF：封面 + 播放钮，点开后内联播放（无直链时退回跳 X 原文） */
+/**
+ * 视频/GIF：封面 + 播放钮，点开后内联播放；无直链或拉取失败退回跳 X 原文。
+ *
+ * 防盗链注意：video.twimg.com 按 Referer 白名单放行（第三方站 Referer 403，
+ * 不发 Referer 才 206）。<video> 不支持 referrerPolicy 属性（HTML 规范只覆盖
+ * a/img/iframe/script/link/form），所以直链播放必 403——
+ * 点播放时用 fetch(no-referrer) 拉成 blob 再播（twimg 的 CORS 放行，实测 200）。
+ * 字节始终直接来自 X 的 CDN，不经过本站。
+ */
 function VideoBlock({ media }: { media: PostMediaItem }) {
-  const [playing, setPlaying] = useState(false);
-  if (playing && media.videoUrl) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  // blob 用完/卸载即释放，避免大对象驻留内存
+  useEffect(() => () => { if (blobUrl) URL.revokeObjectURL(blobUrl); }, [blobUrl]);
+
+  const load = async () => {
+    if (!media.videoUrl || loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch(media.videoUrl, { referrerPolicy: "no-referrer" });
+      // 超大视频不拉 blob（整段下载会卡住页面），退回跳 X 原文
+      const size = Number(res.headers.get("content-length") ?? 0);
+      if (!res.ok || size > VIDEO_BLOB_MAX) throw new Error(`unplayable (${res.status}${size ? `, ${size}B` : ""})`);
+      setBlobUrl(URL.createObjectURL(await res.blob()));
+    } catch {
+      setFailed(true);
+    }
+    setLoading(false);
+  };
+
+  if (blobUrl) {
     return (
       <video
-        src={media.videoUrl}
+        src={blobUrl}
         poster={media.url}
         controls
         autoPlay
         playsInline
-        preload="none"
         className="max-h-[70dvh] w-full rounded-xl bg-black"
       />
     );
   }
   return (
-    <button
-      type="button"
-      onClick={() => media.videoUrl && setPlaying(true)}
+    <a
+      href={media.tco ?? undefined}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => {
+        // 有直链且没失败过就内联拉取播放；失败/无直链才放行默认跳转（X 媒体页）
+        if (media.videoUrl && !failed) {
+          e.preventDefault();
+          load();
+        }
+      }}
       aria-label={media.kind === "gif" ? "播放动图" : "播放视频"}
       className="group relative block w-full overflow-hidden rounded-xl bg-black"
       style={{ aspectRatio: aspectOf(media) }}
@@ -116,7 +155,11 @@ function VideoBlock({ media }: { media: PostMediaItem }) {
       <img src={media.url} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover opacity-90" />
       <span className="absolute inset-0 grid place-items-center">
         <span className="grid size-12 place-items-center rounded-full bg-black/55 backdrop-blur-sm transition-transform duration-200 group-hover:scale-110">
-          <Play className="size-5 translate-x-[1px] fill-white text-white" aria-hidden="true" />
+          {loading ? (
+            <Loader2 className="size-5 animate-spin text-white" aria-hidden="true" />
+          ) : (
+            <Play className="size-5 translate-x-[1px] fill-white text-white" aria-hidden="true" />
+          )}
         </span>
       </span>
       {media.durationMs ? (
@@ -124,7 +167,7 @@ function VideoBlock({ media }: { media: PostMediaItem }) {
           {formatDuration(media.durationMs)}
         </span>
       ) : null}
-    </button>
+    </a>
   );
 }
 
