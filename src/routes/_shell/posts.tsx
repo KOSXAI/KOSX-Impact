@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchInsights, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals, fetchContentRecipe } from "@/data.functions";
 import type { PostItem } from "@/stats";
+import { engagementRate } from "@/insights";
 import { Avatar } from "@/components/member/Avatar";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 import { PostBody } from "@/components/content/PostText";
@@ -9,8 +10,18 @@ import { Reveal } from "@/components/motion";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Metric } from "@/components/ui/Metric";
 import { PODIUM } from "@/components/leaderboard/podium";
-import { ExternalLink, Eye, Heart, MessageCircle, Repeat2, Users, TrendingUp } from "lucide-react";
+import { ExternalLink, Eye, Heart, MessageCircle, Percent, Repeat2, Users, TrendingUp } from "lucide-react";
 import { fmt, fmtDate } from "@/lib/format";
+import {
+  POST_FILTERS,
+  POST_SORTS,
+  countByPostFilter,
+  matchesPostFilter,
+  sortPosts,
+  type PostFilterKey,
+  type PostSortKey,
+  RATE_MIN_VIEWS,
+} from "@/lib/post-filters";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +59,8 @@ export const Route = createFileRoute("/_shell/posts")({
 function PostsPage() {
   const { insights, posts, allPosts, signals, recipe } = Route.useLoaderData();
   const [scope, setScope] = useState<"30d" | "all">("30d");
+  const [filter, setFilter] = useState<PostFilterKey>("all");
+  const [sort, setSort] = useState<PostSortKey>("views");
   const following = signals
     .filter((s) => s.kind === "following")
     .sort((a, b) => b.count - a.count)
@@ -56,6 +69,9 @@ function PostsPage() {
     .filter((s) => s.kind === "taste")
     .sort((a, b) => b.count - a.count)
     .slice(0, 12);
+  const pool = scope === "30d" ? posts : allPosts;
+  const counts = countByPostFilter(pool);
+  const visible = sortPosts(pool.filter((p) => matchesPostFilter(p, filter)), sort);
 
   return (
     <>
@@ -176,7 +192,11 @@ function PostsPage() {
               <h2 className="text-xl font-bold">{scope === "30d" ? "精华帖" : "历史 Top 帖"}</h2>
               <SegmentedControl
                 value={scope}
-                onChange={setScope}
+                onChange={(s) => {
+                  setScope(s);
+                  setFilter("all");
+                  setSort("views");
+                }}
                 options={[
                   { key: "30d" as const, label: "近 30 天" },
                   { key: "all" as const, label: "全站历史" },
@@ -185,10 +205,38 @@ function PostsPage() {
                 ariaLabel="精华帖时间范围"
               />
             </div>
+            {/* 形态筛选 + 排序：客户端过滤（池子 50 帖），0 命中的形态不展示 chip */}
+            {pool.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {POST_FILTERS.map((f) => {
+                  const n = counts[f.key];
+                  if (f.key !== "all" && n === 0) return null;
+                  const active = f.key === filter;
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setFilter(f.key)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors",
+                        active ? "bg-primary text-primary-foreground" : "bg-soft-surface text-mist hover:text-ink"
+                      )}
+                    >
+                      {f.label}
+                      <b className={cn("text-xs tabular-nums", active ? "opacity-90" : "opacity-70")}>{n}</b>
+                    </button>
+                  );
+                })}
+                <span title={sort === "rate" ? `互动率仅统计浏览 ≥ ${RATE_MIN_VIEWS} 的帖子` : undefined} className="ml-auto">
+                  <SegmentedControl value={sort} onChange={setSort} options={POST_SORTS} size="sm" ariaLabel="精华帖排序" />
+                </span>
+              </div>
+            )}
             {scope === "all" && allPosts.length === 0 ? (
               <p className="mt-5 text-mist">全站历史数据还在采集中，跑满一个采集周期后自动展示。</p>
             ) : (
-              <PostList posts={scope === "30d" ? posts : allPosts} />
+              <PostList posts={visible} showRate={sort === "rate"} />
             )}
           </section>
         </Reveal>
@@ -197,8 +245,8 @@ function PostsPage() {
   );
 }
 
-function PostList({ posts }: { posts: PostItem[] }) {
-  if (posts.length === 0) return <p className="mt-5 text-mist">还没有帖子数据。</p>;
+function PostList({ posts, showRate = false }: { posts: PostItem[]; showRate?: boolean }) {
+  if (posts.length === 0) return <p className="mt-5 text-mist">这个筛选下暂无帖子，换个形态或切回全部。</p>;
   return (
     <main className="mt-5 space-y-3">
       {posts.map((p, i) => {
@@ -249,6 +297,17 @@ function PostList({ posts }: { posts: PostItem[] }) {
                     <Metric icon={<Heart className="size-3.5" />} value={p.likes} label="点赞" />
                     <Metric icon={<MessageCircle className="size-3.5" />} value={p.replies} label="评论" />
                     <Metric icon={<Repeat2 className="size-3.5" />} value={p.retweets} label="转推" />
+                    {/* 互动率排序时逐帖亮出比率，排序才可验证 */}
+                    {showRate && (() => {
+                      const r = engagementRate(p);
+                      return r == null ? null : (
+                        <span className="inline-flex items-center gap-1 font-semibold text-signal-ink" title="互动率">
+                          <Percent className="size-3.5" aria-hidden="true" />
+                          <span className="tabular-nums">{(r * 100).toFixed(1)}%</span>
+                          <span className="sr-only">互动率</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

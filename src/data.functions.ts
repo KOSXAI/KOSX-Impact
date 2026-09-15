@@ -50,10 +50,11 @@ export const fetchMemberDetail = createServerFn({ method: "GET" })
   .handler(async ({ data: id }): Promise<MemberDetail | null> => getMemberDetail(env as Env, id));
 
 export const fetchTopPosts = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PostItem[]> => getTopPosts(env as Env)
+  async (): Promise<PostItem[]> => getTopPosts(env as Env, { limit: 50 })
 );
 
-/** 全站历史 Top 帖：突破 30 天窗口的「社群最火」（posts 表保留窗口内全量数据） */
+/** 全站历史 Top 帖：突破 30 天窗口的「社群最火」（posts 表保留窗口内全量数据）。
+ *  拉深到 50 帖：精华帖列表的形态筛选/互动率排序在客户端做，池子浅了筛不出东西。 */
 export const fetchTopPostsAll = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PostItem[]> => getTopPosts(env as Env, { days: 3650, limit: 20 })
+  async (): Promise<PostItem[]> => getTopPosts(env as Env, { days: 3650, limit: 50 })
 );

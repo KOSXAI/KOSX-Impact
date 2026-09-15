@@ -45,8 +45,8 @@ export const CACHE_KEYS = {
   ogSite: "/og/site.png?v=1",
   /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v21：帖子上榜富媒体（media/quoted/tweet_type） */
   memberDetail: (id: string) => `/api/members/${id}?v=21`,
-  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v5：互动兜底口径补齐 quote/bookmark */
-  topPosts: "/api/top-posts?v=5",
+  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v6：拉深到 50 帖（形态筛选/互动率排序的客户端池子） */
+  topPosts: "/api/top-posts?v=6",
   /** sitemap.xml（SSR 之外的 Worker 直出，键只作 Cache API 存储用） */
   sitemap: "/sitemap.xml?v=2",
   /** 以下为无独立 API 端点的查询层键（/q/ 前缀仅作缓存键，不构成可请求路径） */
