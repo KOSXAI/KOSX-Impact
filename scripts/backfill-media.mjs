@@ -9,7 +9,7 @@ import { readSocialDataKey, createThrottledGet, lit, jsonOrNull, extractMedia, e
 
 const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
-const throttledFetch = createThrottledGet(apiKey, 800);
+const throttledFetch = createThrottledGet(apiKey);
 
 const deep = process.argv.includes("--deep");
 // 30 天窗口起点：翻页翻到这个时间之前就停（再多对配方无用）

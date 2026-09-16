@@ -4,7 +4,7 @@
 // 记为 error 而非「不存在」——限流抖动不该把账号误判成已注销。
 // 用法：node scripts/verify-similar.mjs <candidates.json> [--out /tmp/similar-verified.json]
 import { readFileSync, writeFileSync } from "node:fs";
-import { readSocialDataKey, API_BASE } from "./_lib.mjs";
+import { readSocialDataKey, API_BASE, reserveSharedSlot } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const inPath = argv.find((a) => !a.startsWith("--"));
@@ -21,18 +21,16 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const MIN_INTERVAL_MS = 650;
-
 const data = JSON.parse(readFileSync(inPath, "utf-8"));
 const all = data.similar.flatMap((m) => m.items.map((i) => i.handle));
 const unique = [...new Set(all)];
 console.log(`共 ${data.similar.length} 位成员，${unique.length} 个候选账号待验证`);
 
-let lastRequestAt = 0;
+// 走 _lib 的共享闸门（而不是自己维护 lastRequestAt）：本脚本只需「存在与否」，
+// 但要 404 不进退避、429/5xx 不谎报成「不存在」，所以用带 status 的裸 fetch
+// —— createThrottledGet 会重试 429/5xx 并在最终失败时抛错，语义与本脚本不符。
 async function get(path) {
-  const wait = lastRequestAt + MIN_INTERVAL_MS - Date.now();
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastRequestAt = Date.now();
+  await reserveSharedSlot();
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
   });

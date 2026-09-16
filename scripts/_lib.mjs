@@ -70,6 +70,15 @@ function reserveSlot(intervalMs) {
   return slot;
 }
 
+/**
+ * 只排队、不发请求：给需要自定义请求逻辑的脚本复用同一把闸门
+ * （例如 verify-similar 需要区分 404 与 429，不能走 createThrottledGet 的自动重试）。
+ * 同时也会被下一轮的 cache_bust、咨询锁等工具用上。
+ */
+export function reserveSharedSlot(intervalMs = SHARED_INTERVAL_MS) {
+  return reserveSlot(intervalMs);
+}
+
 /** 队列当前是否有被共享限流拖慢的迹象（供脚本打印诊断） */
 export const sharedThrottleState = () => ({ lastDispatchAt, intervalMs: SHARED_INTERVAL_MS });
 

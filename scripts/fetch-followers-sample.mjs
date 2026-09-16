@@ -23,8 +23,6 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const MIN_INTERVAL_MS = 650;
-
 let members = [];
 if (wantHandles.length) {
   // 用 d1Query（execFileSync 传参数数组）：handle 来自 argv，拼 shell 字符串时
@@ -40,10 +38,10 @@ if (wantHandles.length) {
 // 复用库内 user_id（每日采集已持久化）：缺值的跳过，下次采集补上后重跑，不再调 profile 拿 ID
 const ready = members.filter((m) => m.userId);
 const skipped = members.filter((m) => !m.userId).map((m) => m.handle);
-console.log(`待采样 ${ready.length} 位（${members.length - ready.length} 位缺 user_id 跳过），目标 ${SAMPLE_SIZE} 粉丝/账号，节流 ${MIN_INTERVAL_MS}ms`);
+console.log(`待采样 ${ready.length} 位（${members.length - ready.length} 位缺 user_id 跳过），目标 ${SAMPLE_SIZE} 粉丝/账号，节流走全脚本共享闸门`);
 if (skipped.length) console.log("缺 user_id 跳过:", skipped.join(", "), "（下次采集自动补齐后重跑）");
 
-const get = createThrottledGet(apiKey, MIN_INTERVAL_MS);
+const get = createThrottledGet(apiKey);
 
 /** 拉某成员粉丝样本：直接用库内 userId（每日采集已持久化），翻页直到 SAMPLE_SIZE */
 async function sampleFollowers(userId) {

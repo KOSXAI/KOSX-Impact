@@ -15,9 +15,12 @@ const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
 
 const TOP_SAMPLE = 8; // following 采样头部 N 位成员，控成本
-const throttledFetch = createThrottledGet(apiKey, 500);
+const throttledFetch = createThrottledGet(apiKey);
 const now = new Date().toISOString();
 const sql = [];
+// 先清空两种 kind 的旧行再写：只 insert 会让掉出本轮结果的 handle 长期留旧值，
+// 前端展示的「共同关注 / 社群品味」会与最新一轮计算不一致（Worker 侧同款修复）
+sql.push("DELETE FROM community_signal_counts WHERE kind IN ('following', 'taste');");
 
 // ---- following：共同关注 ----
 if (!existsSync("/tmp/member-followers.json")) {
@@ -29,9 +32,13 @@ for (const layer of Array.isArray(rawDump) ? rawDump : [rawDump]) {
   if (Array.isArray(layer)) memberRows.push(...layer);
   else if (Array.isArray(layer.results)) memberRows.push(...layer.results);
 }
-const members = memberRows
+const allMembers = memberRows
   .map((r) => ({ id: r.id, handle: r.handle, user_id: r.user_id, followers: r.f ?? 0 }))
-  .filter((m) => m.user_id)
+  .filter((m) => m.user_id);
+// 采样集（头部 N 位）只用于 following 抓取；taste 的成员排除集必须用 allMembers，
+// 否则采样之外成员之间的内部互提会被当成「外部品味」（Worker 侧同款修正）
+const members = allMembers
+  .slice()
   .sort((a, b) => b.followers - a.followers)
   .slice(0, TOP_SAMPLE);
 
@@ -72,7 +79,7 @@ if (existsSync("/tmp/posts-text.json")) {
     if (Array.isArray(layer)) arr.push(...layer);
     else if (Array.isArray(layer.results)) arr.push(...layer.results);
   }
-  const memberHandles = new Set(members.map((m) => m.handle.toLowerCase()));
+  const memberHandles = new Set(allMembers.map((m) => m.handle.toLowerCase()));
   const tasteCount = new Map(); // handle -> count
   for (const r of arr) {
     if (!r.text) continue;

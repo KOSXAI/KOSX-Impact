@@ -14,9 +14,15 @@ const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
 
 const maxPagesArg = process.argv.find((a) => a.startsWith("--pages="));
-const MAX_PAGES = maxPagesArg ? Number(maxPagesArg.split("=")[1]) : 60;
+// 校验取值：`--pages=abc` 会得到 NaN，而 `pages >= NaN` 恒为 false——
+// 翻页就只剩「游标耗尽」一条出路，整个关注列表（上千页）会在一次运行里全部计费
+const parsedMaxPages = maxPagesArg ? Number(maxPagesArg.split("=")[1]) : NaN;
+const MAX_PAGES = Number.isInteger(parsedMaxPages) && parsedMaxPages > 0 ? parsedMaxPages : 60;
+if (maxPagesArg && MAX_PAGES !== parsedMaxPages) {
+  console.warn(`--pages 取值无效（${maxPagesArg}），回退到 ${MAX_PAGES} 页`);
+}
 
-const throttledFetch = createThrottledGet(apiKey, 800);
+const throttledFetch = createThrottledGet(apiKey);
 const now = new Date().toISOString();
 const sql = [];
 const failures = [];

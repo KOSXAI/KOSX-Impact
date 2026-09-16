@@ -42,7 +42,7 @@ console.log(
   `搜索 ${keywords.length} 个关键词${prevSince != null ? `，增量起点 ${new Date(since * 1000).toISOString()}` : `，首次运行回退 ${DAYS} 天窗口`}`
 );
 
-const get = createThrottledGet(apiKey, 650);
+const get = createThrottledGet(apiKey);
 
 const out = [];
 const failed = [];

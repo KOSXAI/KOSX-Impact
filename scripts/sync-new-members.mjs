@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ProxyAgent } from "undici";
-import { readSocialDataKey, acquireScriptLock, d1Query } from "./_lib.mjs";
+import { readSocialDataKey, acquireScriptLock, d1Query, reserveSharedSlot } from "./_lib.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const rosterDoc = JSON.parse(readFileSync(resolve(root, "data/members.json"), "utf-8"));
@@ -45,7 +45,10 @@ let failed = 0;
 
 for (let i = 0; i < pending.length; i++) {
   const m = pending[i];
-  if (i > 0) await new Promise((r) => setTimeout(r, 21_000)); // 免费额度每分钟 3 次
+  // 免费额度每分钟 3 次（21s 间隔）比共享闸门（850ms）慢得多，21s 才是这里的实际速率；
+  // 但仍先过一遍闸门，保证与别的脚本/Worker 撞车时不会插队
+  if (i > 0) await new Promise((r) => setTimeout(r, 21_000));
+  await reserveSharedSlot();
   const res = await fetch(`https://api.socialdata.tools/twitter/user/${encodeURIComponent(m.handle)}`, {
     headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
     dispatcher,

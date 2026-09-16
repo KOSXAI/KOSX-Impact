@@ -19,7 +19,7 @@ for (const layer of Array.isArray(raw) ? raw : [raw]) {
 }
 members = members.filter((m) => m.user_id);
 
-const throttledFetch = createThrottledGet(apiKey, 600);
+const throttledFetch = createThrottledGet(apiKey);
 
 const now = new Date().toISOString();
 const sql = [];
@@ -32,6 +32,8 @@ for (const m of members) {
   try {
     const page = await throttledFetch(`/twitter/user/${m.user_id}/similar`);
     const users = Array.isArray(page.users) ? page.users.slice(0, 5) : [];
+    // 先删该成员旧推荐再写新集合：只 insert 的话，已消失/改名的相似账号会永久留在列表里
+    sql.push(`DELETE FROM similar_accounts WHERE member_id = ${lit(m.id)};`);
     for (const u of users) {
       const h = u.screen_name || u.handle;
       if (!h) continue;
