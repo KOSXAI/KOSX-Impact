@@ -9,3 +9,4 @@ routeTree.gen.ts
 
 # ZCode 工作区工具产物
 .zcode/
+.impeccable/
