@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/member/Avatar";
 import { VIEW_PRESETS, type LibrarySearch, type ViewKey, type MetricCtx, type MetricValue } from "@/components/library/presets";
@@ -116,27 +116,40 @@ function PostRow({ p }: { p: PostItem }) {
 export function WindowGrid({ stats }: { stats: DashboardStats }) {
   // 七个成员视图啪入一个窗格，tab 切换（同口径现算：复用 VIEW_PRESETS 的过滤/排序/主指标）
   const [activeView, setActiveView] = useState<ViewKey>("total");
-  const memberViews = VIEW_ORDER.filter((k) => k !== "track" && k !== "climbs").map((k) => {
-    const preset = VIEW_PRESETS[k];
-    const rows = [...stats.members]
-      .filter((m) => (preset.filter ? preset.filter(m) : true))
-      .sort(preset.sort ? (a, b) => preset.sort!(a, b, LIB_CTX) : () => 0)
-      .slice(0, 5);
-    return { key: k, preset, rows };
-  });
+  // 七个视图各含一次全量 filter+sort+slice：组件自带 tab state，
+  // 不 memo 的话每点一次 tab 就把七组排序全部重跑一遍
+  const memberViews = useMemo(
+    () =>
+      VIEW_ORDER.filter((k) => k !== "track" && k !== "climbs").map((k) => {
+        const preset = VIEW_PRESETS[k];
+        const rows = [...stats.members]
+          .filter((m) => (preset.filter ? preset.filter(m) : true))
+          .sort(preset.sort ? (a, b) => preset.sort!(a, b, LIB_CTX) : () => 0)
+          .slice(0, 5);
+        return { key: k, preset, rows };
+      }),
+    [stats.members]
+  );
   const active = memberViews.find((v) => v.key === activeView) ?? memberViews[0];
 
   // 赛道分组窗格：按粉丝规模降序的赛道 chips
-  const trackChips = stats.trackStats
-    .filter((t) => t.memberCount > 0 && t.name !== "综合")
-    .sort((a, b) => b.totalFollowers - a.totalFollowers);
+  const trackChips = useMemo(
+    () =>
+      stats.trackStats
+        .filter((t) => t.memberCount > 0 && t.name !== "综合")
+        .sort((a, b) => b.totalFollowers - a.totalFollowers),
+    [stats.trackStats]
+  );
 
   // 登阶记录窗格：最近登阶事件流（同人多篇合并）
-  const climbGroups = groupClimbs(stats.recentMilestones).slice(0, 5);
-  const memberById = new Map(stats.members.map((m) => [m.id, m]));
+  const climbGroups = useMemo(() => groupClimbs(stats.recentMilestones).slice(0, 5), [stats.recentMilestones]);
+  const memberById = useMemo(() => new Map(stats.members.map((m) => [m.id, m])), [stats.members]);
 
   // 内容热点窗格：今日爆帖优先（正在发生），无增量数据回退累计浏览
-  const hotPosts = (stats.trendingPosts?.length ? stats.trendingPosts : stats.topPosts).slice(0, 5);
+  const hotPosts = useMemo(
+    () => (stats.trendingPosts?.length ? stats.trendingPosts : stats.topPosts).slice(0, 5),
+    [stats.trendingPosts, stats.topPosts]
+  );
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

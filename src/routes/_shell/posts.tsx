@@ -6,8 +6,9 @@ import { engagementRate } from "@/insights";
 import { Avatar } from "@/components/member/Avatar";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 import { PostBody } from "@/components/content/PostText";
-import { Reveal } from "@/components/motion";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Metric } from "@/components/ui/Metric";
 import { PODIUM } from "@/components/leaderboard/podium";
 import { ExternalLink, Eye, Heart, MessageCircle, Percent, Repeat2, Users, TrendingUp } from "lucide-react";
@@ -27,15 +28,16 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_shell/posts")({
   loader: async () => {
-    // insights 用独立轻量缓存（爆款/停更/标签云），不连带拉整份 dashboard
-    const [insights, posts, allPosts, signals, recipe] = await Promise.all([
+    // insights 用独立轻量缓存（爆款/停更/标签云），不连带拉整份 dashboard。
+    // 全站历史帖池不在这里预取：它默认不展示（scope 默认 30d），
+    // 却带着 media/quoted JSON 大字段一起进 SSR payload——改由切到「全站历史」时按需取。
+    const [insights, posts, signals, recipe] = await Promise.all([
       fetchInsights(),
       fetchTopPosts(),
-      fetchTopPostsAll(),
       fetchCommunitySignals(),
       fetchContentRecipe(),
     ]);
-    return { insights, posts, allPosts, signals, recipe };
+    return { insights, posts, signals, recipe };
   },
   head: () => ({
     meta: [
@@ -57,10 +59,27 @@ export const Route = createFileRoute("/_shell/posts")({
 /** 帖子行内指标：图标 + 数值（共享 Metric 组件，读屏可念出指标名） */
 
 function PostsPage() {
-  const { insights, posts, allPosts, signals, recipe } = Route.useLoaderData();
+  const { insights, posts, signals, recipe } = Route.useLoaderData();
   const [scope, setScope] = useState<"30d" | "all">("30d");
   const [filter, setFilter] = useState<PostFilterKey>("all");
   const [sort, setSort] = useState<PostSortKey>("views");
+  // 全站历史池按需加载：初次切到「全站历史」时才请求（走服务端缓存查询层），拿到前显示骨架
+  const [allPosts, setAllPosts] = useState<PostItem[] | null>(null);
+  const [loadingAll, setLoadingAll] = useState(false);
+
+  const openAllTime = async () => {
+    setScope("all");
+    setFilter("all");
+    setSort("views");
+    if (allPosts || loadingAll) return;
+    setLoadingAll(true);
+    try {
+      setAllPosts(await fetchTopPostsAll());
+    } finally {
+      setLoadingAll(false);
+    }
+  };
+
   const following = signals
     .filter((s) => s.kind === "following")
     .sort((a, b) => b.count - a.count)
@@ -69,7 +88,7 @@ function PostsPage() {
     .filter((s) => s.kind === "taste")
     .sort((a, b) => b.count - a.count)
     .slice(0, 12);
-  const pool = scope === "30d" ? posts : allPosts;
+  const pool = scope === "30d" ? posts : (allPosts ?? []);
   const counts = countByPostFilter(pool);
   const visible = sortPosts(pool.filter((p) => matchesPostFilter(p, filter)), sort);
 
@@ -193,9 +212,13 @@ function PostsPage() {
               <SegmentedControl
                 value={scope}
                 onChange={(s) => {
-                  setScope(s);
-                  setFilter("all");
-                  setSort("views");
+                  if (s === "all") {
+                    void openAllTime();
+                  } else {
+                    setScope(s);
+                    setFilter("all");
+                    setSort("views");
+                  }
                 }}
                 options={[
                   { key: "30d" as const, label: "近 30 天" },
@@ -233,7 +256,13 @@ function PostsPage() {
                 </span>
               </div>
             )}
-            {scope === "all" && allPosts.length === 0 ? (
+            {scope === "all" && loadingAll ? (
+              <div className="mt-5 space-y-3" aria-busy="true" aria-label="全站历史帖加载中">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+                ))}
+              </div>
+            ) : scope === "all" && (allPosts?.length ?? 0) === 0 ? (
               <p className="mt-5 text-mist">全站历史数据还在采集中，跑满一个采集周期后自动展示。</p>
             ) : (
               <PostList posts={visible} showRate={sort === "rate"} />
@@ -249,17 +278,21 @@ function PostList({ posts, showRate = false }: { posts: PostItem[]; showRate?: b
   if (posts.length === 0) return <p className="mt-5 text-mist">这个筛选下暂无帖子，换个形态或切回全部。</p>;
   return (
     <main className="mt-5 space-y-3">
-      {posts.map((p, i) => {
-        const name = p.member?.displayName ?? p.member?.handle ?? "?";
-        const podium = PODIUM[i];
-        return (
-          <Reveal key={p.tweetId} delay={Math.min(i * 0.04, 0.3)} y={14}>
-            <article
-              className={cn(
-                "p-4 sm:p-5",
-                podium ? `card-lift rounded-2xl bg-surface ${podium.ring}` : "panel-card"
-              )}
-            >
+      {/* 错峰入场用 RevealGroup/RevealItem：逐个 <Reveal> 会让每行各建一个
+          matchMedia 监听与 IntersectionObserver（50 行 = 100 个 effect + 50 次
+          挂载后重渲染）；RevealItem 不涉及那套 hook，只吃父级 variants */}
+      <RevealGroup stagger={0.04}>
+        {posts.map((p, i) => {
+          const name = p.member?.displayName ?? p.member?.handle ?? "?";
+          const podium = PODIUM[i];
+          return (
+            <RevealItem key={p.tweetId} y={14}>
+              <article
+                className={cn(
+                  "p-4 sm:p-5",
+                  podium ? `card-lift rounded-2xl bg-surface ${podium.ring}` : "panel-card"
+                )}
+              >
               <div className="flex items-start gap-3">
                 <div
                   className={cn(
@@ -309,12 +342,13 @@ function PostList({ posts, showRate = false }: { posts: PostItem[]; showRate?: b
                       );
                     })()}
                   </div>
+                  </div>
                 </div>
-              </div>
-            </article>
-          </Reveal>
-        );
-      })}
+              </article>
+            </RevealItem>
+          );
+        })}
+      </RevealGroup>
     </main>
   );
 }

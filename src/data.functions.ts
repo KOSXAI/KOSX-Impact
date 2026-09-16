@@ -5,11 +5,23 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { env } from "cloudflare:workers";
-import { getDashboardStats, getMemberDetail, getTopPosts, getFanOverview, getTopEngagementMembers, getAnnualReport, getCommunitySignals, getDailyArchive, getInviteLeaders, getContentRecipe, getInsights, getMemberPicker } from "./queries";
+import { getDashboardStats, getDashboardSummary, getMemberDetail, getTopPosts, getFanOverview, getTopEngagementMembers, getAnnualReport, getCommunitySignals, getDailyArchive, getInviteLeaders, getContentRecipe, getInsights, getMemberPicker } from "./queries";
 import type { DashboardStats, MemberDetail, PostItem } from "./stats";
 
 export const fetchDashboard = createServerFn({ method: "GET" }).handler(
-  async (): Promise<DashboardStats> => getDashboardStats(env as Env)
+  async (): Promise<DashboardStats> => {
+    const stats = await getDashboardStats(env as Env);
+    // 注水数据瘦身：以下三个字段没有任何组件消费（品牌声量整线下架后遗留），
+    // 却会随 SSR payload 发到全部 dashboard 消费路由的客户端。此处剥掉，
+    // /api/dashboard 的对外契约保持不变。
+    const { mentions: _mentions, mentionsTrend: _mentionsTrend, mutualEdges: _mutualEdges, ...ui } = stats;
+    return ui as DashboardStats;
+  }
+);
+
+/** 报告板块门牌数（/reports 页用：今日登阶 / 成员数 / 累计粉丝），不连带拉整份 dashboard */
+export const fetchDashboardSummary = createServerFn({ method: "GET" }).handler(
+  async () => getDashboardSummary(env as Env)
 );
 
 /** 内容洞察轻量包（/posts 页用：爆款/停更/标签云），不连带拉整份 dashboard */

@@ -4,7 +4,7 @@
  * 以图内上沿虚线标注替代，避免曲线被压平。
  */
 import { useMemo } from "react";
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { fmt, badge } from "@/lib/format";
@@ -49,7 +49,6 @@ export default function RechartsGrowthChart({
 
   return (
     <ChartContainer config={chartConfig} className="h-full w-full">
-      <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 16, right: 16, bottom: 4, left: 8 }}>
           <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" strokeOpacity={0.4} />
           <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
@@ -81,7 +80,6 @@ export default function RechartsGrowthChart({
             style={{ filter: "drop-shadow(0 2px 6px rgba(255, 106, 0, 0.45))" }}
           />
         </LineChart>
-      </ResponsiveContainer>
     </ChartContainer>
   );
 }

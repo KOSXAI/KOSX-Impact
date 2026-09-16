@@ -16,11 +16,13 @@ const deep = process.argv.includes("--deep");
 const windowStart = Date.now() - 30 * 86_400_000;
 const MAX_PAGES = deep ? 10 : 1;
 
-// 待回填成员：--deep 时只挑仍有未补齐帖子的（全量重扫没必要，翻页很贵）
+// 待回填成员：只挑仍有未补齐帖子的（全量重扫没必要，翻页很贵）。
+// 日常采集已写入 media/tweet_type/quoted，无缺口时这个列表就该是空的——
+// 旧版默认模式对任何有帖成员都拉一页，等于每次重跑都为已有数据付费。
 const members = d1Query(
   deep
     ? `SELECT m.id, m.user_id AS userId FROM members m WHERE m.status = 'active' AND m.user_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.member_id = m.id AND p.created_at >= '${new Date(windowStart).toISOString()}' AND p.tweet_type IS NULL)`
-    : `SELECT m.id, m.user_id AS userId FROM members m WHERE m.status = 'active' AND m.user_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.member_id = m.id)`
+    : `SELECT m.id, m.user_id AS userId FROM members m WHERE m.status = 'active' AND m.user_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.member_id = m.id AND p.tweet_type IS NULL)`
 );
 console.log(`待回填成员：${members.length} 位${deep ? "（深度模式：翻页覆盖近 30 天）" : ""}`);
 
@@ -47,8 +49,11 @@ for (const m of members) {
         const quoted = extractQuoted(t);
         if (media) mediaPosts++;
         if (quoted) quotedPosts++;
+        // COALESCE：响应缺字段（降级返回）时不把已采到的好值覆盖成 NULL
         sql.push(
-          `UPDATE posts SET media = ${jsonOrNull(media)}, tweet_type = ${lit(t.type)}, quoted = ${jsonOrNull(quoted)}
+          `UPDATE posts SET media = COALESCE(${jsonOrNull(media)}, media),
+                            tweet_type = COALESCE(${lit(t.type)}, tweet_type),
+                            quoted = COALESCE(${jsonOrNull(quoted)}, quoted)
            WHERE tweet_id = ${lit(t.id_str)};`
         );
         // 置顶帖排在首页最前但日期很旧，不能计入「本页最老」——否则翻页会提前中止
@@ -72,3 +77,8 @@ sql.push(BUMP_CACHE_BUST_SQL);
 writeFileSync("/tmp/media.sql", sql.join("\n") + "\n");
 console.log(`\n请求 ${pages} 页，扫描 ${scanned} 帖：带媒体 ${mediaPosts}、引用帖 ${quotedPosts}，失败成员 ${failed}`);
 console.log(`执行：wrangler d1 execute kosx-impact --remote --file=/tmp/media.sql`);
+// 有失败成员即非零退出：README 承诺「失败项非零码退出，&& 链不会灌半截数据」
+if (failed > 0) {
+  console.error(`\n${failed} 位成员拉取失败，产物不完整——确认后重跑补齐再执行 SQL`);
+  process.exitCode = 1;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MILESTONES, TITLE_FILL } from "@/milestones";
 import type { MemberStats } from "@/stats";
 import { cn } from "@/lib/utils";
@@ -8,17 +8,28 @@ import { cn } from "@/lib/utils";
  * 悬浮/点按出气泡（人数 + 占比），点按可固定、再点取消，触屏可用。
  */
 export function TitleDistribution({ members }: { members: MemberStats[] }) {
-  const novices = members.filter((m) => m.prevMilestone === 0).length;
-  const census = [...MILESTONES]
-    .reverse()
-    .map(({ threshold, title }) => ({
-      key: threshold,
-      name: title,
-      count: members.filter((m) => m.prevMilestone === threshold).length,
-      fill: TITLE_FILL[threshold] ?? "#fbbf24",
-    }))
-    .filter((t) => t.count > 0);
-  if (novices > 0) census.push({ key: 0, name: "新人村", count: novices, fill: TITLE_FILL[0] ?? "#94a3b8" });
+  // 单趟直方图：此前对 22 个称号档各做一次全量 filter（22×N），
+  // 且组件自带 hover state —— 每次鼠标移动都会把这 22 次扫描重跑一遍
+  const counts = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const m of members) map.set(m.prevMilestone, (map.get(m.prevMilestone) ?? 0) + 1);
+    return map;
+  }, [members]);
+
+  const census = useMemo(() => {
+    const rows = [...MILESTONES]
+      .reverse()
+      .map(({ threshold, title }) => ({
+        key: threshold,
+        name: title,
+        count: counts.get(threshold) ?? 0,
+        fill: TITLE_FILL[threshold] ?? "#fbbf24",
+      }))
+      .filter((t) => t.count > 0);
+    const novices = counts.get(0) ?? 0;
+    if (novices > 0) rows.push({ key: 0, name: "新人村", count: novices, fill: TITLE_FILL[0] ?? "#94a3b8" });
+    return rows;
+  }, [counts]);
 
   const [hovered, setHovered] = useState<number | null>(null);
   const [pinned, setPinned] = useState<number | null>(null);

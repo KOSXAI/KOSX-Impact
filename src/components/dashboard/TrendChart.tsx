@@ -5,9 +5,9 @@
  */
 import { Suspense, lazy, useState } from "react";
 import { ClientOnly } from "@tanstack/react-router";
-import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import type { TrendPoint } from "@/stats";
 
 export type TrendMode = "total" | "daily";
@@ -15,7 +15,7 @@ export type TrendMode = "total" | "daily";
 // 拆出独立 chunk：只在浏览器水合后加载，不进路由主包
 const RechartsTrendChart = lazy(() => import("./RechartsTrendChart"));
 
-const MODES: Array<{ key: TrendMode; label: string }> = [
+const MODES: ReadonlyArray<{ key: TrendMode; label: string }> = [
   { key: "total", label: "总量" },
   { key: "daily", label: "日增" },
 ];
@@ -28,31 +28,8 @@ export function TrendChart({ data, className }: { data: TrendPoint[]; className?
   return (
     <div className={className}>
       <div className="mb-3 flex justify-end">
-        <div className="inline-flex items-center rounded-full bg-soft-surface p-0.5" role="group" aria-label="趋势口径">
-          {MODES.map((m) => {
-            const isActive = mode === m.key;
-            return (
-              <button
-                key={m.key}
-                onClick={() => setMode(m.key)}
-                aria-pressed={isActive}
-                className={cn(
-                  "relative h-7 rounded-full px-3 text-xs font-semibold transition-colors duration-200 select-none cursor-pointer",
-                  isActive ? "text-primary-foreground" : "text-mist hover:text-ink"
-                )}
-              >
-                {isActive && (
-                  <motion.span
-                    layoutId="trendModeActive"
-                    className="absolute inset-0 rounded-full bg-primary shadow-sm"
-                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <span className="relative z-10">{m.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* 用全站统一的 SegmentedControl：此前这里自制滑动 thumb 引 motion（首页在关键路径上） */}
+        <SegmentedControl value={mode} onChange={setMode} options={MODES} size="sm" ariaLabel="趋势口径" />
       </div>
       {/* 移动端加高（2:1），桌面恢复宽扁（4:1）：窄屏下曲线才有可读的纵向空间 */}
       <div className={cn("aspect-[2/1] sm:aspect-[4/1]")}>

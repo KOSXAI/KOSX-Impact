@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchDashboard } from "@/data.functions";
+import { fetchDashboardSummary } from "@/data.functions";
 import { Reveal } from "@/components/motion";
 import { fmt } from "@/lib/format";
 import { CalendarRange, Newspaper, Zap } from "lucide-react";
@@ -10,7 +10,7 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
  * 报告是传播实体（恒定 URL 可转发），给一级导航入口。
  */
 export const Route = createFileRoute("/_shell/_reports/reports/")({
-  loader: () => fetchDashboard(),
+  loader: () => fetchDashboardSummary(),
   head: () => ({
     meta: [
       { title: `报告 · ${SITE_NAME}` },
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_shell/_reports/reports/")({
 function ReportsPage() {
   const stats = Route.useLoaderData();
   const today = new Date().toISOString().slice(0, 10);
-  const todayClimbers = stats.recentMilestones.filter((m) => m.achievedAt.slice(0, 10) === today).length;
+  const todayClimbers = stats.todayClimbs;
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <Reveal y={18}>
@@ -63,7 +63,7 @@ function ReportsPage() {
               <span className="text-xl font-bold">社群能量报告</span>
               <span className="shrink-0 text-xs font-semibold text-mist tabular-nums">本周</span>
             </div>
-            <div className="mt-1 text-xs text-mist tabular-nums">覆盖 {stats.members.length} 位成员</div>
+            <div className="mt-1 text-xs text-mist tabular-nums">覆盖 {stats.memberCount} 位成员</div>
           </Link>
           <Link
             to="/annual"

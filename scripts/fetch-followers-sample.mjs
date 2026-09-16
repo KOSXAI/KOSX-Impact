@@ -8,9 +8,13 @@ import { readSocialDataKey, createThrottledGet } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const APPLY = argv.includes("--apply");
+// 带值的 flag 要连同它的值一起排除，否则 `--size 200` 会把 "200" 当成 handle，
+// 查询变成 handle IN ('200') → 零成员、静默跑空
+const FLAGS = new Set(["--size", "--apply", "--limit"]);
+const wantHandles = argv.filter((a, i) => !a.startsWith("--") && !FLAGS.has(argv[i - 1]));
 const sizeIdx = argv.indexOf("--size");
-const SAMPLE_SIZE = sizeIdx >= 0 ? parseInt(argv[sizeIdx + 1], 10) : 200;
-const wantHandles = argv.filter((a) => !a.startsWith("--"));
+const parsedSize = sizeIdx >= 0 ? parseInt(argv[sizeIdx + 1], 10) : 200;
+const SAMPLE_SIZE = Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : 200;
 
 const apiKey = readSocialDataKey();
 if (!apiKey) {

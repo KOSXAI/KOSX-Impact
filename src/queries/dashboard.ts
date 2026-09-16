@@ -8,7 +8,7 @@ import { computeInfluence } from "../influence";
 import { computeMemberInsights, detectViral } from "../insights";
 import { TRACKS, TRACK_OTHER } from "../tracks";
 import { roster } from "../roster";
-import { CACHE_KEYS, cachedResponse, readCacheBust } from "../cache";
+import { CACHE_KEYS, cachedQuery, cachedResponse, readCacheBust } from "../cache";
 import { SITE_URL } from "../lib/site";
 import {
   MEMBER_FIELDS,
@@ -18,6 +18,7 @@ import {
   POST_VALUE_FALLBACK_SQL,
   TOP_POST_DISPLAY_FIELDS,
   TOP_POST_FIELDS,
+  LATEST_FOLLOWERS_SQL,
   parseStrArray,
   postEngagementValue,
   type MemberRow,
@@ -53,9 +54,11 @@ export async function getTopPosts(
       const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
       // views 缺失时用五项互动合计估算排序（postEngagementValue 同口径，避免高互动帖被筛掉）；
       // 各互动项自身也要 COALESCE——SQLite 里 NULL 参与加法会把整个兜底值毒化成 NULL
+      // INDEXED BY：排序键是表达式，不强制时规划器会挑 member_id 索引扫完整个窗口再排序
+      // （按表行数付费）；表达式索引（0023）按序扫描，取满 LIMIT 即停
       const { results: rows } = await env.DB.prepare(
         `SELECT ${TOP_POST_DISPLAY_FIELDS}
-         FROM posts p
+         FROM posts p INDEXED BY idx_posts_value
          JOIN members m ON m.id = p.member_id
          WHERE m.status = 'active' AND p.created_at >= ?1
          ORDER BY ${POST_VALUE_FALLBACK_SQL
@@ -143,6 +146,28 @@ export async function getInsights(env: Env): Promise<DashboardStats["insights"]>
   return (await res.json()) as DashboardStats["insights"];
 }
 
+/** 报告板块门牌数（轻量）：/reports 三张卡只要今日登阶数 / 成员数 / 累计粉丝，
+ *  此前为这三数拉整份 dashboard（含互推图谱、粉丝画像、30 天帖子窗口全部重查询）。 */
+export async function getDashboardSummary(
+  env: Env
+): Promise<{ todayClimbs: number; memberCount: number; totalFollowers: number }> {
+  return cachedQuery(env, CACHE_KEYS.dashboardSummary, 3600, async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const { results: memberRows } = await env.DB.prepare(
+      `SELECT ${LATEST_FOLLOWERS_SQL} AS followers FROM members m WHERE m.status = 'active'`
+    ).all<{ followers: number | null }>();
+    const milestones = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM milestones ms INDEXED BY idx_milestones_day JOIN members m ON m.id = ms.member_id
+       WHERE substr(ms.achieved_at, 1, 10) = ?1 AND m.status = 'active'`
+    ).bind(today).first<{ n: number }>();
+    return {
+      todayClimbs: milestones?.n ?? 0,
+      memberCount: memberRows.length,
+      totalFollowers: memberRows.reduce((s, r) => s + (r.followers ?? 0), 0),
+    };
+  });
+}
+
 /** 对比页选人列表（轻量）：id/handle/展示头像/最新粉丝/赛道，替代拉整份 dashboard */
 export async function getMemberPicker(
   env: Env
@@ -204,9 +229,11 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     ).all<MilestoneJoinRow>();
 
     // 全社群单帖浏览 Top 8（posts 表 + members 联查，带成员展示信息）
+    // INDEXED BY：views_count 索引（0011）按序扫描，取满 8 行即停；不强制时规划器会
+    // 逐成员扫描全部帖子再排序（按 posts 全表行数付费）
     const { results: topPostRows } = await env.DB.prepare(
       `SELECT ${TOP_POST_FIELDS}
-       FROM posts p
+       FROM posts p INDEXED BY idx_posts_views
        JOIN members m ON m.id = p.member_id
        WHERE m.status = 'active' AND p.views_count IS NOT NULL
        ORDER BY p.views_count DESC LIMIT 8`
@@ -242,8 +269,10 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     const mentionCounts = new Map<string, number>();
     {
       const cutoffMention = new Date(Date.now() - 30 * 86_400_000).toISOString();
+      // INDEXED BY：按时间列做范围过滤，走 (mentioned_at, member_id) 索引（0023）；
+      // 不强制时规划器会整扫 (member_id, mentioned_at) 索引（范围落在第二列用不上）
       const { results: mmRows } = await env.DB.prepare(
-        `SELECT member_id AS memberId, COUNT(*) AS n FROM member_mentions
+        `SELECT member_id AS memberId, COUNT(*) AS n FROM member_mentions INDEXED BY idx_member_mentions_mentioned
          WHERE mentioned_at >= ?1 GROUP BY member_id`
       ).bind(cutoffMention).all<{ memberId: string; n: number }>();
       for (const r of mmRows) {
@@ -491,10 +520,10 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
         "SELECT follower_user_id, followed_user_id FROM follows"
       ).all<FollowEdgeRow>();
       const edges = followRows;
+      // 活跃成员数字 ID 复用上面已取到的 memberList（user_id 已并入 MEMBER_FIELDS），
+      // 不再为这一步单独全表扫一次 members
       const activeUserIds = new Set(
-        (
-          await env.DB.prepare("SELECT user_id FROM members WHERE status = 'active' AND user_id IS NOT NULL").all<{ user_id: string }>()
-        ).results.map((r) => String(r.user_id))
+        memberList.map((m) => m.userId).filter((id): id is string => id != null).map(String)
       );
       const edgeSet = new Set<string>();
       for (const r of edges) {

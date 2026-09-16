@@ -5,7 +5,8 @@
 import type { PostItem, PostMediaItem } from "../stats";
 
 // 含档案慢变量（bio/banner/verified）：看板 members payload 直接携带，成员广场迷你名片卡零额外查询
-export const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage, tracks, tags, verified, bio, banner_url AS bannerUrl`;
+// user_id 一并取出：互推图谱按数字 ID 判定两端是否活跃成员，取值复用同一次成员扫描
+export const MEMBER_FIELDS = `id, handle, display_name AS displayName, joined_at AS joinedAt, profile_image AS profileImage, tracks, tags, verified, bio, banner_url AS bannerUrl, user_id AS userId`;
 export const POST_FIELDS = `tweet_id AS tweetId, created_at AS createdAt, text,
   views_count AS views, views_prev AS viewsPrev, recorded_at AS postRecordedAt,
   like_count AS likes, reply_count AS replies,
@@ -44,6 +45,7 @@ export type MemberRow = {
   verified: number | null;
   bio: string | null;
   bannerUrl: string | null;
+  userId: string | null;
 };
 export type SnapshotRow = { memberId: string; followers: number; recordedAt: string; listedCount?: number | null };
 export type PostRow = {

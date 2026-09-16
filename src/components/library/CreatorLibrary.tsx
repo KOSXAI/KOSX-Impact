@@ -285,8 +285,10 @@ export function CreatorLibrary({
     </div>
   );
 
-  /** 赛道分组视图：一条数据集按赛道字段分组，组内再按粉丝/增长排 */
-  const renderGrouped = () => (
+  /** 赛道分组视图：一条数据集按赛道字段分组，组内再按粉丝/增长排。
+   *  memo 化：弹窗里的标签搜索词与列表同处一个组件，不缓存的话每敲一个字符
+   *  都会把这 6 组「过滤 + 排序」全部重跑一遍 */
+  const grouped = useMemo(() => (
     <div>
       {[...TRACKS, TRACK_OTHER].map((t) => {
         const group = base.filter((m) => m.tracks.includes(t.name));
@@ -340,7 +342,7 @@ export function CreatorLibrary({
       })}
       {base.length === 0 && <p className="text-sm text-mist">{preset.empty}</p>}
     </div>
-  );
+  ), [base, trackSort, layout, stats.trackStats, preset, ctx]);
 
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-8 sm:py-10">
@@ -659,7 +661,7 @@ export function CreatorLibrary({
         ) : view === "climbs" ? (
           <ClimbsList stats={stats} />
         ) : view === "track" ? (
-          renderGrouped()
+          grouped
         ) : layout === "rows" ? (
           view === "total" ? (
             renderTotalRows()

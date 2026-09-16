@@ -5,6 +5,12 @@ import { animate } from "motion";
 import { motion } from "motion/react";
 import { Progress } from "@/components/ui/progress";
 import { fmt } from "@/lib/format";
+import { useMotionEnv, useReducedMotionPreference } from "@/components/motion-env";
+
+// 动效环境（hydration/减弱动态）在 motion-env.tsx：那里不引 motion 运行时，
+// root 只 import Provider 就不会把动画运行时拖进首屏 chunk。这里再导出一次，
+// 方便动效组件从单一入口取。
+export { MotionEnvironmentProvider } from "@/components/motion-env";
 
 /* ============ 动效 token：整个站点的风格都在这几行里调 ============ */
 
@@ -13,34 +19,6 @@ export const easeOutQuint: [number, number, number, number] = [0.22, 1, 0.36, 1]
 
 /** 带轻微过冲的 spring（横幅、弹入用） */
 export const springPop = { type: "spring" as const, stiffness: 260, damping: 18 };
-
-/* ============ SSR 安全入场：首帧渲染最终状态，hydration 后再补动画 ============ */
-
-/**
- * hydration 前渲染普通元素（SSR/首帧内容完整可见，不伤 SEO/LCP）；
- * 挂载后换回 motion 元素，从 hidden 态动画到 final。换装只发生一帧内，
- * 视觉上先看见成稿、随后补一次轻入场，而不是长时间的空白。
- */
-function useHydrated() {
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-  return hydrated;
-}
-
-/** 系统「减弱动态」偏好（SSR 安全）；为真时所有动效组件直接渲染静态内容 */
-function useReducedMotionPreference() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduced(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return reduced;
-}
 
 const entranceViewport = { once: true, margin: "0px 0px -64px 0px" } as const;
 
@@ -57,8 +35,7 @@ export function Reveal({
   delay?: number;
   y?: number;
 }) {
-  const hydrated = useHydrated();
-  const reduced = useReducedMotionPreference();
+  const { hydrated, reduced } = useMotionEnv();
   if (!hydrated || reduced) return <div className={className}>{children}</div>;
   return (
     <motion.div
@@ -84,8 +61,7 @@ export function RevealGroup({
   className?: string;
   stagger?: number;
 }) {
-  const hydrated = useHydrated();
-  const reduced = useReducedMotionPreference();
+  const { hydrated, reduced } = useMotionEnv();
   if (!hydrated || reduced) return <div className={className}>{children}</div>;
   return (
     <motion.div
@@ -127,8 +103,7 @@ export function RevealItem({
 
 /** 惊喜元素弹入：spring 过冲（“刚刚达成”横幅这类） */
 export function PopIn({ children, className }: { children: ReactNode; className?: string }) {
-  const hydrated = useHydrated();
-  const reduced = useReducedMotionPreference();
+  const { hydrated, reduced } = useMotionEnv();
   if (!hydrated || reduced) return <div className={className}>{children}</div>;
   return (
     <motion.div

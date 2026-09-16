@@ -68,6 +68,9 @@ export const CACHE_KEYS = {
   annualReport: "/q/annual-report?v=1",
   /** 社群日报归档（按日期分键） */
   dailyArchive: (date: string) => `/q/daily/${date}?v=1`,
+  /** 报告板块门牌数（今日登阶 / 成员数 / 累计粉丝）——/reports 只需三个数，
+   *  不再为它们拉整份 dashboard */
+  dashboardSummary: "/q/dashboard-summary?v=1",
 } as const;
 
 export async function cachedResponse(

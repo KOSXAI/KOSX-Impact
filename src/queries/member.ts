@@ -201,7 +201,7 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     // 首采失败态：无快照且队列最近一次为 failed（OG 卡与「排队中」区分用）
     if (!snapshotRows.length) {
       const failedRow = await env.DB.prepare(
-        "SELECT 1 AS x FROM refresh_queue WHERE member_id = ?1 AND status = 'failed' LIMIT 1"
+        "SELECT 1 AS x FROM refresh_queue INDEXED BY idx_refresh_queue_member_status WHERE member_id = ?1 AND status = 'failed' LIMIT 1"
       ).bind(memberRow.id).first<{ x: number }>();
       if (failedRow) stats.collectFailed = true;
     }

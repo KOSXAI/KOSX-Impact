@@ -4,7 +4,7 @@
  * - 日增模式：相邻两日总量之差的柱状图（集体爆发一眼可见）
  */
 import { useMemo } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { fmt, badge } from "@/lib/format";
@@ -39,7 +39,6 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
   if (mode === "daily") {
     return (
       <ChartContainer config={chartConfig} className="h-full w-full">
-        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={daily.points} margin={{ top: 12, right: 16, bottom: 4, left: 8 }}>
             <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" strokeOpacity={0.4} />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
@@ -56,7 +55,6 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
             />
             <Bar dataKey="delta" fill="var(--color-delta)" radius={[4, 4, 0, 0]} maxBarSize={28} />
           </BarChart>
-        </ResponsiveContainer>
       </ChartContainer>
     );
   }
@@ -64,7 +62,6 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
   const points = data.map((d) => ({ ...d, label: d.date.slice(5) }));
   return (
     <ChartContainer config={chartConfig} className="h-full w-full">
-      <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={points} margin={{ top: 12, right: 16, bottom: 4, left: 8 }}>
           <defs>
             <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
@@ -93,7 +90,6 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
             style={{ filter: "drop-shadow(0 2px 6px rgba(255, 106, 0, 0.45))" }}
           />
         </AreaChart>
-      </ResponsiveContainer>
     </ChartContainer>
   );
 }

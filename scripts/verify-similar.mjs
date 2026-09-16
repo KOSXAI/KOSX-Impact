@@ -69,3 +69,8 @@ console.log(`\n验证完成：存在 ${unique.length - missing.length - errored.
 if (missing.length) console.log("不存在清单:", missing.join(", "));
 if (errored.length) console.log("瞬时错误清单（重跑确认）:", errored.join(", "));
 console.log(`产物: ${OUT}`);
+// 有瞬时错误即非零退出：下游按「验证通过」消费该产物时不会把未确认项当已确认
+if (errored.length > 0) {
+  console.error(`\n${errored.length} 项未确认，产物含未决结果——重跑这些 handle 后再消费`);
+  process.exitCode = 1;
+}

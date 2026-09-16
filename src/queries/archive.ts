@@ -77,7 +77,7 @@ async function buildAnnualReport(env: Env): Promise<AnnualReport> {
   const { results: climbRows } = await env.DB.prepare(
     `SELECT ms.member_id AS memberId, ms.threshold, ms.achieved_at AS achievedAt,
             m.handle, m.display_name AS displayName, m.profile_image AS profileImage
-     FROM milestones ms JOIN members m ON m.id = ms.member_id
+     FROM milestones ms INDEXED BY idx_milestones_achieved JOIN members m ON m.id = ms.member_id
      WHERE ms.achieved_at >= ?1 AND m.status = 'active' ORDER BY ms.achieved_at DESC`
   ).bind(yearStart).all<ClimbRow>();
   const ytdClimbsList = climbRows.slice(0, 10);
@@ -85,14 +85,14 @@ async function buildAnnualReport(env: Env): Promise<AnnualReport> {
 
   const { results: topPostRows } = await env.DB.prepare(
     `SELECT ${TOP_POST_FIELDS}
-     FROM posts p JOIN members m ON m.id = p.member_id
+     FROM posts p INDEXED BY idx_posts_views JOIN members m ON m.id = p.member_id
      WHERE m.status = 'active' AND p.views_count IS NOT NULL
      ORDER BY p.views_count DESC LIMIT 6`
   ).all<TopPostJoinRow>();
   const topPosts = topPostRows.map((r) => ({ ...mapPostRow(r, r.handle), member: { id: r.memberId, handle: r.handle, displayName: r.displayName, profileImage: r.profileImage } }));
 
   const { results: mentionRowsA } = await env.DB.prepare(
-    `SELECT member_id AS memberId, COUNT(*) AS n FROM member_mentions
+    `SELECT member_id AS memberId, COUNT(*) AS n FROM member_mentions INDEXED BY idx_member_mentions_mentioned
      WHERE mentioned_at >= ?1 GROUP BY member_id`
   ).bind(yearStart).all<CountRow>();
   const yearMentionCounts = new Map<string, number>();
@@ -122,18 +122,20 @@ export async function getDailyArchive(env: Env, date: string): Promise<DailyArch
 
 async function buildDailyArchive(env: Env, date: string): Promise<DailyArchiveReport> {
   const dayEnd = `${date}T23:59:59`;
+  // 每成员「该日及之前最后一条快照」：相关子查询按 (member_id, recorded_at) 逐成员 seek，
+  // 外层按 (recorded_at) 索引限定到统计日为止的窗口——两段都走索引，不整表扫描
   const { results: followerRows } = await env.DB.prepare(
-    `SELECT s.member_id AS memberId, s.followers FROM snapshots s
-     WHERE s.recorded_at <= ?1
-       AND s.recorded_at = (SELECT MAX(s2.recorded_at) FROM snapshots s2
-                            WHERE s2.member_id = s.member_id AND s2.recorded_at <= ?1)`
+    `SELECT member_id AS memberId, followers FROM snapshots INDEXED BY idx_snapshots_recorded
+     WHERE recorded_at <= ?1
+       AND recorded_at = (SELECT MAX(s2.recorded_at) FROM snapshots s2
+                          WHERE s2.member_id = snapshots.member_id AND s2.recorded_at <= ?1)`
   ).bind(dayEnd).all<DayFollowerRow>();
   const rows = followerRows;
   const totalFollowers = rows.reduce((s, r) => s + r.followers, 0);
 
   const { results: climbRows } = await env.DB.prepare(
     `SELECT ms.member_id AS memberId, ms.threshold, ms.achieved_at AS achievedAt, m.handle, m.display_name AS displayName
-     FROM milestones ms JOIN members m ON m.id = ms.member_id
+     FROM milestones ms INDEXED BY idx_milestones_day JOIN members m ON m.id = ms.member_id
      WHERE substr(ms.achieved_at, 1, 10) = ?1 AND m.status = 'active'
      ORDER BY ms.achieved_at DESC`
   ).bind(date).all<DayClimbRow>();

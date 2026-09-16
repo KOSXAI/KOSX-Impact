@@ -37,6 +37,7 @@ if (proxyUrl) console.log(`走代理 ${proxyUrl}`);
 const now = new Date().toISOString();
 const sql = [];
 let nameBackfilled = 0;
+let failed = 0;
 
 for (let i = 0; i < pending.length; i++) {
   const m = pending[i];
@@ -46,7 +47,9 @@ for (let i = 0; i < pending.length; i++) {
     dispatcher,
   });
   if (!res.ok) {
-    console.error(`✗ @${m.handle} HTTP ${res.status}（跳过，添加失败需人工确认 handle）`);
+    // 404 = handle 写错/账号已注销（必须人工确认，不能静默）；429/5xx = 稍后重跑即可
+    console.error(`✗ @${m.handle} HTTP ${res.status}（本次跳过，不写入库；${res.status === 404 ? "检查名册 handle 是否正确" : "可稍后重跑"}）`);
+    failed++;
     continue;
   }
   const data = await res.json();
@@ -59,8 +62,10 @@ for (let i = 0; i < pending.length; i++) {
   }
   // 单引号翻倍的 SQL 字面量封装（bio/location/name 来自 X 用户输入，不转义会生成坏 SQL）
   const esc = (v) => `'${String(v).replace(/'/g, "''")}'`;
-  const text = esc;
-  const nameSql = name ? esc(name) : "NULL";
+  // 缺字段必须写 SQL NULL 而不是字符串 'null'/'undefined'：否则 COALESCE(excluded.bio, bio)
+  // 这层「不覆盖已有值」的保护会失效（值已非 NULL），把好数据换成字面量 'null'
+  const text = (v) => (v == null || v === "" ? "NULL" : esc(v));
+  const nameSql = m.displayName ? esc(m.displayName) : "NULL";
   const profile = {
     bio: text(data.description),
     location: text(data.location),
@@ -69,16 +74,21 @@ for (let i = 0; i < pending.length; i++) {
     xCreatedAt: text(data.created_at),
     verified: data.verified === true ? 1 : data.verified === false ? 0 : "NULL",
   };
-  console.log(`✓ @${m.handle} -> ${followers} 粉${name ? ` · ${name}` : "（无显示名，请人工补充 displayName）"}`);
+  console.log(`✓ @${m.handle} -> ${followers} 粉${m.displayName ? ` · ${m.displayName}` : "（无显示名，请人工补充 displayName）"}`);
   sql.push(
     `INSERT INTO members (id, handle, display_name, status, joined_at, profile_image, bio, location, url, banner_url, x_created_at, verified)
      VALUES (${esc(m.id)}, ${esc(m.handle)}, ${nameSql}, 'active', ${esc(m.joinedAt)}, ${img ? `'${img}'` : "NULL"}, ${profile.bio}, ${profile.location}, ${profile.url}, ${profile.banner}, ${profile.xCreatedAt}, ${profile.verified})
-  ON CONFLICT(id) DO UPDATE SET handle = excluded.handle, display_name = excluded.display_name, profile_image = excluded.profile_image,
+  ON CONFLICT(id) DO UPDATE SET handle = excluded.handle, display_name = excluded.display_name,
+     profile_image = COALESCE(excluded.profile_image, profile_image),
      bio = COALESCE(excluded.bio, bio), location = COALESCE(excluded.location, location), url = COALESCE(excluded.url, url),
      banner_url = COALESCE(excluded.banner_url, banner_url), x_created_at = COALESCE(excluded.x_created_at, x_created_at),
      verified = COALESCE(excluded.verified, verified);`,
+    // 同日重跑不能撞 (member_id, date(recorded_at)) 唯一索引——与 Worker 采集同款 UPSERT
     `INSERT INTO snapshots (member_id, followers, following, posts, listed_count, favourites_count, recorded_at)
-     VALUES (${esc(m.id)}, ${ followers}, ${data.friends_count ?? "NULL"}, ${data.statuses_count ?? "NULL"}, ${data.listed_count ?? "NULL"}, ${data.favourites_count ?? "NULL"}, ${esc(now)});`
+     VALUES (${esc(m.id)}, ${followers}, ${data.friends_count ?? "NULL"}, ${data.statuses_count ?? "NULL"}, ${data.listed_count ?? "NULL"}, ${data.favourites_count ?? "NULL"}, ${esc(now)})
+     ON CONFLICT(member_id, date(recorded_at)) DO UPDATE SET
+       followers = excluded.followers, following = excluded.following, posts = excluded.posts,
+       listed_count = excluded.listed_count, favourites_count = excluded.favourites_count;`
   );
 }
 
@@ -90,3 +100,8 @@ if (nameBackfilled > 0) {
 
 writeFileSync("/tmp/onboard.sql", sql.join("\n\n") + "\n");
 console.log(`\n生成 /tmp/onboard.sql（${sql.length / 2} 位）——执行：wrangler d1 execute kosx-impact --remote --file=/tmp/onboard.sql`);
+// 有成员拉取失败即非零退出：`node … && wrangler …` 链不会把半截名册灌进线上库
+if (failed > 0) {
+  console.error(`\n${failed} 位成员未取到数据，已生成的部分不含他们——确认后重跑本脚本补齐再执行 SQL`);
+  process.exitCode = 1;
+}

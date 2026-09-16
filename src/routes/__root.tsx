@@ -6,6 +6,7 @@ import { TopLoadingBar } from "@/components/TopLoadingBar";
 import { NotFound } from "@/components/NotFound";
 import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { MotionEnvironmentProvider } from "@/components/motion-env";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import "@/styles.css";
@@ -56,13 +57,16 @@ function RootComponent() {
       </head>
       <body className="flex min-h-dvh flex-col bg-background text-foreground antialiased">
         <ThemeProvider>
-          <TopLoadingBar />
-          <Toaster />
-          {/* flex-1：内容不足一屏时页脚也贴底 */}
-          <div className="flex-1">
-            <Outlet />
-          </div>
-          <SiteFooter />
+          {/* 动效环境单点订阅：hydration 标记与「减弱动态」偏好全站共享一个 matchMedia 监听 */}
+          <MotionEnvironmentProvider>
+            <TopLoadingBar />
+            <Toaster />
+            {/* flex-1：内容不足一屏时页脚也贴底 */}
+            <div className="flex-1">
+              <Outlet />
+            </div>
+            <SiteFooter />
+          </MotionEnvironmentProvider>
           <Scripts />
         </ThemeProvider>
       </body>

@@ -142,8 +142,9 @@ export async function collectWithSource(
   // 控表增长：过期 done/failed 清理 + 卡死 processing 回收（无论熔断与否都执行，纯本地写）
   await pruneRefreshQueue(env);
 
-  // 新数据可见性由 cache_bust 版本号保证（writeSnapshot 已 +1）：
+  // 数据版本 +1：本轮有任何成功写入（分片或队列）才换键——一轮 cron 只换一次，
   // 读端点缓存键换新后各数据中心新请求必然回源重建，无需（也无法）跨区 purge
+  if (summary.ok > 0 || refreshDrain.ok > 0) await bumpCacheBust(env);
   return summary;
 }
 
@@ -152,7 +153,7 @@ export async function collectWithSource(
  *  又以最新值覆盖（growth 曲线当日点始终是最新一次采集值）。
  *  昵称策略（与头像同语句更新）：自助成员（self_registered=1）跟随 X 实时昵称，
  *  名册成员以名册为准、仅在缺失时回填 X 昵称。
- *  同批内递增 cache_bust：读端点缓存键随之换新，数据变化在各区数据中心立即可见。 */
+ *  数据版本由编排层统一 +1（见 bumpCacheBust），此处不换键。 */
 async function writeSnapshot(
   env: Env,
   memberId: string,
@@ -207,11 +208,17 @@ async function writeSnapshot(
       stats.verified == null ? null : stats.verified ? 1 : 0,
       stats.userId ?? null
     ),
-    env.DB.prepare(
-      `INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
-       ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`
-    ),
   ]);
+}
+
+/** 数据版本 +1：读端点缓存键随之换新，各数据中心新请求立即回源拿新数据。
+ *  由**编排层**调用（每轮采集 / 每次队列排空各一次），不在每成员写入里调用——
+ *  逐成员换键会把 dashboard / OG 卡 / sitemap 这些重缓存在一轮 cron 里反复打掉重建。 */
+export async function bumpCacheBust(env: Env): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
+     ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`
+  ).run();
 }
 
 /** 与本次采集之前的最新快照对比，写入新跨过的大关（称号大关表）。
@@ -305,9 +312,10 @@ async function writeRecentPosts(
 /* ============ 自助更新队列消费（即时通道 + 兜底通道共用） ============ */
 
 /**
- * 把一次已拉取的真实数据完整写入管线：快照（含昵称/头像 + cache_bust）+ 登阶检测 + 日聚合。
+ * 把一次已拉取的真实数据完整写入管线：快照 + 登阶检测 + 帖子刷新。
  * cron 采集、队列消费、注册当场校验三条路径复用同一写入逻辑，保证数据口径一致。
  * 传入 source 且 profile 响应含数字 ID 时，同步刷新帖子数据（与 cron 同链路）。
+ * 数据版本换键不在这里做：由编排层按「一轮一次」调用 bumpCacheBust。
  */
 export async function applyFollowerStats(
   env: Env,
@@ -401,16 +409,20 @@ async function processRefreshJob(
   }
 }
 
-/** 即时通道：处理最旧的一条 pending（队列空时通常就是刚提交的那条），有就返回 true */
+/** 即时通道：处理最旧的一条 pending（队列空时通常就是刚提交的那条），有就返回 true。
+ *  成功即换数据版本（用户主动提交，应立刻看到新数）。 */
 export async function processOldestPending(env: Env, source: FollowerSource): Promise<boolean> {
   const job = (await env.DB.prepare(
     "SELECT id, member_id AS memberId FROM refresh_queue WHERE status = 'pending' ORDER BY requested_at, id LIMIT 1"
   ).first()) as { id: number; memberId: string } | null;
   if (!job) return false;
-  return processRefreshJob(env, source, job.id, job.memberId);
+  const ok = await processRefreshJob(env, source, job.id, job.memberId);
+  if (ok) await bumpCacheBust(env);
+  return ok;
 }
 
-/** 兜底通道：cron 每次运行开头按 FIFO 清一小批 pending */
+/** 兜底通道：cron 每次运行开头按 FIFO 清一小批 pending。
+ *  整批结束后换一次数据版本（不逐条换键）。 */
 export async function drainRefreshQueue(
   env: Env,
   source: FollowerSource,
@@ -433,6 +445,7 @@ export async function drainRefreshQueue(
       if (await sdBreakerOpen(env)) break;
     }
   }
+  if (summary.ok > 0) await bumpCacheBust(env);
   return summary;
 }
 

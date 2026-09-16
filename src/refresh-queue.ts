@@ -45,7 +45,7 @@ export const REGISTER_DAILY_CAP = 20;
 /** 今日自助注册名额是否已满（按 members.joined_at 当日计数，幂等窗口=当天） */
 export async function registerCapReached(env: Env, nowIso: string): Promise<boolean> {
   const row = (await env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM members WHERE self_registered = 1 AND joined_at = ?1"
+    "SELECT COUNT(*) AS n FROM members INDEXED BY idx_members_self_registered_day WHERE self_registered = 1 AND joined_at = ?1"
   ).bind(nowIso.slice(0, 10)).first()) as { n: number } | null;
   return (row?.n ?? 0) >= REGISTER_DAILY_CAP;
 }
@@ -92,7 +92,9 @@ export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<
     env.DB.prepare("SELECT 1 AS x FROM refresh_queue WHERE member_id = ?1 AND status = 'pending' LIMIT 1")
       .bind(memberId)
       .first(),
-    env.DB.prepare("SELECT MAX(processed_at) AS lastAt FROM refresh_queue WHERE member_id = ?1 AND status = 'done'")
+    env.DB.prepare(
+      "SELECT MAX(processed_at) AS lastAt FROM refresh_queue INDEXED BY idx_refresh_queue_member_status WHERE member_id = ?1 AND status = 'done'"
+    )
       .bind(memberId)
       .first() as Promise<{ lastAt: string | null } | null>,
   ]);
@@ -118,7 +120,7 @@ export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<
  */
 export async function enqueueRefresh(env: Env, memberId: string, nowIso: string): Promise<EnqueueResult> {
   const recent = await env.DB.prepare(
-    "SELECT 1 AS x FROM refresh_queue WHERE member_id = ?1 AND requested_at >= ?2 LIMIT 1"
+    "SELECT 1 AS x FROM refresh_queue INDEXED BY idx_refresh_queue_member WHERE member_id = ?1 AND requested_at >= ?2 LIMIT 1"
   )
     .bind(memberId, new Date(new Date(nowIso).getTime() - RESUBMIT_WINDOW_MS).toISOString())
     .first();

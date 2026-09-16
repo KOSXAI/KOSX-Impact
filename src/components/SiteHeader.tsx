@@ -1,10 +1,18 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { Monitor, Moon, Search, Sun } from "lucide-react";
-import { SearchDialog } from "@/components/SearchDialog";
 import { useTheme } from "@/components/ThemeProvider";
 import { cycleTheme, type ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+
+/**
+ * 搜索面板懒加载：它自带 Radix Dialog 与整份名册 JSON（成员搜索数据源），
+ * 静态引入会把这些压进 entry chunk 变成每页首屏成本，而它只在点击 / ⌘K 之后才存在。
+ * 打开时才挂载 + 按需拉取，首屏只留一个搜索图标按钮。
+ */
+const SearchDialog = lazy(() =>
+  import("@/components/SearchDialog").then((m) => ({ default: m.SearchDialog }))
+);
 
 /**
  * 全站导航：门少屋深——一级菜单只保留「独立进入心智」：
@@ -124,7 +132,12 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
           </div>
         </div>
       </header>
-      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+      {/* 只在打开过之后才挂载：首次点击时按需加载面板 chunk */}
+      {searchOpen && (
+        <Suspense fallback={null}>
+          <SearchDialog open onOpenChange={setSearchOpen} />
+        </Suspense>
+      )}
     </>
   );
 }

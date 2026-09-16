@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyFollowerStats, collectWithSource, shardMembersForHour } from "../src/collector";
+import { applyFollowerStats, bumpCacheBust, collectWithSource, shardMembersForHour } from "../src/collector";
 import type { RosterFile } from "../src/roster";
 import type { FollowerSource, FollowerStats } from "../src/sources/types";
 
@@ -255,7 +255,7 @@ describe("collectWithSource", () => {
     expect(milestones.n).toBe(1);
   });
 
-  it("applyFollowerStats：一次数据完整写管线（快照/登阶/日聚合 + cache_bust 递增）", async () => {
+  it("applyFollowerStats：一次数据完整写管线（快照 + 档案回填，换键交给编排层）", async () => {
     await env.DB.prepare(
       "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('alice', 'alice_x', '2026-08-30', 1)"
     ).run();
@@ -296,21 +296,26 @@ describe("collectWithSource", () => {
     expect(member.x_created_at).toBe("Wed May 12 08:00:00 +0000 2019");
     expect(member.verified).toBe(1);
 
+    // 数据版本不由单次写库推进：一轮采集内换一次键（bumpCacheBust 由编排层调用），
+    // 否则每成员 +1 会把 dashboard/OG 卡等重缓存在一轮 cron 里反复打掉重建
     const bust = (await env.DB.prepare(
       "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
-    ).first()) as { bust: number };
-    expect(bust.bust).toBe(1);
+    ).first()) as { bust: number } | null;
+    expect(bust?.bust ?? 0).toBe(0);
 
-    // 再次写库：cache_bust 递增（缓存键换新）；响应缺档案字段时不清空已有值
+    // 再次写库：响应缺档案字段时不清空已有值
     await applyFollowerStats(env, "alice", { followers: 1600 }, "2026-09-05T04:05:00Z");
-    const bust2 = (await env.DB.prepare(
-      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
-    ).first()) as { bust: number };
-    expect(bust2.bust).toBe(2);
     const kept = (await env.DB.prepare(
       "SELECT bio, verified FROM members WHERE id = 'alice'"
     ).first()) as { bio: string; verified: number };
     expect(kept.bio).toBe("KOSX 成员");
     expect(kept.verified).toBe(1);
+
+    // 编排层换键：显式调用一次才 +1
+    await bumpCacheBust(env);
+    const busted = (await env.DB.prepare(
+      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
+    ).first()) as { bust: number };
+    expect(busted.bust).toBe(1);
   });
 });

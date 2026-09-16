@@ -1,21 +1,22 @@
-// 帖子活跃度数据同步（手动批量，非定时任务）：对名册活跃成员逐个拉取
-// profile（拿数字 id_str，tweets 端点只认数字 ID）→ tweets 第一页（约 20 条），
+// 帖子活跃度数据同步（手动批量，非定时任务）：对活跃成员逐个拉取 tweets 第一页（约 20 条），
+// 数字 ID 复用 members.user_id（缺失才调 profile 补），
 // 生成 posts 表幂等 upsert（tweet_id 冲突时旧 views 挪进 views_prev）+ cache_bust +1，
 // 输出 /tmp/posts.sql，用 wrangler d1 execute 灌入线上库。
 // 任一成员失败时进程以非零码退出：&& 链不会把半截数据灌进线上库。
 // 用法：node scripts/sync-posts.mjs && wrangler d1 execute kosx-impact --remote --file=/tmp/posts.sql
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { readSocialDataKey, createThrottledGet, lit, jsonOrNull, extractMedia, extractQuoted, BUMP_CACHE_BUST_SQL } from "./_lib.mjs";
+import { writeFileSync } from "node:fs";
+import { readSocialDataKey, createThrottledGet, lit, jsonOrNull, extractMedia, extractQuoted, d1Query, BUMP_CACHE_BUST_SQL } from "./_lib.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const rosterDoc = JSON.parse(readFileSync(resolve(root, "data/members.json"), "utf-8"));
-const roster = rosterDoc.members;
 const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
 
 const throttledFetch = createThrottledGet(apiKey, 800);
+
+// 数字 ID 已随采集持久化在 members.user_id（0015 迁移）；只有缺失时才调 profile 补
+const members = d1Query(
+  "SELECT id, handle, user_id AS userId FROM members WHERE status = 'active' ORDER BY handle"
+);
+console.log(`成员 ${members.length} 位（其中 ${members.filter((m) => !m.userId).length} 位缺 user_id，需补 profile）`);
 
 const now = new Date().toISOString();
 const sql = [];
@@ -23,12 +24,18 @@ let membersOk = 0;
 let tweetsTotal = 0;
 const failures = [];
 
-for (const member of roster) {
+for (const member of members) {
   process.stdout.write(`@${member.handle} … `);
   try {
-    const profile = await throttledFetch(`/twitter/user/${encodeURIComponent(member.handle)}`);
-    if (!profile.id_str) throw new Error("profile 无 id_str");
-    const page = await throttledFetch(`/twitter/user/${profile.id_str}/tweets`);
+    // 已有 user_id 就不再多花一次 profile 调用（roster 里 handle 曾改名时 id 仍有效）
+    let userId = member.userId;
+    if (!userId) {
+      const profile = await throttledFetch(`/twitter/user/${encodeURIComponent(member.handle)}`);
+      if (!profile.id_str) throw new Error("profile 无 id_str");
+      userId = profile.id_str;
+      sql.push(`UPDATE members SET user_id = ${lit(userId)} WHERE id = ${lit(member.id)};`);
+    }
+    const page = await throttledFetch(`/twitter/user/${userId}/tweets`);
     const tweets = Array.isArray(page.tweets) ? page.tweets : [];
     for (const t of tweets) {
       if (!t.id_str) continue;
@@ -59,7 +66,7 @@ for (const member of roster) {
 sql.push(BUMP_CACHE_BUST_SQL);
 
 writeFileSync("/tmp/posts.sql", sql.join("\n\n") + "\n");
-console.log(`\n完成：成员 ${membersOk}/${roster.length}，帖子 ${tweetsTotal} 条，写入 /tmp/posts.sql`);
+console.log(`\n完成：成员 ${membersOk}/${members.length}，帖子 ${tweetsTotal} 条，写入 /tmp/posts.sql`);
 console.log(`执行：wrangler d1 execute kosx-impact --remote --file=/tmp/posts.sql`);
 if (failures.length) {
   console.log("失败清单：");

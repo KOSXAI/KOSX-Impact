@@ -1,13 +1,11 @@
 import { Hono } from "hono";
-import type { DashboardStats } from "./stats";
-import { applyFollowerStats, collect, drainRefreshQueue, processOldestPending } from "./collector";
+import { applyFollowerStats, bumpCacheBust, collect, drainRefreshQueue, processOldestPending } from "./collector";
 import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { renderMemberOgPng, renderSiteOgPng, renderReportOgPng, renderTrackOgPng, renderLeaderboardOgPng, ogNotFound } from "./og-render";
-import { computeMemberStats, computeDashboardStats } from "./stats";
+import { computeMemberStats } from "./stats";
 import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
 import { syncMemberMentions, syncCommunitySignals } from "./sync-signals";
-import { roster } from "./roster";
 import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerCapReached, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
 import { getSource } from "./sources";
 import { SocialDataError } from "./sources/socialdata";
@@ -115,6 +113,8 @@ api.post("/api/refresh", async (c) => {
       member = await lookupRefreshMember(c.env, handle);
       if (!member) return c.json({ error: "register_failed" }, 500);
       await applyFollowerStats(c.env, member.id, stats, nowIso, source);
+      // 注册当场写库：换数据版本让新成员立刻出现在各读端点（列表/榜单/成员页）
+      await bumpCacheBust(c.env);
       return c.json({ status: "done", followersAfter: stats.followers, memberId: member.id });
     } catch (error) {
       if (error instanceof SocialDataError && error.status === 404) {
@@ -153,7 +153,7 @@ api.post("/api/refresh", async (c) => {
   // 即时通道可能处理的是队列里更旧的一条 pending，且历史上同类 job 的
   // done/failed 行还在，按「最新一行」读回会把别人的结果或旧值当成自己的
   const job = (await c.env.DB.prepare(
-    "SELECT status, followers_after AS followersAfter FROM refresh_queue WHERE member_id = ?1 AND requested_at = ?2 ORDER BY id DESC LIMIT 1"
+    "SELECT status, followers_after AS followersAfter FROM refresh_queue INDEXED BY idx_refresh_queue_member WHERE member_id = ?1 AND requested_at = ?2 ORDER BY id DESC LIMIT 1"
   ).bind(member.id, nowIso).first()) as { status: string; followersAfter: number | null } | null;
 
   // 写库时 cache_bust 已 +1：读端点缓存键自动换新，新请求回源即见新数据，
@@ -216,30 +216,16 @@ export async function renderMemberCardSvg(
 // 高频图：浏览器也按 ttl 长缓存（browserTtl）
 export async function renderOgSvg(env: Env): Promise<Response> {
   return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.og}`), 21600, async () => {
-    const now = new Date().toISOString();
-    const { results: memberList } = await env.DB.prepare(
-      `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt
-       FROM members WHERE status = 'active'`
-    ).all<{ id: string; handle: string; displayName: string | null; joinedAt: string }>();
-
-    // 每成员最新 1 条快照（走索引，恒定行读取）
-    const latestStmt = env.DB.prepare(
-      "SELECT member_id AS memberId, followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 1"
-    );
-    const snapshotBatches = await env.DB.batch<{ memberId: string; followers: number; recordedAt: string }>(
-      memberList.map((m) => latestStmt.bind(m.id))
-    );
-
-    const stats: DashboardStats = computeDashboardStats(
-      roster,
-      memberList.map((m, i) => {
-        const rows = snapshotBatches[i]?.results ?? [];
-        return { ...m, snapshots: rows };
-      }),
-      [],
-      now
-    );
-    return new Response(renderSiteOgCard(stats.totalFollowers, stats.members.length), {
+    // 只要两个数（累计粉丝 / 成员数），不必把全量成员+快照拉进内存再算：
+    // 单条聚合，每成员一次 (member_id, recorded_at) 索引 seek
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS memberCount, COALESCE(SUM(latest), 0) AS totalFollowers FROM (
+         SELECT (SELECT s.followers FROM snapshots s
+                 WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS latest
+         FROM members m WHERE m.status = 'active'
+       )`
+    ).first<{ memberCount: number; totalFollowers: number }>();
+    return new Response(renderSiteOgCard(row?.totalFollowers ?? 0, row?.memberCount ?? 0), {
       headers: { "Content-Type": "image/svg+xml" },
     });
   }, { browserTtl: 21600 });
@@ -336,8 +322,16 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
   });
 }
 
-/** RSS 源：登阶事件 + 爆款内容（订阅/更新提醒的零基础设施落法，供 RSS 阅读器抓取） */
+/** RSS 源：登阶事件 + 爆款内容（订阅/更新提醒的零基础设施落法，供 RSS 阅读器抓取）。
+ *  整体走 Cache API：Worker 响应不会被 Cloudflare 自动存入边缘缓存，只有 Cache-Control 头
+ *  等于没有——RSS 阅读器轮询会很频繁，不缓存则每次轮询都重新渲染一遍（cache_bust 换键后
+ *  还会连带重建整份 dashboard）。键带 cb 版本：数据一变键换新、订阅者下次轮询即见新条目。 */
 async function renderFeed(env: Env): Promise<Response> {
+  const bust = await readCacheBust(env);
+  return cachedResponse(new Request(`${SITE_URL}/feed.xml?v=1&cb=${bust}`), 3600, () => buildFeed(env));
+}
+
+async function buildFeed(env: Env): Promise<Response> {
   const stats = await getDashboardStats(env);
   const items: Array<{ title: string; link: string; guid: string; pubDate: string; description: string }> = [];
   // 回填历史登阶会产出同一成员同一时间戳的多条大关——合并成一条，避免订阅器刷屏
@@ -445,10 +439,16 @@ export async function runScheduled(env: Env, ctx: ExecutionContext, cron: string
     return;
   }
   if (cron === "30 9 * * *") {
+    // 串行执行：两个任务共用同一把 SocialData key 与共享限流（120 req/min），
+    // Promise.all 并发会让有效速率翻倍、在每日任务开头就打出 429 并触发全局熔断
     ctx.waitUntil(
-      Promise.all([syncMemberMentions(env), syncCommunitySignals(env)]).then(([mentions, signals]) =>
-        console.log(`[daily-signals] 被提及 ${mentions.total} 条（成员 ${mentions.ok}），共同关注 ${signals.following} 条，品味 ${signals.taste} 条`)
-      )
+      (async () => {
+        const mentions = await syncMemberMentions(env);
+        const signals = await syncCommunitySignals(env);
+        console.log(
+          `[daily-signals] 被提及 ${mentions.total} 条（成员 ${mentions.ok}），共同关注 ${signals.following} 条，品味 ${signals.taste} 条`
+        );
+      })()
     );
     return;
   }

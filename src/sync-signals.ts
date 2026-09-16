@@ -20,11 +20,16 @@ interface SocialUser {
   name?: string | null;
 }
 
+/** SocialData 共享限流 120 req/min：本模块跑在 Worker 里与分片采集共用同一把 key。
+ *  间隔取 850ms（≈70 req/min）留出余量——踩到 429 会触发全局熔断（冷却 1 小时），
+ *  那比跑慢一点贵得多。两个同步任务必须串行调用（见 api.ts runScheduled），
+ *  并发跑会让有效速率翻倍。 */
+const THROTTLE_INTERVAL_MS = 850;
+
 async function throttledGet<T>(env: Env, path: string): Promise<T> {
   const key = env.SOCIALDATA_API_KEY;
   if (!key) throw new Error("缺少 SOCIALDATA_API_KEY");
-  // 500ms 间隔 ≈ 120 req/min，远低于 SocialData 共享限流
-  await new Promise((r) => setTimeout(r, 500));
+  await new Promise((r) => setTimeout(r, THROTTLE_INTERVAL_MS));
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Accept: "application/json", Authorization: `Bearer ${key}` },
   });
@@ -32,6 +37,7 @@ async function throttledGet<T>(env: Env, path: string): Promise<T> {
   return res.json();
 }
 
+/** 数据版本 +1（本模块三轮同步各自收尾时调用一次，不逐条换键） */
 async function bumpCacheBust(env: Env): Promise<void> {
   await env.DB.prepare(
     "INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1') ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1"
@@ -113,13 +119,15 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
   }
 
   // 社群品味：帖子正文里被提及最多的外部账号（排除成员自身，零额外 API）。
-  // 只读近 30 天窗口：D1 按扫描行计费，无 WHERE 全表 SELECT text 随帖子量线性变贵
+  // 只读近 30 天窗口：D1 按扫描行计费，无 WHERE 全表 SELECT text 随帖子量线性变贵。
+  // 排除集必须用**全部**活跃成员，而不是上面那个 8 人采样——否则其余成员之间的
+  // 内部互提会被当成「外部品味」信号
   const { results: posts } = await env.DB.prepare(
     "SELECT text FROM posts WHERE created_at >= ?1"
   )
     .bind(new Date(Date.now() - 30 * 86_400_000).toISOString())
     .all<{ text: string | null }>();
-  const memberHandles = new Set(top.map((m) => m.handle.toLowerCase()));
+  const memberHandles = new Set(members.map((m) => m.handle.toLowerCase()));
   const tasteCount = new Map<string, number>();
   for (const r of posts) {
     if (!r.text) continue;
@@ -141,7 +149,15 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
     if (rec.set.size >= 2) batch.push(stmt.bind("following", handle, rec.name, rec.set.size, now));
   }
   for (const [handle, count] of tasteTop) batch.push(stmt.bind("taste", handle, null, count, now));
-  if (batch.length) await env.DB.batch(batch);
+  if (batch.length) {
+    // 先清空本轮两种 kind 的旧行再写：只 insert 会让掉出榜的 handle 长期留旧值，
+    // 前端展示的「共同关注 / 社群品味」会与最新一轮计算结果不一致。
+    // 清空+写入放在同一 batch（D1 batch 是事务），不会出现空窗。
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM community_signal_counts WHERE kind IN ('following', 'taste')"),
+      ...batch,
+    ]);
+  }
   await bumpCacheBust(env);
   return { following: [...followingCount.values()].filter((r) => r.set.size >= 2).length, taste: tasteTop.length };
 }
