@@ -1,10 +1,11 @@
 // 粉丝圈画像采样：SocialData followers 端点对全成员拉头部粉丝样本（约 200 人/账号），
 // 聚合粉丝质量指标（KOL 浓度 / 认证率 / 活跃度）入库 fan_profiles（月度低频刷新）。
-// 需先调 profile 拿数字 ID（followers 端点只认 ID）；采样节流 650ms（~92 req/min < 120 共享上限）。
+// 数字 ID 复用 members.user_id（每日采集已持久化），缺值的下次采集补上后重跑。
+// 节流走 _lib 的全脚本共享闸门（默认 850ms ≈ 70 req/min，给 Worker 侧留余量）。
 // 用法：node scripts/fetch-followers-sample.mjs [--apply] [--size 200] [handle...]
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { readSocialDataKey, createThrottledGet } from "./_lib.mjs";
+import { readSocialDataKey, createThrottledGet, d1Query, lit } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const APPLY = argv.includes("--apply");
@@ -26,17 +27,15 @@ const MIN_INTERVAL_MS = 650;
 
 let members = [];
 if (wantHandles.length) {
-  const out = execSync(
-    `wrangler d1 execute kosx-impact --remote --json --command "SELECT id, handle, user_id AS userId FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => `'${h.replaceAll("'", "''")}'`).join(",")})"`,
-    { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
+  // 用 d1Query（execFileSync 传参数数组）：handle 来自 argv，拼 shell 字符串时
+  // 引号翻倍挡不住 $ 与反引号展开
+  members = d1Query(
+    `SELECT id, handle, user_id AS userId FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => lit(h)).join(",")})`
   );
-  members = JSON.parse(out).flatMap((r) => r.results ?? []);
 } else {
-  const out = execSync(
-    `wrangler d1 execute kosx-impact --remote --json --command "SELECT id, handle, user_id AS userId FROM members WHERE status='active' ORDER BY handle"`,
-    { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
+  members = d1Query(
+    "SELECT id, handle, user_id AS userId FROM members WHERE status='active' ORDER BY handle"
   );
-  members = JSON.parse(out).flatMap((r) => r.results ?? []);
 }
 // 复用库内 user_id（每日采集已持久化）：缺值的跳过，下次采集补上后重跑，不再调 profile 拿 ID
 const ready = members.filter((m) => m.userId);
@@ -128,7 +127,7 @@ if (APPLY && profiles.length) {
   );
   const sqlPath = "/tmp/fan-profiles.sql";
   writeFileSync(sqlPath, rows.join("\n"));
-  execSync(`wrangler d1 execute kosx-impact --remote --file=${sqlPath}`, {
+  execFileSync("wrangler", ["d1", "execute", "kosx-impact", "--remote", "--file", sqlPath], {
     stdio: "inherit",
     maxBuffer: 10 * 1024 * 1024,
   });

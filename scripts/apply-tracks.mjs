@@ -10,7 +10,7 @@
 // 校验有拒绝/未匹配时进程以非零码退出，提醒重跑前先修数据。
 //
 // 用法：node scripts/apply-tracks.mjs /path/to/output.json
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,11 +38,12 @@ console.log(`读取 ${members.length} 位成员的分类结果`);
 
 function runSql(stmt) {
   // 经临时文件执行（--file），不走 shell 命令行——tags 来自 agent JSON，
-  // 引号/反引号/注释符任意出现都不再影响执行边界
+  // 引号/反引号/注释符任意出现都不再影响执行边界；
+  // 调用侧用 execFileSync 传参数数组，连文件路径都不经 shell 解析
   const file = "/tmp/apply-tracks.sql";
   writeFileSync(file, stmt + ";\n");
   return JSON.parse(
-    execSync(`wrangler d1 execute kosx-impact --remote --json --file=${file}`, {
+    execFileSync("wrangler", ["d1", "execute", "kosx-impact", "--remote", "--json", "--file", file], {
       encoding: "utf-8",
     })
   );

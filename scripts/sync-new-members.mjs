@@ -3,11 +3,10 @@
 // 输出到 /tmp/onboard.sql；显示名同时回写进名册（事实来源保持完整，随 PR 一并提交）
 // 用法：node scripts/sync-new-members.mjs && wrangler d1 execute kosx-impact --remote --file=/tmp/onboard.sql
 import { readFileSync, writeFileSync } from "node:fs";
-import { execSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ProxyAgent } from "undici";
-import { readSocialDataKey } from "./_lib.mjs";
+import { readSocialDataKey, acquireScriptLock, d1Query } from "./_lib.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const rosterDoc = JSON.parse(readFileSync(resolve(root, "data/members.json"), "utf-8"));
@@ -15,12 +14,17 @@ const roster = rosterDoc.members;
 const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
 
+// 咨询锁：入职脚本与别的批量脚本/Worker 整点采集并行时会叠加打爆共享限流
+const lock = acquireScriptLock("sync-new-members");
+if (!lock.ok) {
+  console.error(`另一个脚本正在跑（${lock.holder}）——等它结束再重试，避免叠加共享限流`);
+  process.exit(1);
+}
+process.on("exit", () => lock.release());
+
 // 已有快照的成员（本地采集过），新成员不在其中
-const dbJson = execSync("wrangler d1 execute kosx-impact --remote --json --command 'SELECT DISTINCT member_id FROM snapshots'", {
-  encoding: "utf-8",
-});
 const collected = new Set(
-  JSON.parse(dbJson).flatMap((r) => r.results ?? []).flatMap((r) => r.member_id ?? [])
+  d1Query("SELECT DISTINCT member_id FROM snapshots").map((r) => r.member_id)
 );
 const pending = roster.filter((m) => !collected.has(m.id));
 console.log(`名册 ${roster.length} 位，已有快照 ${collected.size} 位，待入职 ${pending.length} 位`);
@@ -47,6 +51,12 @@ for (let i = 0; i < pending.length; i++) {
     dispatcher,
   });
   if (!res.ok) {
+    // 余额耗尽/鉴权失效：继续跑只会把额度烧在注定失败的调用上，当场收车
+    if (res.status === 402 || res.status === 401 || res.status === 403) {
+      console.error(`✗ 账号级错误 HTTP ${res.status}——已中止（本次不产出 SQL）`);
+      console.error("  （先充值/换 key 再重跑；已拉到的成员不会入产物，避免半截名册）");
+      process.exit(1);
+    }
     // 404 = handle 写错/账号已注销（必须人工确认，不能静默）；429/5xx = 稍后重跑即可
     console.error(`✗ @${m.handle} HTTP ${res.status}（本次跳过，不写入库；${res.status === 404 ? "检查名册 handle 是否正确" : "可稍后重跑"}）`);
     failed++;

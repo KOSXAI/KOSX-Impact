@@ -7,8 +7,7 @@
 // 任一关键词失败时进程以非零码退出（产物仍写出，供排查）。
 // 用法：node scripts/run-mentions.mjs [keyword...] [--days 7] [--advance] [--out /tmp/mentions-raw.json]
 import { writeFileSync } from "node:fs";
-import { execSync } from "node:child_process";
-import { readSocialDataKey, createThrottledGet, d1Query } from "./_lib.mjs";
+import { readSocialDataKey, createThrottledGet, d1Query, d1Execute, lit } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const take = (flag, def) => {
@@ -100,9 +99,9 @@ if (failed.length) {
 // --advance：本次窗口已完整分析入库，推进游标（增量语义：下次只拉新提及）
 if (ADVANCE && failed.length === 0) {
   const cursor = Math.floor(Date.parse(collectedAt) / 1000).toString();
-  execSync(
-    `wrangler d1 execute kosx-impact --remote --command "INSERT INTO site_meta (key, value) VALUES ('${META_KEY}', '${cursor}') ON CONFLICT(key) DO UPDATE SET value = excluded.value"`,
-    { stdio: "inherit", maxBuffer: 10 * 1024 * 1024 }
+  // d1Execute：statement 里带游标与 meta 键，走 execFileSync 不经 shell
+  d1Execute(
+    `INSERT INTO site_meta (key, value) VALUES (${lit(META_KEY)}, ${lit(cursor)}) ON CONFLICT(key) DO UPDATE SET value = excluded.value`
   );
   console.log(`已推进增量游标 → ${new Date(parseInt(cursor) * 1000).toISOString()}`);
 } else if (ADVANCE && failed.length > 0) {

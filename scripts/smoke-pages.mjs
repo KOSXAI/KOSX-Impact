@@ -42,8 +42,20 @@ for (const spec of PAGES) {
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900 });
   const errors = [];
+  const external404s = [];
+  const notes = [];
   page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text().slice(0, 200));
+    if (m.type() !== "error") return;
+    const t = m.text().slice(0, 200);
+    // 控制台里资源 404 只报状态码、不带 URL，用响应事件单独归类（见下）
+    if (/Failed to load resource/.test(t)) return;
+    errors.push(t);
+  });
+  page.on("response", (r) => {
+    if (r.status() !== 404) return;
+    const u = r.url();
+    if (/^https?:\/\/(localhost|127\.0\.0\.1|impact\.kosx\.ai)/.test(u)) errors.push(`同源 404: ${u}`);
+    else external404s.push(u);
   });
   page.on("pageerror", (e) => errors.push(`PAGEERROR: ${String(e).slice(0, 200)}`));
 
@@ -78,12 +90,16 @@ for (const spec of PAGES) {
       if (!found) problems.push(`缺内容「${needle}」`);
     }
     if (errors.length) problems.push(`console: ${errors.slice(0, 2).join(" | ")}`);
+    // 站外资源 404 只提示不计失败：成员头像指向 pbs.twimg.com，作者换/删头像后
+    // 旧 URL 就 404（Avatar 有 onError 回退），与代码无关且不可修
+    if (external404s.length) notes.push(`站外资源 404 ${external404s.length} 个（头像等，已忽略）`);
 
     if (problems.length) {
       failures++;
       console.log(`✗ ${spec.name} ${spec.path} — ${problems.join("; ")}`);
     } else {
-      console.log(`✓ ${spec.name} ${spec.path} — ${probe.len} 字，主区 ${probe.mainHeight}px，隐藏层 ${probe.hiddenLayers}`);
+      const note = notes.length ? `｜${notes.join("；")}` : "";
+      console.log(`✓ ${spec.name} ${spec.path} — ${probe.len} 字，主区 ${probe.mainHeight}px，隐藏层 ${probe.hiddenLayers}${note}`);
     }
   } catch (error) {
     failures++;

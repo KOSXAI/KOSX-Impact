@@ -5,12 +5,21 @@
 // 任一成员失败时进程以非零码退出：&& 链不会把半截数据灌进线上库。
 // 用法：node scripts/sync-posts.mjs && wrangler d1 execute kosx-impact --remote --file=/tmp/posts.sql
 import { writeFileSync } from "node:fs";
-import { readSocialDataKey, createThrottledGet, lit, jsonOrNull, extractMedia, extractQuoted, d1Query, BUMP_CACHE_BUST_SQL } from "./_lib.mjs";
+import { readSocialDataKey, createThrottledGet, lit, jsonOrNull, extractMedia, extractQuoted, d1Query, BUMP_CACHE_BUST_SQL, acquireScriptLock, isFatalSocialDataError } from "./_lib.mjs";
 
 const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
 
-const throttledFetch = createThrottledGet(apiKey, 800);
+// 咨询锁：本脚本对全名册逐个发请求，与别的批量脚本/Worker 整点采集并行会叠加打爆
+// 账号级共享限流（120 req/min），429 落到 Worker 会触发它的全局熔断
+const lock = acquireScriptLock("sync-posts");
+if (!lock.ok) {
+  console.error(`另一个脚本正在跑（${lock.holder}）——等它结束再重试，避免叠加共享限流`);
+  process.exit(1);
+}
+process.on("exit", () => lock.release());
+
+const throttledFetch = createThrottledGet(apiKey);
 
 // 数字 ID 已随采集持久化在 members.user_id（0015 迁移）；只有缺失时才调 profile 补
 const members = d1Query(
@@ -57,6 +66,12 @@ for (const member of members) {
     const first = tweets[0] ?? {};
     console.log(`✓ ${tweets.length} 帖（最新 ${(first.tweet_created_at ?? "?").slice(0, 10)}）`);
   } catch (error) {
+    // 余额/鉴权问题：后面每个成员都注定失败，当场收车（不写 SQL，避免半截数据）
+    if (isFatalSocialDataError(error)) {
+      console.error(`\n✗ 账号级错误（HTTP ${error.status}）——已中止，不再逐个空跑`);
+      console.error("  产物未写出：余额/鉴权问题先解决再重跑");
+      process.exit(1);
+    }
     failures.push(`@${member.handle}: ${error.message}`);
     console.log(`✗ ${error.message}`);
   }
