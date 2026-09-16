@@ -422,7 +422,8 @@ export async function processOldestPending(env: Env, source: FollowerSource): Pr
 }
 
 /** 兜底通道：cron 每次运行开头按 FIFO 清一小批 pending。
- *  整批结束后换一次数据版本（不逐条换键）。 */
+ *  本函数不换数据版本——由调用方按「一轮一次」决定（collect 的分片循环结束后统一换；
+ *  10 分钟队列 cron 自己在排空后换），否则 collect 里会出现 drain 与 collect 各换一次的双换。 */
 export async function drainRefreshQueue(
   env: Env,
   source: FollowerSource,
@@ -445,7 +446,6 @@ export async function drainRefreshQueue(
       if (await sdBreakerOpen(env)) break;
     }
   }
-  if (summary.ok > 0) await bumpCacheBust(env);
   return summary;
 }
 

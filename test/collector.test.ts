@@ -90,6 +90,37 @@ describe("collectWithSource", () => {
     expect(latestBob.followers).toBe(1300);
   });
 
+  it("一轮采集只换一次数据版本：多个成员写入不在各自快照里推进 cache_bust", async () => {
+    // m1 与 m10 的分片槽同为 20（shardMembersForHour 的 id 哈希），
+    // 一轮采集会连写两人，正好用来验证「一轮只 +1 而不是每成员 +1」
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at) VALUES ('m1','m1_x','2026-08-30'), ('m10','m10_x','2026-08-30')"
+    ).run();
+    await env.DB.prepare("DELETE FROM site_meta WHERE key = 'cache_bust'").run();
+    const twoMemberRoster: RosterFile = {
+      members: [
+        { id: "m1", handle: "m1_x", joinedAt: "2026-08-30" },
+        { id: "m10", handle: "m10_x", joinedAt: "2026-08-30" },
+      ],
+    };
+
+    const summary = await collectWithSource(
+      env,
+      stubSource({ m1_x: { followers: 1500 }, m10_x: { followers: 1400 } }),
+      twoMemberRoster,
+      undefined,
+      20
+    );
+    expect(summary.ok).toBe(2);
+
+    // 关键：两名成员各写一次快照，但数据版本只 +1
+    // （旧实现把 +1 放在 writeSnapshot 里，会变成 +2，把重缓存反复打掉重建）
+    const bust = (await env.DB.prepare(
+      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
+    ).first()) as { bust: number };
+    expect(bust.bust).toBe(1);
+  });
+
   it("profile 响应含 userId 时自动采集帖子（复用同一响应，零额外 profile 调用）", async () => {
     await seedBaselines();
     const source: FollowerSource = {

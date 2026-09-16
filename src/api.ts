@@ -453,8 +453,10 @@ export async function runScheduled(env: Env, ctx: ExecutionContext, cron: string
     return;
   }
   ctx.waitUntil(
-    drainRefreshQueue(env, getSource(env)).then((s) =>
-      console.log(`[refresh-queue] 兜底清空：成功 ${s.ok}，失败 ${s.failed}`)
-    )
+    drainRefreshQueue(env, getSource(env)).then(async (s) => {
+      // 本 cron 只跑队列（不走 collect 的收尾换键），排空成功时在这里换一次
+      if (s.ok > 0) await bumpCacheBust(env);
+      console.log(`[refresh-queue] 兜底清空：成功 ${s.ok}，失败 ${s.failed}`);
+    })
   );
 }
