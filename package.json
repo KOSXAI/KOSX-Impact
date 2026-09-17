@@ -19,9 +19,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "gen:routes": "node scripts/gen-routes.mjs",
     "validate:members": "node scripts/validate-members.mjs",
     "build:og-fonts": "node scripts/build-og-fonts.mjs",
-    "check": "npm run validate:members && npm run typecheck && npm run test"
+    "check": "npm run validate:members && npm run gen:routes && npm run typecheck && npm run test"
   },
   "dependencies": {
     "@resvg/resvg-wasm": "^2.6.2",
