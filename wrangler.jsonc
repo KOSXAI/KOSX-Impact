@@ -1,6 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kosx-impact",
+  // 固定部署账号（Kosxai）：登录态下可见两个账号，非交互环境（ssh / 脚本）无法选择会直接报错。
+  // 本项目的 D1 库与 impact.kosx.ai 域名都归属该账号
+  "account_id": "64c1e1a5d18341cba1e6cdad962ebc46",
   "main": "src/server.ts",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
