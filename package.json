@@ -31,7 +31,7 @@
     "hono": "^4.13.5",
     "motion": "^13.2.0",
     "radix-ui": "^1.6.7",
-    "recharts": "^3.8.0"
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.54.4",
