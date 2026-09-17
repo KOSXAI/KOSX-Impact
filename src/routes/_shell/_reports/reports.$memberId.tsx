@@ -7,7 +7,7 @@ import { Avatar } from "@/components/member/Avatar";
 import { GrowProgress } from "@/components/motion";
 import { StatCard } from "@/components/ui/StatCard";
 import { Check, Copy, Flag, Heart, MessageCircle, PauseCircle, Trophy, Eye } from "lucide-react";
-import { fmt, fmtDate, postExcerpt } from "@/lib/format";
+import { fmt, fmtDate, postExcerpt, signed } from "@/lib/format";
 import { titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -110,7 +110,12 @@ function ReportPage() {
 
         {/* 数据卡 */}
         <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard label="本周增长" value={`+${fmt(report.growth)}`} hint={report.growthPct != null ? `+${Math.round(report.growthPct * 100)}%` : undefined} highlight={report.growth > 0} />
+          <StatCard
+            label="本周增长"
+            value={signed(report.growth)}
+            hint={report.growthPct != null ? `${report.growthPct > 0 ? "+" : ""}${Math.round(report.growthPct * 100)}%` : undefined}
+            highlight={report.growth > 0}
+          />
           <StatCard label="当前粉丝" value={fmt(report.followersEnd)} />
           <StatCard label="本周发帖" value={`${report.postCount} 条`} />
           <StatCard

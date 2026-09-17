@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchMemberDetail, fetchMemberPicker } from "@/data.functions";
-import type { MemberStats } from "@/stats";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -20,13 +19,15 @@ export const Route = createFileRoute("/_shell/compare")({
     ...(typeof search.a === "string" && search.a ? { a: search.a } : {}),
     ...(typeof search.b === "string" && search.b ? { b: search.b } : {}),
   }),
-  loader: async ({ location }) => {
-    const s = location.search as { a?: string; b?: string };
+  // loaderDeps 是 loader 重跑的唯一依据：不声明时 TanStack 只在路径变化时重跑，
+  // 「选人/热门对比」只改 search 会让 URL 变了页面不刷新（点了没反应，必须手刷）
+  loaderDeps: ({ search }) => ({ a: search.a, b: search.b }),
+  loader: async ({ deps }) => {
     // 选人列表用独立轻量缓存（id/展示/最新粉丝/赛道），不连带拉整份 dashboard
     const [members, left, right] = await Promise.all([
       fetchMemberPicker(),
-      s.a ? fetchMemberDetail({ data: s.a }) : Promise.resolve(null),
-      s.b ? fetchMemberDetail({ data: s.b }) : Promise.resolve(null),
+      deps.a ? fetchMemberDetail({ data: deps.a }) : Promise.resolve(null),
+      deps.b ? fetchMemberDetail({ data: deps.b }) : Promise.resolve(null),
     ]);
     return { members, left, right };
   },
@@ -202,11 +203,11 @@ function CompareTable({ left, right }: { left: Detail; right: Detail }) {
         return (
           <div key={row.label} className="grid grid-cols-3 items-center gap-2 border-t border-line px-5 py-3.5 first:border-t-0">
             <div className={cn("text-center text-lg font-bold tabular-nums", aWin && "text-signal-ink")}>
-              {row.sign && row.a > 0 ? "+" : ""}{row.fmt ? fmt(row.a) : row.a}{row.suffix ?? ""}
+              {row.sign ? (row.a > 0 ? "+" : row.a < 0 ? "" : "") : ""}{row.fmt ? fmt(row.a) : row.a}{row.suffix ?? ""}
             </div>
             <div className="text-center text-xs font-semibold text-mist">{row.label}</div>
             <div className={cn("text-center text-lg font-bold tabular-nums", bWin && "text-signal-ink")}>
-              {row.sign && row.b > 0 ? "+" : ""}{row.fmt ? fmt(row.b) : row.b}{row.suffix ?? ""}
+              {row.sign ? (row.b > 0 ? "+" : row.b < 0 ? "" : "") : ""}{row.fmt ? fmt(row.b) : row.b}{row.suffix ?? ""}
             </div>
           </div>
         );

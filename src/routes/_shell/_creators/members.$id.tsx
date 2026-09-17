@@ -3,7 +3,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchMemberDetail } from "@/data.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/StatCard";
-import { AnimatedNumber, Reveal, RevealGroup, RevealItem } from "@/components/motion";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
 import { NotFound } from "@/components/NotFound";
 import { Avatar } from "@/components/member/Avatar";
 import { ProfileHero } from "@/components/member/ProfileHero";

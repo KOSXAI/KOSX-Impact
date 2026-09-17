@@ -4,6 +4,15 @@ export function fmt(n: number): string {
   return n.toLocaleString("zh-CN");
 }
 
+/**
+ * 带符号数值：正数补 `+`，负数保留负号（fmt 自带），零不带符号。
+ * 取代各处手写的 `` `+${fmt(x)}` ``——涨粉/曝光增量可以为负（成员掉粉），
+ * 手写前缀会渲染成「+-1」这种半截数字。
+ */
+export function signed(n: number): string {
+  return `${n > 0 ? "+" : ""}${fmt(n)}`;
+}
+
 export function fmtDate(iso: string): string {
   return iso.slice(0, 10);
 }

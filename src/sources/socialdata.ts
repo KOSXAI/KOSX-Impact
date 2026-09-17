@@ -80,6 +80,36 @@ export class SocialDataError extends Error {
   }
 }
 
+/** 上限：错误信息里的响应体截断长度（完整响应体可能是整页 HTML，进日志/落库都嫌大） */
+const ERROR_BODY_LIMIT = 300;
+
+/** 出站请求超时：连接半开时 fetch 会一直挂着，直到 Worker 墙钟（15 分钟）被杀——
+ *  协程死了但队列行已领取为 processing，要等 1 小时回收才重试。30 秒足够正常响应，
+ *  超时按「网络类错误」抛出（status 0，走可重试分支）。 */
+export const FETCH_TIMEOUT_MS = 30_000;
+
+/** 带超时的 fetch：AbortController 在指定毫秒后中断请求 */
+export async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  timeoutMs: number,
+  fetchFn: FetchFn = fetch
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchFn(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    // AbortError 不携带可读信息，换成明确的超时文案（仍为 status 0，可由调用方重试）
+    if (controller.signal.aborted) {
+      throw new SocialDataError(`请求超时（${timeoutMs / 1000}s）`, 0);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * SocialData 数据源：按 username 查询用户公开资料 + 按数字 ID 拉最近帖子。
  * 响应字段与 Twitter API v1.1 users/show 一致，文档：docs.socialdata.tools
@@ -98,17 +128,20 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
     if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
     lastRequestAt = Date.now();
 
-    const response = await fetchFn(`${API_BASE}${path}`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${apiKey}`,
+    const response = await fetchWithTimeout(
+      `${API_BASE}${path}`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
       },
-    });
+      FETCH_TIMEOUT_MS,
+      fetchFn
+    );
     if (!response.ok) {
-      throw new SocialDataError(
-        `SocialData 请求失败（HTTP ${response.status}）：${await response.text()}`,
-        response.status
-      );
+      const body = (await response.text()).slice(0, ERROR_BODY_LIMIT);
+      throw new SocialDataError(`SocialData 请求失败（HTTP ${response.status}）：${body}`, response.status);
     }
     return response.json() as Promise<T>;
   }
@@ -137,15 +170,17 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
       }
       return {
         followers: data.followers_count,
-        following: data.friends_count,
-        posts: data.statuses_count,
-        userId: data.id_str,
+        // 一律 typeof 校验：上游把字段变成字符串/null 时按「缺字段」处理，
+        // 由库侧 COALESCE 保留已有值（直接透传会把脏类型写进库）
+        following: typeof data.friends_count === "number" ? data.friends_count : undefined,
+        posts: typeof data.statuses_count === "number" ? data.statuses_count : undefined,
+        userId: typeof data.id_str === "string" ? data.id_str : undefined,
         displayName: data.name ?? null,
-        profileImageUrl: data.profile_image_url_https,
+        profileImageUrl: typeof data.profile_image_url_https === "string" ? data.profile_image_url_https : undefined,
         bio: data.description ?? null,
         location: data.location ?? null,
         url: data.url ?? null,
-        bannerUrl: data.profile_banner_url,
+        bannerUrl: typeof data.profile_banner_url === "string" ? data.profile_banner_url : undefined,
         xCreatedAt: data.created_at,
         // 缺字段时保持 undefined（写成 false 会把库里的已认证覆盖掉，COALESCE 保护失效）
         verified: typeof data.verified === "boolean" ? data.verified : undefined,
@@ -175,9 +210,17 @@ export function socialDataSource(apiKey: string, fetchFn: FetchFn = fetch): Foll
       const tweets = Array.isArray(data.tweets) ? data.tweets : [];
       return tweets
         .filter((t) => t.id_str)
+        // 缺 tweet_created_at 的脏行直接丢弃：不能用 epoch 0 兜底——写入后
+        // 会被同批的「保留窗口外清理」（created_at < 90 天前）当场删掉，
+        // 白白占用一次写库、还让 upserted 计数虚高
+        .filter((t) => {
+          if (t.tweet_created_at) return true;
+          console.warn(`[socialdata] 帖子 ${t.id_str} 缺 tweet_created_at，跳过`);
+          return false;
+        })
         .map((t) => ({
           tweetId: t.id_str!,
-          createdAt: t.tweet_created_at ?? new Date(0).toISOString(),
+          createdAt: t.tweet_created_at!,
           fullText: t.full_text ?? null,
           views: typeof t.views_count === "number" ? t.views_count : null,
           likes: typeof t.favorite_count === "number" ? t.favorite_count : null,

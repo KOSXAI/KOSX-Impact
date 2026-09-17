@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/member/Avatar";
-import { postExcerpt, badge, fmt, fmtDate } from "@/lib/format";
+import { postExcerpt, badge, fmt, fmtDate, signed } from "@/lib/format";
 import { titleOf } from "@/milestones";
 import type { DashboardStats, MemberStats, PostItem } from "@/stats";
 
@@ -30,7 +30,7 @@ function MiniMemberRow({ rank, m, main, sub }: { rank?: number; m: MemberStats; 
 
 function MiniPostRow({ p }: { p: PostItem }) {
   const excerpt = postExcerpt(p.text) ?? "链接帖";
-  const value = (p.viewsGain ?? 0) > 0 ? `+${fmt(p.viewsGain!)} 浏览` : p.views != null ? `${fmt(p.views)} 浏览` : `${fmt(p.likes ?? 0)} 赞`;
+  const value = (p.viewsGain ?? 0) > 0 ? `${signed(p.viewsGain!)} 浏览` : p.views != null ? `${fmt(p.views)} 浏览` : `${fmt(p.likes ?? 0)} 赞`;
   return (
     <div className="flex items-baseline gap-2 rounded-xl bg-soft-surface px-3 py-1.5 text-sm">
       {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-6 shrink-0" />}
@@ -88,14 +88,14 @@ export function ChampionCards({ stats }: { stats: DashboardStats }) {
         {champ ? (
           <>
             <div className="flex flex-1 flex-col justify-center">
-              <ChampHead m={champ} value={`+${fmt(champ.growth7d)}`} />
+              <ChampHead m={champ} value={signed(champ.growth7d)} />
               <div className="mt-2 text-xs font-semibold text-mist">
                 距「{titleOf(champ.nextMilestone)}」还差 {fmt(champ.nextMilestone - (champ.latestFollowers ?? 0))}
               </div>
             </div>
             <div className="mt-3 space-y-1.5 border-t border-line pt-3">
               {growthRanks.slice(1).map((m, i) => (
-                <MiniMemberRow key={m.id} rank={i + 2} m={m} main={`+${fmt(m.growth7d)}`} />
+                <MiniMemberRow key={m.id} rank={i + 2} m={m} main={signed(m.growth7d)} />
               ))}
             </div>
           </>

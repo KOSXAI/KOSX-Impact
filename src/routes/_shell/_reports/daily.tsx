@@ -4,7 +4,7 @@ import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { StatCard } from "@/components/ui/StatCard";
 import { groupClimbs, titleOf } from "@/milestones";
-import { fmt, fmtDate, postExcerpt } from "@/lib/format";
+import { fmt, fmtDate, postExcerpt, signed } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
 /**
@@ -12,16 +12,35 @@ import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
  * 汇总成一份战报。每天自动更新，属于首页模块的时间切片（顶栏高亮「首页」）。
  * ?date=YYYY-MM-DD 查看历史归档（数据透明 / 可追溯）。
  */
+/**
+ * 合法归档日期：格式正确、可解析、且不晚于今天，否则 undefined（回当天版）。
+ *
+ * 为什么 validateSearch 之外还要在 loaderDeps 里再滤一次：router 把
+ * `preMatchSearch = { ...原始 search, ...validateSearch 结果 }` 交给 loaderDeps
+ * （见 router.js 的 match 构造），validateSearch 返回 {} 只是「不覆盖」，
+ * 非法值仍会留在 search 里流进 loaderDeps —— 只靠 validateSearch 拦不住，
+ * 非法 date 会一路进到 serverFn 的 validator 抛错（渲染成 500）。
+ */
+function archiveDate(value: unknown): string | undefined {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  if (Number.isNaN(Date.parse(`${value}T00:00:00Z`))) return undefined;
+  if (value > new Date().toISOString().slice(0, 10)) return undefined;
+  return value;
+}
+
 export const Route = createFileRoute("/_shell/_reports/daily")({
-  // date 只在「合法 YYYY-MM-DD」时进 URL：缺省不回填（避免 /daily 307 成 ?date=），
-  // 乱串参数直接忽略（回当天版），不给搜索引擎造出全 0 的可收录变体
+  // date 只在「合法且非未来」时进 URL：缺省不回填（避免 /daily 307 成 ?date=），
+  // 乱串/未来日期直接忽略（回当天版）——否则 /daily?date=2099-01-01 会渲染出
+  // 「未来日报」（显示当前总粉丝 + 0 登阶），还给搜索引擎造出可收录的全 0 变体
   validateSearch: (search: Record<string, unknown>) => {
-    const date = typeof search.date === "string" ? search.date : "";
-    if (/^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(`${date}T00:00:00Z`))) return { date };
-    return {};
+    const date = archiveDate(search.date);
+    return date ? { date } : {};
   },
-  loader: async ({ location }) => {
-    const date = (location.search as { date?: string }).date;
+  // loaderDeps 是 loader 重跑的唯一依据：不声明时「← 最新一期」（清空 ?date=）
+  // 只改 search、不重跑 loader，页面永远停在归档视图。这里再滤一次非法值。
+  loaderDeps: ({ search }) => ({ date: archiveDate(search.date) }),
+  loader: async ({ deps }) => {
+    const date = deps.date;
     if (date) return { archive: await fetchDailyArchive({ data: date }), stats: null as Awaited<ReturnType<typeof fetchDashboard>> | null };
     return { archive: null, stats: await fetchDashboard() };
   },
@@ -133,8 +152,8 @@ function DailyPage() {
                     <div className="truncate text-xs text-mist">@{growthChamp.handle}</div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="text-xl font-bold text-signal-ink tabular-nums">+{fmt(growthChamp.growth30d)}</div>
-                    <div className="text-xs text-mist tabular-nums">近 7 天 +{fmt(growthChamp.growth7d)}</div>
+                    <div className="text-xl font-bold text-signal-ink tabular-nums">{signed(growthChamp.growth30d)}</div>
+                    <div className="text-xs text-mist tabular-nums">近 7 天 {signed(growthChamp.growth7d)}</div>
                   </div>
                 </Link>
               </section>

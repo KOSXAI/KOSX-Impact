@@ -79,7 +79,7 @@ describe("socialDataSource", () => {
     await expect(source.fetchStats("alice_x")).rejects.toThrow("followers_count");
   });
 
-  it("fetchRecentPosts 按数字 ID 拉取并解析互动字段", async () => {
+  it("fetchRecentPosts 按数字 ID 拉取并解析互动字段；缺 tweet_created_at 的脏行丢弃", async () => {
     const calls: string[] = [];
     const source = socialDataSource("test-key", (async (input) => {
       calls.push(String(input));
@@ -97,7 +97,9 @@ describe("socialDataSource", () => {
             bookmark_count: 7,
             lang: "zh",
           },
-          { id_str: "1002", full_text: null, views_count: null },
+          // 缺 tweet_created_at：不能以 epoch 0 兜底入库（会被保留窗口清理当场删掉），
+          // 直接丢弃——下面断言它不出现在结果里
+          { id_str: "1002", full_text: "脏行", views_count: null },
         ],
       }), { status: 200 });
     }) as typeof fetch);
@@ -121,7 +123,6 @@ describe("socialDataSource", () => {
         tweetType: null,
         quoted: null,
       },
-      { tweetId: "1002", createdAt: "1970-01-01T00:00:00.000Z", fullText: null, views: null, likes: null, replies: null, retweets: null, quotes: null, bookmarks: null, lang: null, media: null, tweetType: null, quoted: null },
     ]);
   });
 
@@ -162,6 +163,7 @@ describe("socialDataSource", () => {
         tweets: [
           {
             id_str: "3001",
+            tweet_created_at: "2026-09-03T00:00:00.000Z",
             type: "quote",
             full_text: "同意",
             is_quote_status: true,

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import type { DashboardStats, MemberStats } from "@/stats";
 import { TRACKS, TRACK_OTHER } from "@/tracks";
 import { MiniMemberCard } from "@/components/member/MiniMemberCard";
@@ -29,7 +28,7 @@ import {
   Rows3,
   Shapes,
 } from "lucide-react";
-import { badge, fmt } from "@/lib/format";
+import { badge, fmt, signed } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** 布局密度三态：单列行卡 / 双列卡片 / 卡片网格（多维表格的行高/画册思路），存 localStorage 记住偏好 */
@@ -231,7 +230,7 @@ export function CreatorLibrary({
               {!isOther && stat ? (
                 <span className="ml-auto text-xs text-mist tabular-nums">
                   粉丝 {fmt(stat.totalFollowers)} · 30 天{" "}
-                  <b className="text-signal-ink">+{fmt(stat.growth30dTotal)}</b>
+                  <b className="text-signal-ink">{signed(stat.growth30dTotal)}</b>
                 </span>
               ) : (
                 <span className="ml-auto text-xs text-mist">

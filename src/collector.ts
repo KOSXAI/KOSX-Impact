@@ -36,7 +36,7 @@ export async function sdBreakerOpen(env: Env): Promise<boolean> {
 }
 
 /** 拉 402 时合闸：接下来的 1 小时不再对 SocialData 发任何请求（分片/兜底双通道都跳过） */
-async function tripBreaker(env: Env): Promise<void> {
+export async function tripBreaker(env: Env): Promise<void> {
   await env.DB.prepare(
     "INSERT INTO site_meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
   ).bind(BREAKER_KEY, new Date(Date.now() + BREAKER_COOLDOWN_MS).toISOString()).run();
@@ -166,10 +166,10 @@ async function writeSnapshot(
        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
        ON CONFLICT(member_id, date(recorded_at)) DO UPDATE SET
          followers = excluded.followers,
-         following = excluded.following,
-         posts = excluded.posts,
-         listed_count = excluded.listed_count,
-         favourites_count = excluded.favourites_count,
+         following = COALESCE(excluded.following, following),
+         posts = COALESCE(excluded.posts, posts),
+         listed_count = COALESCE(excluded.listed_count, listed_count),
+         favourites_count = COALESCE(excluded.favourites_count, favourites_count),
          recorded_at = excluded.recorded_at`
     ).bind(
       memberId,
@@ -186,7 +186,7 @@ async function writeSnapshot(
            WHEN self_registered = 1 THEN COALESCE(?2, display_name)
            ELSE COALESCE(display_name, ?2)
          END,
-         profile_image = ?3,
+         profile_image = COALESCE(?3, profile_image),
          bio = COALESCE(?4, bio),
          location = COALESCE(?5, location),
          url = COALESCE(?6, url),
@@ -261,7 +261,10 @@ async function writeRecentPosts(
   nowIso: string
 ): Promise<number> {
   if (posts.length === 0) return 0;
-  // 幂等 upsert（不用 REPLACE——REPLACE 删旧重建会丢 views_prev）：已存在的行把旧 views 挪进 views_prev
+  // 幂等 upsert（不用 REPLACE——REPLACE 删旧重建会丢 views_prev）：已存在的行把旧 views 挪进 views_prev。
+  // 所有计数字段都用 COALESCE 保护：上游某次响应缺字段（限流降级/结构变化）时
+  // 保留库里的好值，而不是把已展示的数据清成 NULL。views 缺失时 views_prev 也保持原样
+  // （否则会把旧 views 再挪一次，今日曝光增量口径错乱）。
   const stmt = env.DB.prepare(
     `INSERT INTO posts
        (tweet_id, member_id, created_at, views_count, views_prev,
@@ -269,18 +272,18 @@ async function writeRecentPosts(
         text, lang, media, tweet_type, quoted, recorded_at)
      VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
      ON CONFLICT(tweet_id) DO UPDATE SET
-       views_count = excluded.views_count,
-       views_prev = posts.views_count,
-       like_count = excluded.like_count,
-       reply_count = excluded.reply_count,
-       retweet_count = excluded.retweet_count,
-       quote_count = excluded.quote_count,
-       bookmark_count = excluded.bookmark_count,
-       text = excluded.text,
-       lang = excluded.lang,
-       media = excluded.media,
-       tweet_type = excluded.tweet_type,
-       quoted = excluded.quoted,
+       views_count = COALESCE(excluded.views_count, posts.views_count),
+       views_prev = CASE WHEN excluded.views_count IS NULL THEN posts.views_prev ELSE posts.views_count END,
+       like_count = COALESCE(excluded.like_count, posts.like_count),
+       reply_count = COALESCE(excluded.reply_count, posts.reply_count),
+       retweet_count = COALESCE(excluded.retweet_count, posts.retweet_count),
+       quote_count = COALESCE(excluded.quote_count, posts.quote_count),
+       bookmark_count = COALESCE(excluded.bookmark_count, posts.bookmark_count),
+       text = COALESCE(excluded.text, posts.text),
+       lang = COALESCE(excluded.lang, posts.lang),
+       media = COALESCE(excluded.media, posts.media),
+       tweet_type = COALESCE(excluded.tweet_type, posts.tweet_type),
+       quoted = COALESCE(excluded.quoted, posts.quoted),
        recorded_at = excluded.recorded_at`
   );
   const writes = posts.map((p) =>
@@ -410,8 +413,11 @@ async function processRefreshJob(
 }
 
 /** 即时通道：处理最旧的一条 pending（队列空时通常就是刚提交的那条），有就返回 true。
- *  成功即换数据版本（用户主动提交，应立刻看到新数）。 */
+ *  成功即换数据版本（用户主动提交，应立刻看到新数）。
+ *  熔断期内直接跳过：否则冷却期里每次用户提交都会真打一次注定 402 的调用，
+ *  既烧时长又不断续期熔断（旧实现只给 cron 兜底通道加了闸门）。 */
 export async function processOldestPending(env: Env, source: FollowerSource): Promise<boolean> {
+  if (await sdBreakerOpen(env)) return false;
   const job = (await env.DB.prepare(
     "SELECT id, member_id AS memberId FROM refresh_queue WHERE status = 'pending' ORDER BY requested_at, id LIMIT 1"
   ).first()) as { id: number; memberId: string } | null;
@@ -451,16 +457,19 @@ export async function drainRefreshQueue(
 
 /** 定期清理（collect 每 cron 调用）：
  *  - done/failed 行只保留 30 天（lookupRefreshMember 的 lastProcessedAt 读 MAX(done)，不受影响）
- *  - 领取后崩溃卡死在 processing 的 job 回收为 failed（领取超 1 小时-page 未落结果） */
+ *  - 领取后崩溃卡死在 processing 的 job 回收为 failed（领取超 1 小时未落结果）。
+ *    回收时必须同时写 processed_at：30 天清理的条件是 processed_at IS NOT NULL，
+ *    不写会让这些行永远删不掉（表只增不减）。 */
 async function pruneRefreshQueue(env: Env): Promise<void> {
+  const nowIso = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(
       `DELETE FROM refresh_queue WHERE status NOT IN ('pending','processing')
        AND processed_at IS NOT NULL AND julianday(processed_at) < julianday('now', '-30 days')`
     ),
     env.DB.prepare(
-      `UPDATE refresh_queue SET status = 'failed', error = '处理超时回收'
+      `UPDATE refresh_queue SET status = 'failed', processed_at = ?1, error = '处理超时回收'
        WHERE status = 'processing' AND julianday(requested_at) < julianday('now', '-1 hour')`
-    ),
+    ).bind(nowIso),
   ]);
 }

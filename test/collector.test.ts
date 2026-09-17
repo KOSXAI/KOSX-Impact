@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyFollowerStats, bumpCacheBust, collectWithSource, shardMembersForHour } from "../src/collector";
+import { applyFollowerStats, bumpCacheBust, collectWithSource, processOldestPending, shardMembersForHour } from "../src/collector";
+import { SocialDataError } from "../src/sources/socialdata";
 import type { RosterFile } from "../src/roster";
 import type { FollowerSource, FollowerStats } from "../src/sources/types";
 
@@ -27,9 +28,12 @@ function stubSource(stats: Record<string, FollowerStats | Error>): FollowerSourc
 }
 
 beforeEach(async () => {
+  // 顺序有意义：refresh_queue 外键引用 members，先清子表
+  await env.DB.prepare("DELETE FROM refresh_queue").run();
   await env.DB.prepare("DELETE FROM snapshots").run();
   await env.DB.prepare("DELETE FROM milestones").run();
   await env.DB.prepare("DELETE FROM posts").run();
+  await env.DB.prepare("DELETE FROM site_meta").run();
   await env.DB.prepare("DELETE FROM members").run();
 });
 
@@ -348,5 +352,187 @@ describe("collectWithSource", () => {
       "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
     ).first()) as { bust: number };
     expect(busted.bust).toBe(1);
+  });
+
+  it("残缺响应不清空已有值：头像/次级计数保留旧值", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')"
+    ).run();
+    // 首次：字段齐全
+    await applyFollowerStats(env, "alice", {
+      followers: 1500,
+      profileImageUrl: "https://pbs.twimg.com/a.jpg",
+      following: 120,
+      posts: 42,
+      listedCount: 37,
+      favouritesCount: 4200,
+    }, "2026-09-05T04:00:00Z");
+
+    // 二次：响应缺字段（限流降级/结构变化）——库里旧值必须保留
+    await applyFollowerStats(env, "alice", { followers: 1600 }, "2026-09-05T05:00:00Z");
+
+    const member = (await env.DB.prepare(
+      "SELECT profile_image FROM members WHERE id = 'alice'"
+    ).first()) as { profile_image: string | null };
+    expect(member.profile_image).toBe("https://pbs.twimg.com/a.jpg");
+
+    const snap = (await env.DB.prepare(
+      "SELECT following, posts, listed_count, favourites_count FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
+    ).first()) as { following: number | null; posts: number | null; listed_count: number | null; favourites_count: number | null };
+    expect(snap).toMatchObject({ following: 120, posts: 42, listed_count: 37, favourites_count: 4200 });
+  });
+
+  it("帖子二次采集：views 挪进 views_prev；本次缺 views 时两者都不动", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')"
+    ).run();
+    const base = {
+      tweetId: "t1", createdAt: "2026-09-05T00:00:00Z", fullText: "hi",
+      likes: 10, replies: 1, retweets: 0, quotes: 0, bookmarks: 0, lang: "zh", media: null, tweetType: "tweet", quoted: null,
+    };
+    const source = (views: number | null): FollowerSource => ({
+      name: "stub",
+      async fetchStats() {
+        return { followers: 1500, userId: "44196397" };
+      },
+      async fetchRecentPosts() {
+        return [{ ...base, views }];
+      },
+    });
+
+    await applyFollowerStats(env, "alice", { followers: 1500, userId: "44196397" }, "2026-09-05T04:00:00Z", source(1000));
+    let row = (await env.DB.prepare(
+      "SELECT views_count AS v, views_prev AS p FROM posts WHERE tweet_id = 't1'"
+    ).first()) as { v: number | null; p: number | null };
+    expect(row).toMatchObject({ v: 1000, p: null });
+
+    // 第二次：1200 → 旧值 1000 挪进 views_prev（今日曝光增量的基线）
+    await applyFollowerStats(env, "alice", { followers: 1500, userId: "44196397" }, "2026-09-05T05:00:00Z", source(1200));
+    row = (await env.DB.prepare(
+      "SELECT views_count AS v, views_prev AS p FROM posts WHERE tweet_id = 't1'"
+    ).first()) as { v: number | null; p: number | null };
+    expect(row).toMatchObject({ v: 1200, p: 1000 });
+
+    // 第三次：本次响应缺 views（null）→ 好值保留，views_prev 不被重复挪动
+    await applyFollowerStats(env, "alice", { followers: 1500, userId: "44196397" }, "2026-09-05T06:00:00Z", source(null));
+    row = (await env.DB.prepare(
+      "SELECT views_count AS v, views_prev AS p FROM posts WHERE tweet_id = 't1'"
+    ).first()) as { v: number | null; p: number | null };
+    expect(row).toMatchObject({ v: 1200, p: 1000 });
+  });
+});
+
+describe("熔断与队列回收", () => {
+  it("402 打开熔断；熔断期内 collect 与队列消费都不出站", async () => {
+    await seedBaselines();
+    // 让熔断处于打开状态（模拟刚吃过 402）
+    await env.DB.prepare(
+      "INSERT INTO site_meta (key, value) VALUES ('sd_circuit_open_until', ?)"
+    ).bind(new Date(Date.now() + 3_600_000).toISOString()).run();
+
+    let calls = 0;
+    const source: FollowerSource = {
+      name: "stub",
+      async fetchStats() {
+        calls++;
+        return { followers: 1500 };
+      },
+      async fetchRecentPosts() {
+        calls++;
+        return [];
+      },
+    };
+
+    const summary = await collectWithSource(env, source, testRoster, undefined, 0);
+    expect(calls).toBe(0); // 分片采集全体跳过
+    expect(summary.ok).toBe(0);
+
+    // 即时通道同样不穿透熔断
+    await env.DB.prepare(
+      "INSERT INTO refresh_queue (member_id, status, requested_at) VALUES ('alice', 'pending', ?)"
+    ).bind(new Date().toISOString()).run();
+    const processed = await processOldestPending(env, source);
+    expect(processed).toBe(false);
+    expect(calls).toBe(0);
+  });
+
+  it("processRefreshJob 遇 402：留队待恢复 + 合闸", async () => {
+    await seedBaselines();
+    await env.DB.prepare("DELETE FROM site_meta WHERE key = 'sd_circuit_open_until'").run();
+    await env.DB.prepare(
+      "INSERT INTO refresh_queue (member_id, status, requested_at) VALUES ('alice', 'pending', ?)"
+    ).bind(new Date().toISOString()).run();
+
+    const source: FollowerSource = {
+      name: "stub",
+      async fetchStats() {
+        throw new SocialDataError("payment required", 402);
+      },
+      async fetchRecentPosts() {
+        return [];
+      },
+    };
+    const ok = await processOldestPending(env, source);
+    expect(ok).toBe(false);
+
+    const job = (await env.DB.prepare(
+      "SELECT status, error FROM refresh_queue WHERE member_id = 'alice' ORDER BY id DESC LIMIT 1"
+    ).first()) as { status: string; error: string | null };
+    expect(job.status).toBe("pending"); // 留队待恢复，不是 failed
+    expect(job.error).toContain("额度");
+
+    // 合闸生效：后续通道短路
+    const breaker = await env.DB.prepare(
+      "SELECT value FROM site_meta WHERE key = 'sd_circuit_open_until'"
+    ).first();
+    expect(breaker).not.toBeNull();
+  });
+
+  it("崩溃回收：卡死 processing 的 job 转 failed 且写 processed_at（否则永远删不掉）", async () => {
+    await seedBaselines();
+    // 一条 2 小时前领取、至今仍 processing 的 job
+    await env.DB.prepare(
+      `INSERT INTO refresh_queue (member_id, status, requested_at, processed_at)
+       VALUES ('alice', 'processing', ?, NULL)`
+    ).bind(new Date(Date.now() - 2 * 3600_000).toISOString()).run();
+
+    // collect 会调用 pruneRefreshQueue（纯本地写，不依赖出站）
+    await collectWithSource(env, stubSource({ alice_x: { followers: 1500 } }), testRoster, undefined, 0);
+
+    const job = (await env.DB.prepare(
+      "SELECT status, processed_at FROM refresh_queue WHERE member_id = 'alice' AND status = 'failed'"
+    ).first()) as { status: string; processed_at: string | null } | null;
+    expect(job).not.toBeNull();
+    expect(job!.processed_at).not.toBeNull(); // 写了 processed_at，30 天清理才收得走
+  });
+
+  it("熔断分片提前收车：中途 402 后剩余成员不再尝试", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at) VALUES ('m1','m1_x','2026-08-30'), ('m10','m10_x','2026-08-30')"
+    ).run();
+    await env.DB.prepare("DELETE FROM site_meta WHERE key = 'sd_circuit_open_until'").run();
+    const twoMemberRoster: RosterFile = {
+      members: [
+        { id: "m1", handle: "m1_x", joinedAt: "2026-08-30" },
+        { id: "m10", handle: "m10_x", joinedAt: "2026-08-30" },
+      ],
+    };
+    let calls = 0;
+    const source: FollowerSource = {
+      name: "stub",
+      async fetchStats(handle) {
+        calls++;
+        if (handle === "m1_x") throw new SocialDataError("payment required", 402);
+        return { followers: 1500 };
+      },
+      async fetchRecentPosts() {
+        return [];
+      },
+    };
+
+    const summary = await collectWithSource(env, source, twoMemberRoster, undefined, 20);
+    expect(calls).toBe(1); // 第二个成员在熔断检查处被拦下，没有出站
+    expect(summary.ok).toBe(0);
+    expect(summary.failed).toHaveLength(1);
   });
 });

@@ -4,8 +4,18 @@
  * 把数据管线全部收敛进 Cloudflare——替代原先的本地脚本 + 本地自动化。
  * 被提及 = SocialData Search 按 @handle 拉站外提及；共同关注 = following 采样聚合；
  * 品味 = 帖子正文外部 @ 提及计数（纯库读零 API）。
+ * 与分片采集共用同一把 key 与同一个全局熔断（collector 的 sd_circuit_open_until）：
+ * 余额耗尽时两条通道一起停，不会一方停一方继续烧。
  */
+import { sdBreakerOpen, tripBreaker } from "./collector";
+import { SocialDataError, FETCH_TIMEOUT_MS } from "./sources/socialdata";
+
 const API_BASE = "https://api.socialdata.tools";
+
+/** 致命出站错误（余额/鉴权）：立刻中止整轮，别再逐个成员打注定失败的请求 */
+function isFatal(error: unknown): boolean {
+  return error instanceof SocialDataError && (error.status === 401 || error.status === 402 || error.status === 403);
+}
 
 interface SocialTweet {
   id_str?: string;
@@ -30,10 +40,27 @@ async function throttledGet<T>(env: Env, path: string): Promise<T> {
   const key = env.SOCIALDATA_API_KEY;
   if (!key) throw new Error("缺少 SOCIALDATA_API_KEY");
   await new Promise((r) => setTimeout(r, THROTTLE_INTERVAL_MS));
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${key}` },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${path}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      headers: { Accept: "application/json", Authorization: `Bearer ${key}` },
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) throw new SocialDataError(`请求超时（${FETCH_TIMEOUT_MS / 1000}s）`, 0);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    // 必须带 status 抛出：402（余额耗尽）/429（限流）要能被上层识别，
+    // 旧实现抛 `new Error("HTTP " + status)` 把状态码丢进文案里，
+    // 调用方只能把「余额耗尽」也当成「该成员失败」继续逐个打，白烧一小时
+    const body = (await res.text().catch(() => "")).slice(0, 300);
+    throw new SocialDataError(`HTTP ${res.status} ${path}${body ? ` ${body}` : ""}`, res.status);
+  }
   return res.json();
 }
 
@@ -46,12 +73,20 @@ async function bumpCacheBust(env: Env): Promise<void> {
 
 /** 成员被提及：遍历活跃成员，search @handle -filter:replies 拉站外提及，写 member_mentions（幂等） */
 export async function syncMemberMentions(env: Env): Promise<{ ok: number; total: number }> {
+  // 熔断期内不发出站请求（余额疑似耗尽；等冷却结束或人工处理）
+  if (await sdBreakerOpen(env)) {
+    console.warn("[sync-signals] 熔断打开，本轮被提及同步跳过");
+    return { ok: 0, total: 0 };
+  }
   const { results: members } = await env.DB.prepare(
     "SELECT id, handle FROM members WHERE status = 'active'"
   ).all<{ id: string; handle: string }>();
   const stmt = env.DB.prepare(
-    `INSERT OR REPLACE INTO member_mentions (member_id, tweet_id, author_handle, author_name, text, mentioned_at, collected_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    // DO NOTHING 而非 REPLACE：REPLACE 会把已入库行的 collected_at 刷成本次时间，
+    // 丢掉「首次看到该提及」的语义（本地脚本 scripts/sync-member-mentions.mjs 同口径）
+    `INSERT INTO member_mentions (member_id, tweet_id, author_handle, author_name, text, mentioned_at, collected_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(member_id, tweet_id) DO NOTHING`
   );
   const now = new Date().toISOString();
   let total = 0;
@@ -79,6 +114,13 @@ export async function syncMemberMentions(env: Env): Promise<{ ok: number; total:
       if (batch.length) await env.DB.batch(batch);
       ok++;
     } catch (error) {
+      if (isFatal(error)) {
+        // 余额/鉴权问题：剩余成员注定同样失败，立即合闸 + 中止本轮，
+        // 不再对每个成员各打一次（旧实现会把 402 当普通错误跑完整份名册）
+        await tripBreaker(env);
+        console.error("[sync-signals] 余额/鉴权错误，中止本轮被提及同步：", error instanceof Error ? error.message : error);
+        break;
+      }
       /* 单成员失败跳过，不阻塞整轮；留一行日志避免静默丢数据 */
       console.error(`[sync-signals] 成员 ${m.handle} 提及同步失败:`, error instanceof Error ? error.message : error);
     }
@@ -101,7 +143,12 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
 
   // 共同关注：有多少位成员共同关注同一个外部大V
   const followingCount = new Map<string, { name: string | null; set: Set<string> }>();
+  let breakerTripped = await sdBreakerOpen(env);
   for (const m of top) {
+    if (breakerTripped) {
+      console.warn("[sync-signals] 熔断打开，剩余共同关注采样跳过");
+      break;
+    }
     try {
       const page = await throttledGet<{ users?: SocialUser[] }>(env, `/twitter/user/${m.user_id}/following`);
       const users = Array.isArray(page.users) ? page.users : [];
@@ -113,6 +160,12 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
         followingCount.set(h, rec);
       }
     } catch (error) {
+      if (isFatal(error)) {
+        await tripBreaker(env);
+        breakerTripped = true;
+        console.error("[sync-signals] 余额/鉴权错误，中止共同关注采样：", error instanceof Error ? error.message : error);
+        break;
+      }
       /* 单成员跳过，不阻塞整轮；留一行定位失败样本 */
       console.error(`[sync-signals] 成员 ${m.handle} 共同关注采样失败:`, error instanceof Error ? error.message : error);
     }

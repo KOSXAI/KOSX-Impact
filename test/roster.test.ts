@@ -106,4 +106,28 @@ describe("syncRoster", () => {
     ).first()) as { status: string };
     expect(ghost.status).toBe("removed");
   });
+
+  it("人为状态锁：名册里仍有的成员被手动置 removed 后，不被名册复活", async () => {
+    await syncRoster(env, rosterOf(alice, bob));
+    // 维护者手动移除（隐私退出），并上锁
+    await env.DB.prepare(
+      "UPDATE members SET status = 'removed', status_locked = 1 WHERE id = 'bob'"
+    ).run();
+
+    await syncRoster(env, rosterOf(alice, bob)); // bob 仍在名册里
+
+    const bobRow = (await env.DB.prepare(
+      "SELECT status, status_locked FROM members WHERE id = 'bob'"
+    ).first()) as { status: string; status_locked: number };
+    expect(bobRow.status).toBe("removed"); // 人为决定不被覆盖
+    expect(bobRow.status_locked).toBe(1);
+
+    // 解锁后名册恢复接管
+    await env.DB.prepare("UPDATE members SET status_locked = 0 WHERE id = 'bob'").run();
+    await syncRoster(env, rosterOf(alice, bob));
+    const restored = (await env.DB.prepare(
+      "SELECT status FROM members WHERE id = 'bob'"
+    ).first()) as { status: string };
+    expect(restored.status).toBe("active");
+  });
 });

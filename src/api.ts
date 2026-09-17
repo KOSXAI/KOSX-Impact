@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { applyFollowerStats, bumpCacheBust, collect, drainRefreshQueue, processOldestPending } from "./collector";
-import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
+import { applyFollowerStats, bumpCacheBust, collect, drainRefreshQueue, processOldestPending, sdBreakerOpen, tripBreaker } from "./collector";
+import { CACHE_KEYS, assertSafeCacheKey, cachedResponse, readCacheBust } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import { renderMemberOgPng, renderSiteOgPng, renderReportOgPng, renderTrackOgPng, renderLeaderboardOgPng, ogNotFound } from "./og-render";
 import { computeMemberStats } from "./stats";
@@ -17,13 +17,44 @@ import { SITE_URL } from "./lib/site";
 
 export const api = new Hono<{ Bindings: Env }>();
 
+/** 成员 id / 赛道 slug 白名单：两者都会拼进缓存键（URL 规范化会吃掉 `..`、丢弃 `#`
+ *  之后的内容，非白名单串可借机把内容写进别的缓存槽）。id 取不到 → 一律 404 卡。 */
+const MEMBER_ID_RE = /^[a-zA-Z0-9_]{1,15}$/;
+
+/** 极简内存频率闸门（isolate 级）：写端点（邀请上报/自助注册）的滥用兜底。
+ *  Workers 无内置限流，这里按「单 isolate × 窗口」粗粒度拦突发脚本；
+ *  额度类硬闸门（注册日上限、队列去重）在 refresh_queue.ts，二者互补。 */
+const RATE_BUCKET = new Map<string, { count: number; resetAt: number }>();
+function rateLimit(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const bucket = RATE_BUCKET.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    RATE_BUCKET.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (bucket.count >= limit) return false;
+  bucket.count += 1;
+  return true;
+}
+
+/** 客户端标识：Cloudflare 覆盖写入的 CF-Connecting-IP 客户端无法伪造；本地/测试退回 UA */
+function clientKey(c: { req: { header: (n: string) => string | undefined } }): string {
+  return c.req.header("CF-Connecting-IP") ?? c.req.header("User-Agent") ?? "unknown";
+}
+
 // 健康检查：供 CI 与监控探活使用
 api.get("/api/health", (c) => c.json({ ok: true, now: new Date().toISOString() }));
 
 // 邀请裂变上报：新成员自助加入后，把分享链接里的 ?invite= 归因到邀请人（幂等，一人只计一次）
 api.post("/api/invite", async (c) => {
+  // 无鉴权写端点：频率闸门挡脚本自刷（荣誉榜可被刷 + 免费 D1 写入面）
+  if (!rateLimit(`invite:${clientKey(c)}`, 10, 60_000)) {
+    return c.json({ error: "too_many_requests", message: "提交过于频繁，请稍后再试。" }, 429);
+  }
   const body = (await c.req.json().catch(() => null)) as { inviterId?: string; invitedMemberId?: string } | null;
   if (!body?.inviterId || !body?.invitedMemberId) return c.json({ error: "invalid" }, 400);
+  // 自己邀请自己不算（否则空手刷榜）
+  if (body.inviterId === body.invitedMemberId) return c.json({ error: "invalid" }, 400);
   const inviter = await c.env.DB.prepare("SELECT id FROM members WHERE id = ? AND status = 'active'").bind(body.inviterId).first();
   const invited = await c.env.DB.prepare("SELECT id FROM members WHERE id = ? AND status = 'active'").bind(body.invitedMemberId).first();
   if (!inviter || !invited) return c.json({ error: "unknown_member" }, 422);
@@ -84,10 +115,15 @@ api.get("/api/refresh/lookup", async (c) => {
 
 // 提交更新 / 自助加入：入队（去重 + 防抖）→ 抢到全局节流槽则当场处理最旧一条 pending
 // （即时通道，队列空时即本条）；抢不到留在队列由 cron 兜底清空。
-// 自助注册（register:true）且抢到槽时当场拉一次 SocialData——存在即校验、数据即入库：
-// 账号不存在（404）直接拒绝，脏 handle 进不了名单；数据源抖动等非确定性错误降级为
-// 注册 + 入队，由兜底通道补采（宁可稍慢，不让一次网络抖动挡掉正常加入）。
+// 自助注册（register:true）**必须先通过存在性校验**才会写库：拿到全局槽 + fetchStats
+// 成功（账号确实存在）才 registerMember；槽被占或上游抖动/额度不足一律不建行，
+// 让用户稍后重试——旧实现会在校验旁路时直接建行，脏 handle 会被永久追踪并
+// 每天白烧一次付费 API。
 api.post("/api/refresh", async (c) => {
+  // 无鉴权写端点：频率闸门挡脚本（每 IP 每分钟 10 次；额度类硬闸门见 registerCapReached）
+  if (!rateLimit(`refresh:${clientKey(c)}`, 10, 60_000)) {
+    return c.json({ error: "too_many_requests", message: "提交过于频繁，请稍后再试。" }, 429);
+  }
   const body = (await c.req.json().catch(() => null)) as
     | { input?: string; register?: boolean }
     | null;
@@ -98,7 +134,7 @@ api.post("/api/refresh", async (c) => {
   let member = await lookupRefreshMember(c.env, handle);
   const isNewRegistration = !member;
   if (isNewRegistration && !body?.register) return c.json({ error: "not_member" }, 404);
-  // 自助注册名额闸门：新注册每条都要烧 SocialData 额度并永久扩大分片成本，
+  // 自助注册名额闸门：新注册/复活每条都要烧 SocialData 额度并永久扩大分片成本，
   // 全站每日新增有上限（正常加入远够用），触顶一律拒绝，防脚本刷额度
   if (isNewRegistration && (await registerCapReached(c.env, nowIso))) {
     return c.json({ error: "register_cap_reached", message: "今日自助加入名额已满，请明天再试。" }, 429);
@@ -106,10 +142,24 @@ api.post("/api/refresh", async (c) => {
 
   const source = getSource(c.env);
 
-  if (isNewRegistration && (await tryGrabRefreshSlot(c.env, nowIso))) {
+  if (isNewRegistration) {
+    // 冷却期内不做出站调用（余额疑似耗尽的 1 小时熔断）
+    if (await sdBreakerOpen(c.env)) {
+      return c.json({ error: "upstream_busy", message: "数据源暂时繁忙，请稍后再试。" }, 503);
+    }
+    if (!(await tryGrabRefreshSlot(c.env, nowIso))) {
+      // 抢不到全局节流槽 = 现在做不了存在性校验 → 不建行（宁可不注册，也不留脏 handle）
+      return c.json({ error: "busy", message: "当前提交较多，请一分钟后再试。" }, 429);
+    }
     try {
       const stats = await source.fetchStats(handle);
-      await registerMember(c.env, handle, nowIso);
+      const registered = await registerMember(c.env, handle, nowIso);
+      if (!registered.ok) {
+        return c.json(
+          { error: "account_locked", message: "该账号已被移出追踪名单，如需重新加入请联系社群管理员。" },
+          403
+        );
+      }
       member = await lookupRefreshMember(c.env, handle);
       if (!member) return c.json({ error: "register_failed" }, 500);
       await applyFollowerStats(c.env, member.id, stats, nowIso, source);
@@ -124,22 +174,27 @@ api.post("/api/refresh", async (c) => {
           422
         );
       }
-      // 其他错误（限流/网络等）：落到下方照常注册 + 入队，由兜底通道补采
+      // 额度/限流：合闸并明确失败，不降级建行（降级建行 = 脏 handle 永久入库）
+      if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) {
+        await tripBreaker(c.env);
+        return c.json({ error: "upstream_limited", message: "数据源额度受限，请稍后再试。" }, 503);
+      }
+      console.error("[refresh] 注册校验失败（未建行）：", error instanceof Error ? error.message : error);
+      return c.json({ error: "upstream_error", message: "数据源暂时不可用，请稍后再试。" }, 503);
     }
   }
 
-  if (!member) {
-    await registerMember(c.env, handle, nowIso);
-    member = await lookupRefreshMember(c.env, handle);
-    if (!member) return c.json({ error: "register_failed" }, 500);
-  }
+  // 走到这里 member 必然存在：既是老成员（lookup 有值），
+  // 新注册分支要么已经 return、要么在上面写库后重新 lookup 过
+  if (!member) return c.json({ error: "register_failed" }, 500);
+  const target = member;
 
-  const enqueued = await enqueueRefresh(c.env, member.id, nowIso);
+  const enqueued = await enqueueRefresh(c.env, target.id, nowIso);
   if (enqueued === "already_pending" || enqueued === "throttled") {
     // memberId 必须带：前端排队态「查看成长档案」依赖它跳转（缺失会点不动）
     return c.json({
       status: enqueued === "already_pending" ? "queued" : "throttled",
-      memberId: member.id,
+      memberId: target.id,
     });
   }
 
@@ -154,14 +209,14 @@ api.post("/api/refresh", async (c) => {
   // done/failed 行还在，按「最新一行」读回会把别人的结果或旧值当成自己的
   const job = (await c.env.DB.prepare(
     "SELECT status, followers_after AS followersAfter FROM refresh_queue INDEXED BY idx_refresh_queue_member WHERE member_id = ?1 AND requested_at = ?2 ORDER BY id DESC LIMIT 1"
-  ).bind(member.id, nowIso).first()) as { status: string; followersAfter: number | null } | null;
+  ).bind(target.id, nowIso).first()) as { status: string; followersAfter: number | null } | null;
 
   // 写库时 cache_bust 已 +1：读端点缓存键自动换新，新请求回源即见新数据，
   // 无需手动清缓存（跨数据中心 purge 本就只能清触发方所在区域）
   return c.json({
     status: job?.status === "done" ? "done" : "queued",
     followersAfter: job?.followersAfter ?? null,
-    memberId: member.id,
+    memberId: target.id,
   });
 });
 
@@ -177,7 +232,9 @@ export async function renderMemberCardSvg(
   // 键必须带 cache_bust 数据版本：数据一变键必换（嵌入到个人主页的外链图，
   // 若不跟数据版本，采集后升级的数据最长要等 1 小时边缘缓存过期才可见）
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}/card/${id}?v=${variant}&cb=${bust}`), 3600, async () => {
+  // id 来自 URL 路径：编码后再入键（防止 `/`、`..`、`#` 借 URL 规范化逃逸到别的缓存槽）
+  const key = assertSafeCacheKey(`/card/${encodeURIComponent(id)}?v=${variant}&cb=${bust}`);
+  return cachedResponse(new Request(`${SITE_URL}${key}`), 3600, async () => {
     const member = await env.DB.prepare(
       `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt, tracks
        FROM members WHERE id = ? AND status = 'active'`
@@ -399,15 +456,17 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
   if (pathname === "/og/leaderboard.png") return renderLeaderboardOgPng(env, url.origin);
   if (pathname.startsWith("/og/members/")) {
     const id = pathname.slice("/og/members/".length).replace(/\.png$/, "").split("/")[0];
-    return id ? renderMemberOgPng(env, id, url.origin) : ogNotFound();
+    // id 白名单：非白名单串会进缓存键（URL 规范化可让其逃逸到别的缓存槽）
+    return MEMBER_ID_RE.test(id) ? renderMemberOgPng(env, id, url.origin) : ogNotFound();
   }
   if (pathname.startsWith("/og/reports/")) {
     const id = pathname.slice("/og/reports/".length).replace(/\.png$/, "").split("/")[0];
-    return id ? renderReportOgPng(env, id, url.origin) : ogNotFound();
+    return MEMBER_ID_RE.test(id) ? renderReportOgPng(env, id, url.origin) : ogNotFound();
   }
   if (pathname.startsWith("/og/tracks/")) {
     const slug = pathname.slice("/og/tracks/".length).replace(/\.png$/, "").split("/")[0];
-    return slug ? renderTrackOgPng(env, slug, url.origin) : ogNotFound();
+    // slug 必须落在真实赛道表内（缓存键 + 渲染都只认已知赛道）
+    return TRACKS.some((t) => t.slug === slug) ? renderTrackOgPng(env, slug, url.origin) : ogNotFound();
   }
   if (pathname === "/robots.txt") return renderRobots();
   if (pathname === "/sitemap.xml") return renderSitemap(env);
@@ -415,8 +474,12 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
   if (pathname === "/feed.xml") return renderFeed(env);
   if (pathname.startsWith("/card/")) {
     const id = pathname.slice("/card/".length).replace(/\.svg$/, "").split("/")[0];
-    if (!id) return new Response(renderNotFoundCard("unknown"), { status: 404, headers: { "Content-Type": "image/svg+xml" } });
-    const variant = (url.searchParams.get("variant") ?? "default") as "default" | "countdown" | "track";
+    if (!MEMBER_ID_RE.test(id)) {
+      return new Response(renderNotFoundCard(id || "unknown"), { status: 404, headers: { "Content-Type": "image/svg+xml" } });
+    }
+    // variant 白名单：任意串会让每个新值都成为一个新缓存键（无上限写缓存 + 每次 miss 重查库）
+    const rawVariant = url.searchParams.get("variant") ?? "default";
+    const variant = rawVariant === "countdown" || rawVariant === "track" ? rawVariant : "default";
     return renderMemberCardSvg(id, env, variant);
   }
   return null;

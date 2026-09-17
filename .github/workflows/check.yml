@@ -1,0 +1,32 @@
+name: check
+
+# 唯一门禁：validate:members + typecheck + vitest（真 D1 集成测试）。
+# 此前仓库没有任何 workflow，`npm run check` 只在开发机上手跑，
+# dependabot 每周开的大版本 PR（typescript ^7 / vite ^8 这类）没有任何自动验证。
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 名册 + 类型 + 测试
+        run: npm run check

@@ -1,5 +1,5 @@
 import type { MemberStats } from "@/stats";
-import { fmt } from "@/lib/format";
+import { fmt, signed } from "@/lib/format";
 import { titleOf } from "@/milestones";
 
 /**
@@ -151,7 +151,7 @@ export const VIEW_PRESETS: Record<ViewKey, ViewPreset> = {
       growthMetricValue(b, ctx.growthMetric, ctx.growthRange) -
       growthMetricValue(a, ctx.growthMetric, ctx.growthRange),
     metric: (m, ctx) => ({
-      value: `+${fmt(growthMetricValue(m, ctx.growthMetric, ctx.growthRange))}`,
+      value: signed(growthMetricValue(m, ctx.growthMetric, ctx.growthRange)),
       label:
         GROWTH_METRICS.find((x) => x.key === ctx.growthMetric)?.label ?? "涨粉",
       tone: "signal",
@@ -213,7 +213,7 @@ export const VIEW_PRESETS: Record<ViewKey, ViewPreset> = {
     label: "赛道分组",
     metric: (m, ctx) =>
       ctx.trackSort === "growth"
-        ? { value: `+${fmt(m.growth7d)}`, label: "近 7 天", tone: "signal" }
+        ? { value: signed(m.growth7d), label: "近 7 天", tone: "signal" }
         : followersMetric(m),
     empty: "还没有成员挂在任何赛道。",
   },

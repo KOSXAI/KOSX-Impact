@@ -34,19 +34,20 @@ export const CACHE_KEYS = {
   /** 站点 OG 图（SVG favicon / 旧预览图，仍被 favicon 引用） */
   og: "/og.svg",
   /** 成员 OG 分享卡（PNG，X/微信分享预览用） */
-  ogMember: (id: string) => `/og/members/${id}?v=1`,
+  ogMember: (id: string) => `/og/members/${encodeURIComponent(id)}?v=1`,
   /** 周报 OG 分享卡（PNG） */
-  ogReport: (memberId: string) => `/og/reports/${memberId}?v=1`,
+  ogReport: (memberId: string) => `/og/reports/${encodeURIComponent(memberId)}?v=1`,
   /** 赛道 OG 分享卡（PNG） */
-  ogTrack: (slug: string) => `/og/tracks/${slug}?v=1`,
+  ogTrack: (slug: string) => `/og/tracks/${encodeURIComponent(slug)}?v=1`,
   /** 榜单 OG 分享卡（PNG，榜单页 head 用） */
   ogLeaderboard: "/og/leaderboard.png?v=1",
   /** 站点 OG 分享卡（PNG） */
   ogSite: "/og/site.png?v=1",
   /** 成员详情（/api/members/:id 与成员页 SSR 共用）——v21：帖子上榜富媒体（media/quoted/tweet_type） */
-  memberDetail: (id: string) => `/api/members/${id}?v=21`,
-  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v6：拉深到 50 帖（形态筛选/互动率排序的客户端池子） */
-  topPosts: "/api/top-posts?v=6",
+  memberDetail: (id: string) => `/api/members/${encodeURIComponent(id)}?v=21`,
+  /** 精华帖（/api/top-posts 与独立页 /posts 共用）——v7：缓存键纳入 limit
+   *  （v6 时 SSR 要 50 条、API 默认 20 条共用一个键，会互相读到对方的条数） */
+  topPosts: "/api/top-posts?v=7",
   /** sitemap.xml（SSR 之外的 Worker 直出，键只作 Cache API 存储用） */
   sitemap: "/sitemap.xml?v=2",
   /** 以下为无独立 API 端点的查询层键（/q/ 前缀仅作缓存键，不构成可请求路径） */
@@ -66,12 +67,31 @@ export const CACHE_KEYS = {
   inviteLeaders: "/q/invite-leaders?v=1",
   /** 年度影响力报告 */
   annualReport: "/q/annual-report?v=1",
-  /** 社群日报归档（按日期分键） */
-  dailyArchive: (date: string) => `/q/daily/${date}?v=1`,
+  /** 社群日报归档（按日期分键）——date 必须编码后入键：调用方传入的用户输入
+   *  若含 `/`、`..`、`#`，会让键在 URL 解析后逃逸到别的路径（缓存投毒） */
+  dailyArchive: (date: string) => `/q/daily/${encodeURIComponent(date)}?v=1`,
   /** 报告板块门牌数（今日登阶 / 成员数 / 累计粉丝）——/reports 只需三个数，
    *  不再为它们拉整份 dashboard */
   dashboardSummary: "/q/dashboard-summary?v=1",
 } as const;
+
+/**
+ * 缓存键安全闸门：键里出现路径穿越 / 片段符 / 反斜杠即为非法。
+ * 键在 cachedResponse 里会被 URL 解析规范化（`..` 逐段抵消、`#` 之后整体丢弃），
+ * 用户输入若原样拼进键，就能借规范化把内容写进**另一个路径**的缓存槽（缓存投毒）。
+ * 调用方必须先把用户输入 encodeURIComponent；这里兜底拦截漏网之鱼。
+ */
+export function isSafeCacheKey(key: string): boolean {
+  return key.startsWith("/") && !/[#\\]|\.\./.test(key);
+}
+
+/** 同 isSafeCacheKey，非法时抛错（用于「非法即编程错误」的内部键） */
+export function assertSafeCacheKey(key: string): string {
+  if (!isSafeCacheKey(key)) {
+    throw new Error(`非法缓存键（用户输入未编码？）：${key}`);
+  }
+  return key;
+}
 
 export async function cachedResponse(
   request: Request,
@@ -116,7 +136,7 @@ export async function readCacheBust(env: Env): Promise<number> {
 export async function cachedQuery<T>(env: Env, key: string, ttl: number, build: () => Promise<T>): Promise<T> {
   const bust = await readCacheBust(env);
   const res = await cachedResponse(
-    new Request(`${SITE_URL}${key}&cb=${bust}`),
+    new Request(`${SITE_URL}${assertSafeCacheKey(key)}&cb=${bust}`),
     ttl,
     async () => new Response(JSON.stringify(await build()), { headers: { "Content-Type": "application/json" } })
   );
