@@ -207,13 +207,25 @@ export const BUMP_CACHE_BUST_SQL = `INSERT INTO site_meta (key, value) VALUES ('
   ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1;`;
 
 /**
+ * wrangler 可执行文件：优先用仓库本地安装的那份（版本由 package-lock 锁定，
+ * 与 npm scripts 解析到的是同一个），找不到再退回 PATH。
+ *
+ * 为何不直接写 "wrangler" 交给 PATH：本地那份才是声明过的依赖，PATH 上的
+ * 是各机器手工装的、版本随意（实测两端曾差 3 个 minor）。换机器后如果只装了
+ * node_modules 而没全局装，脚本会以 `spawnSync wrangler ENOENT` 崩掉——
+ * 报错点离真实原因很远，难查。
+ */
+const LOCAL_WRANGLER = resolve(ROOT, "node_modules", ".bin", "wrangler");
+export const WRANGLER_BIN = existsSync(LOCAL_WRANGLER) ? LOCAL_WRANGLER : "wrangler";
+
+/**
  * wrangler d1 execute 的原始封装（返回首条结果的 { results, success, meta }）。
  * 用 execFileSync 传参数数组而非拼 shell 字符串：SQL 里带 $、反引号、换行时，
  * JSON.stringify 的引号包裹并不能阻止 shell 展开（历史实现在这上面会被注入）。
  */
 export function d1Execute(command) {
   const out = execFileSync(
-    "wrangler",
+    WRANGLER_BIN,
     ["d1", "execute", "kosx-impact", "--remote", "--json", "--command", command],
     { encoding: "utf-8", maxBuffer: 20 * 1024 * 1024 }
   );

@@ -14,6 +14,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WRANGLER_BIN } from "./_lib.mjs";
 
 // 从 src/tracks.ts 提取全部赛道名（name: "X" 字段）：TRACKS 正式赛道 + TRACK_OTHER 综合
 const tracksSrc = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "..", "src", "tracks.ts"), "utf-8");
@@ -43,7 +44,7 @@ function runSql(stmt) {
   const file = "/tmp/apply-tracks.sql";
   writeFileSync(file, stmt + ";\n");
   return JSON.parse(
-    execFileSync("wrangler", ["d1", "execute", "kosx-impact", "--remote", "--json", "--file", file], {
+    execFileSync(WRANGLER_BIN, ["d1", "execute", "kosx-impact", "--remote", "--json", "--file", file], {
       encoding: "utf-8",
     })
   );

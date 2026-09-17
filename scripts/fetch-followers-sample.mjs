@@ -5,7 +5,7 @@
 // 用法：node scripts/fetch-followers-sample.mjs [--apply] [--size 200] [handle...]
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { readSocialDataKey, createThrottledGet, d1Query, lit } from "./_lib.mjs";
+import { readSocialDataKey, createThrottledGet, d1Query, lit, WRANGLER_BIN } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const APPLY = argv.includes("--apply");
@@ -125,7 +125,7 @@ if (APPLY && profiles.length) {
   );
   const sqlPath = "/tmp/fan-profiles.sql";
   writeFileSync(sqlPath, rows.join("\n"));
-  execFileSync("wrangler", ["d1", "execute", "kosx-impact", "--remote", "--file", sqlPath], {
+  execFileSync(WRANGLER_BIN, ["d1", "execute", "kosx-impact", "--remote", "--file", sqlPath], {
     stdio: "inherit",
     maxBuffer: 10 * 1024 * 1024,
   });
