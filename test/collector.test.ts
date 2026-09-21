@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { applyFollowerStats, bumpCacheBust, collectWithSource, shardMembersForHour } from "../src/collector";
 import type { RosterFile } from "../src/roster";
 import type { FollowerSource, FollowerStats } from "../src/sources/types";
+import { SocialDataError } from "../src/sources/socialdata";
 
 const testRoster: RosterFile = {
   members: [
@@ -24,6 +25,24 @@ function stubSource(stats: Record<string, FollowerStats | Error>): FollowerSourc
       return [];
     },
   };
+}
+
+/** stubSource 的带计数版：断言隔离后不再出站调用 */
+function countingSource(stats: Record<string, FollowerStats | Error>) {
+  let calls = 0;
+  const source: FollowerSource = {
+    name: "stub",
+    async fetchStats(handle) {
+      calls++;
+      const value = stats[handle];
+      if (value instanceof Error) throw value;
+      return value;
+    },
+    async fetchRecentPosts() {
+      return [];
+    },
+  };
+  return { source, getCalls: () => calls };
 }
 
 beforeEach(async () => {
@@ -350,3 +369,87 @@ describe("collectWithSource", () => {
     expect(busted.bust).toBe(1);
   });
 });
+
+describe("账号失效隔离（404 → suspended）", () => {
+  // alice 的分片槽是 0（见上方「滚动采集」用例注释）
+  const soloRoster: RosterFile = { members: [{ id: "alice", handle: "alice_x", joinedAt: "2026-08-30" }] };
+  const notFound = new SocialDataError("SocialData 请求失败（HTTP 404）：User is suspended", 404);
+
+  it("连续 3 次 404 自动隔离；隔离后不再出站调用", async () => {
+    await env.DB.prepare("INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')").run();
+    const { source, getCalls } = countingSource({ alice_x: notFound });
+    for (let i = 0; i < 3; i++) {
+      const summary = await collectWithSource(env, source, soloRoster, undefined, 0);
+      expect(summary.ok).toBe(0);
+    }
+    const quarantined = (await env.DB.prepare(
+      "SELECT status, fail_count FROM members WHERE id = 'alice'"
+    ).first()) as { status: string; fail_count: number };
+    expect(quarantined).toEqual({ status: "suspended", fail_count: 3 });
+
+    // 隔离后探针节拍未到：零出站调用，名册同步也不复活
+    const after = countingSource({ alice_x: { followers: 1600 } });
+    const summary = await collectWithSource(env, after.source, soloRoster, undefined, 0);
+    expect(summary.ok).toBe(0);
+    expect(after.getCalls()).toBe(0);
+    const still = (await env.DB.prepare("SELECT status FROM members WHERE id = 'alice'").first()) as { status: string };
+    expect(still.status).toBe("suspended");
+  });
+
+  it("404 后采集成功：fail_count 清零、保持 active", async () => {
+    await env.DB.prepare("INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')").run();
+    const failSource = countingSource({ alice_x: notFound });
+    await collectWithSource(env, failSource.source, soloRoster, undefined, 0);
+    await collectWithSource(env, failSource.source, soloRoster, undefined, 0);
+    const counting = (await env.DB.prepare(
+      "SELECT status, fail_count FROM members WHERE id = 'alice'"
+    ).first()) as { status: string; fail_count: number };
+    expect(counting).toEqual({ status: "active", fail_count: 2 });
+
+    const okSource = countingSource({ alice_x: { followers: 1600 } });
+    await collectWithSource(env, okSource.source, soloRoster, undefined, 0);
+    const recovered = (await env.DB.prepare(
+      "SELECT status, fail_count FROM members WHERE id = 'alice'"
+    ).first()) as { status: string; fail_count: number };
+    expect(recovered).toEqual({ status: "active", fail_count: 0 });
+  });
+
+  it("suspended 探针：last_fail_at 超过 7 天后重试，成功即恢复 active 并写快照", async () => {
+    await env.DB.prepare(
+      `INSERT INTO members (id, handle, joined_at, status, fail_count, last_fail_at)
+       VALUES ('alice', 'alice_x', '2026-08-30', 'suspended', 3, '2026-09-10T00:00:00.000Z')`
+    ).run();
+    const { source, getCalls } = countingSource({ alice_x: { followers: 4242 } });
+    const summary = await collectWithSource(env, source, soloRoster, undefined, 0);
+    expect(getCalls()).toBe(1);
+    expect(summary.ok).toBe(1);
+    const recovered = (await env.DB.prepare(
+      "SELECT status, fail_count FROM members WHERE id = 'alice'"
+    ).first()) as { status: string; fail_count: number };
+    expect(recovered).toEqual({ status: "active", fail_count: 0 });
+    const snap = (await env.DB.prepare(
+      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
+    ).first()) as { followers: number };
+    expect(snap.followers).toBe(4242);
+  });
+
+  it("suspended 探针仍 404：保持隔离，节拍顺延（last_fail_at 刷新）", async () => {
+    await env.DB.prepare(
+      `INSERT INTO members (id, handle, joined_at, status, fail_count, last_fail_at)
+       VALUES ('alice', 'alice_x', '2026-08-30', 'suspended', 3, '2026-09-10T00:00:00.000Z')`
+    ).run();
+    const { source } = countingSource({ alice_x: notFound });
+    await collectWithSource(env, source, soloRoster, undefined, 0);
+    const row = (await env.DB.prepare(
+      "SELECT status, fail_count, last_fail_at FROM members WHERE id = 'alice'"
+    ).first()) as { status: string; fail_count: number; last_fail_at: string };
+    expect(row.status).toBe("suspended");
+    // 节拍顺延：探针失败当天不可能立刻再探
+    expect(juliandayDaysAgo(row.last_fail_at)).toBeLessThan(1);
+  });
+});
+
+/** 探针节拍断言用：last_fail_at 距今几天 */
+function juliandayDaysAgo(iso: string): number {
+  return (Date.now() - new Date(iso).getTime()) / 86_400_000;
+}

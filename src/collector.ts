@@ -28,6 +28,25 @@ const POST_RETENTION_DAYS = 90;
 const BREAKER_KEY = "sd_circuit_open_until";
 const BREAKER_COOLDOWN_MS = 3_600_000;
 
+/** 账号失效隔离：SocialData 404（冻结/注销/改名）是确定性失败，重试无意义——
+ *  连续达阈值降为 suspended：退出采集池停烧额度，active 读端点自然摘除；
+ *  suspended 成员每 RETRY 天探针一次，解封后采集成功即恢复 active（见 writeSnapshot 清零） */
+const SUSPEND_THRESHOLD = 3;
+const SUSPENDED_RETRY_DAYS = 7;
+
+/** 记一次账号不可达（404）：active 连续失败达阈值降 suspended；suspended 探针失败刷新时间戳
+ *  （探针节拍随之顺延 7 天，失败不再重复扣调用）；仅作用于 active/suspended，removed 不动 */
+async function recordAccountFailure(env: Env, memberId: string, nowIso: string): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE members SET
+       fail_count = fail_count + 1,
+       last_fail_at = ?2,
+       status = CASE WHEN status = 'active' AND fail_count + 1 >= ?3 THEN 'suspended' ELSE status END,
+       updated_at = datetime('now')
+     WHERE id = ?1 AND status IN ('active', 'suspended')`
+  ).bind(memberId, nowIso, SUSPEND_THRESHOLD).run();
+}
+
 /** 熔断是否处于打开状态（打开 = SocialData 余额疑似耗尽，跳过一切出站调用） */
 export async function sdBreakerOpen(env: Env): Promise<boolean> {
   const row = (await env.DB.prepare("SELECT value FROM site_meta WHERE key = ?1").bind(BREAKER_KEY)
@@ -76,8 +95,12 @@ export async function collectWithSource(
 ): Promise<CollectSummary> {
   await syncRoster(env, rosterFile);
 
+  // 采集池 = active 全体 + suspended 的每周探针（last_fail_at 超过 7 天的本周轮到时重试一次，
+  // 成功即恢复 active、失败顺延节拍；不探则一个失效账号永远卡死在 suspended，解封无门）
   const { results: members } = (await env.DB.prepare(
-    "SELECT id, handle FROM members WHERE status = 'active'"
+    `SELECT id, handle FROM members
+     WHERE status = 'active'
+        OR (status = 'suspended' AND julianday(last_fail_at) < julianday('now') - ${SUSPENDED_RETRY_DAYS})`
   ).all()) as { results: ActiveMember[] };
 
   // 兜底通道：先清自助更新队列（FIFO、小批量），与分片采集共用同一数据源实例，
@@ -132,6 +155,11 @@ export async function collectWithSource(
         error: error instanceof Error ? error.message : String(error),
       });
       console.error(`[collect] @${member.handle} 采集失败：`, error);
+      if (error instanceof SocialDataError && error.status === 404) {
+        // 404 = 账号在 X 侧已不可达（冻结/注销/改名）：确定性失败，记账并在达阈值后隔离停采
+        await recordAccountFailure(env, member.id, nowIso);
+        console.warn(`[collect] @${member.handle} 账号不可达（404），连续 ${SUSPEND_THRESHOLD} 次将自动隔离`);
+      }
       if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) {
         await tripBreaker(env);
         break;
@@ -194,6 +222,9 @@ async function writeSnapshot(
          x_created_at = COALESCE(?8, x_created_at),
          verified = COALESCE(?9, verified),
          user_id = COALESCE(?10, user_id),
+         -- suspended 探针采集成功 = 解封：恢复 active；fail_count 归零重算连续失败
+         status = CASE WHEN status = 'suspended' THEN 'active' ELSE status END,
+         fail_count = 0,
          updated_at = datetime('now')
        WHERE id = ?1`
     ).bind(
@@ -391,6 +422,10 @@ async function processRefreshJob(
       ).bind(jobId, `${String(error.message).slice(0, 200)}（额度/限流，留队待恢复）`).run();
       await tripBreaker(env);
       return false;
+    }
+    if (error instanceof SocialDataError && error.status === 404) {
+      // 用户提交触发对已失效账号的调用同样记账：把隔离进度从 cron 通道共享过来（更快命中阈值）
+      await recordAccountFailure(env, memberId, nowIso);
     }
     const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
     const row = (await env.DB.prepare(

@@ -76,9 +76,9 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     3600,
     async () => {
     const member = await env.DB.prepare(
-      `SELECT ${MEMBER_FIELDS}, location, url, x_created_at AS xCreatedAt
-       FROM members WHERE id = ? AND status = 'active'`
-    ).bind(id).first<MemberDetailRow & { verified: number | null }>();
+      `SELECT ${MEMBER_FIELDS}, status, location, url, x_created_at AS xCreatedAt
+       FROM members WHERE id = ? AND status IN ('active', 'suspended')`
+    ).bind(id).first<MemberDetailRow & { verified: number | null; status: string }>();
     if (!member) return new Response(JSON.stringify({ error: "member not found" }), { status: 404 });
 
     const { results: snapshots } = await env.DB.prepare(
@@ -197,6 +197,8 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     // 赛道/标签：computeMemberStats 里是空数组，用 members 表真实值覆盖
     stats.tracks = parseStrArray(memberRow.tracks);
     stats.tags = parseStrArray(memberRow.tags);
+    // 冻结隔离态：X 账号不可达自动停采（成员页显示历史档案提示）
+    if (memberRow.status === "suspended") stats.frozen = true;
 
     // 首采失败态：无快照且队列最近一次为 failed（OG 卡与「排队中」区分用）
     if (!snapshotRows.length) {

@@ -6,7 +6,7 @@ import { renderMemberOgPng, renderSiteOgPng, renderReportOgPng, renderTrackOgPng
 import { computeMemberStats } from "./stats";
 import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
 import { syncMemberMentions, syncCommunitySignals } from "./sync-signals";
-import { enqueueRefresh, lookupRefreshMember, normalizeHandle, registerCapReached, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
+import { enqueueRefresh, findSuspendedMember, lookupRefreshMember, normalizeHandle, registerCapReached, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
 import { getSource } from "./sources";
 import { SocialDataError } from "./sources/socialdata";
 import { TRACKS } from "./tracks";
@@ -78,7 +78,16 @@ api.get("/api/refresh/lookup", async (c) => {
   const handle = normalizeHandle(c.req.query("handle") ?? "");
   if (!handle) return c.json({ error: "invalid_handle" }, 400);
   const preview = await lookupRefreshMember(c.env, handle);
-  if (!preview) return c.json({ error: "not_member" }, 404);
+  if (!preview) {
+    // 隔离中的成员不是「未加入」：明确告知原因（410 让前端不再引导自助加入）
+    if (await findSuspendedMember(c.env, handle)) {
+      return c.json(
+        { error: "account_suspended", message: "该账号在 X 上已无法访问（可能已被冻结或注销），已暂停追踪更新。" },
+        410
+      );
+    }
+    return c.json({ error: "not_member" }, 404);
+  }
   return c.json(preview);
 });
 
@@ -98,6 +107,14 @@ api.post("/api/refresh", async (c) => {
   let member = await lookupRefreshMember(c.env, handle);
   const isNewRegistration = !member;
   if (isNewRegistration && !body?.register) return c.json({ error: "not_member" }, 404);
+  // 隔离中的账号直接拒绝：既不注册也不出站调用（registerMember 会让它原地复活成 active，
+  // 绕开隔离继续烧 SocialData 额度，正是本守卫要堵的洞）
+  if (isNewRegistration && (await findSuspendedMember(c.env, handle))) {
+    return c.json(
+      { error: "account_suspended", message: "该账号在 X 上已无法访问（可能已被冻结或注销），已暂停追踪更新。" },
+      410
+    );
+  }
   // 自助注册名额闸门：新注册每条都要烧 SocialData 额度并永久扩大分片成本，
   // 全站每日新增有上限（正常加入远够用），触顶一律拒绝，防脚本刷额度
   if (isNewRegistration && (await registerCapReached(c.env, nowIso))) {
@@ -180,7 +197,7 @@ export async function renderMemberCardSvg(
   return cachedResponse(new Request(`${SITE_URL}/card/${id}?v=${variant}&cb=${bust}`), 3600, async () => {
     const member = await env.DB.prepare(
       `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt, tracks
-       FROM members WHERE id = ? AND status = 'active'`
+       FROM members WHERE id = ? AND status IN ('active', 'suspended')`
     ).bind(id).first<{ id: string; handle: string; displayName: string | null; joinedAt: string; tracks: string | null }>();
     if (!member) {
       return new Response(renderNotFoundCard(id), {

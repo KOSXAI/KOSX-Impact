@@ -130,6 +130,12 @@ function MemberPage() {
           />
         </Reveal>
 
+        {member.frozen && (
+          <div className="mt-6 rounded-2xl border border-line bg-wash px-5 py-4 text-sm text-mist">
+            该账号在 X 上已无法访问（可能已被冻结或注销），数据暂停更新，以下为冻结前的历史档案。
+          </div>
+        )}
+
         <main className="mt-10 space-y-12 sm:mt-14">
           <RevealGroup className="grid grid-cols-2 gap-3 lg:grid-cols-4" stagger={0.06}>
             <RevealItem>

@@ -86,6 +86,10 @@ export function SubmitDialog({
         setPhase({ kind: "preview", member: (await res.json()) as LookupPreview });
       } else if (res.status === 404) {
         setPhase({ kind: "join", handle: raw.trim() });
+      } else if (res.status === 410) {
+        // 隔离中的成员：明确原因，不引导自助加入（加入会让它绕开隔离继续烧采集额度）
+        const payload = (await res.json().catch(() => null)) as { message?: string } | null;
+        setPhase({ kind: "error", message: payload?.message ?? "该账号在 X 上已无法访问，已暂停追踪更新。" });
       } else if (res.status === 400) {
         setPhase({ kind: "error", message: "这个输入不像有效的 @ID 或 X 主页链接。" });
       } else {

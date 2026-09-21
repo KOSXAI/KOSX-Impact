@@ -17,7 +17,8 @@ export const roster = membersFile as RosterFile;
 
 /**
  * 将成员名册同步到 D1。名册是追踪名单的事实来源：
- * - 名册中的成员 upsert 进 members 表（display_name 只回填缺失值，不覆盖已采集的 X 昵称）
+ * - 名册中的成员 upsert 进 members 表（display_name 只回填缺失值，不覆盖已采集的 X 昵称；
+ *   suspended 隔离态不被复活——失效账号继续停采，恢复走采集探针通道）
  * - 数据库中存在、名册中已不存在且非自助注册的成员标记为 removed（保留历史数据，不删除）
  * - self_registered=1 的自助注册成员不受清扫（他们不在名册里，退出由维护者置 removed）
  * - 新成员有 baselineFollowers 且尚无快照时，以 joinedAt 为起点回填首条快照
@@ -31,7 +32,7 @@ export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
          handle = excluded.handle,
          display_name = COALESCE(display_name, excluded.display_name),
          joined_at = excluded.joined_at,
-         status = 'active',
+         status = CASE WHEN status = 'suspended' THEN status ELSE 'active' END,
          updated_at = datetime('now')`
     ).bind(
       member.id,

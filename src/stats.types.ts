@@ -26,6 +26,8 @@ export interface MemberStats {
   daysSinceUpdate: number | null;
   /** 从未有快照且最近一次自队采集以失败告终（查无账号/持续报错）；用于与「排队中」区分的失败态 */
   collectFailed?: boolean;
+  /** 账号已冻结隔离：X 账号不可达（连续 404 自动停采），数据为冻结前的历史档案 */
+  frozen?: boolean;
   /** 段位（量级身份徽章） */
   tierKey: string;
   tierName: string;

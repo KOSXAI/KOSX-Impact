@@ -114,6 +114,14 @@ export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<
   };
 }
 
+/** 隔离中的成员（suspended）：X 账号已不可达（冻结/注销/改名），自动停采待每周探针恢复。
+ *  自助刷新入口用它在返回「未加入」之前给出明确原因，避免把失效账号重新拉回追踪（会白烧调用）。 */
+export async function findSuspendedMember(env: Env, handle: string): Promise<{ id: string } | null> {
+  return (await env.DB.prepare(
+    "SELECT id FROM members WHERE lower(handle) = ?1 AND status = 'suspended'"
+  ).bind(handle).first()) as { id: string } | null;
+}
+
 /**
  * 入队（去重）：同一成员同时至多一条 pending（部分唯一索引兜底）；
  * 防抖窗口内重复点击返回 throttled，不新增行、不耗采集额度。
