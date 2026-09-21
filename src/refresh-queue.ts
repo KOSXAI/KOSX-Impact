@@ -28,6 +28,8 @@ export interface RefreshPreview {
   pending: boolean;
   /** 最近一次自助更新完成时间 */
   lastProcessedAt: string | null;
+  /** 24h 内最近一次更新失败（账号不可达等确定性失败；前端给明确失败态，别让用户对着「排队中」干等） */
+  recentFailure: { at: string; error: string } | null;
 }
 
 export type EnqueueResult = "enqueued" | "already_pending" | "throttled";
@@ -88,7 +90,7 @@ export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<
   const followers = (member.latestFollowers as number | null) ?? null;
   const tier = tierOf(followers ?? 0);
 
-  const [pendingRow, doneRow] = await Promise.all([
+  const [pendingRow, doneRow, failedRow] = await Promise.all([
     env.DB.prepare("SELECT 1 AS x FROM refresh_queue WHERE member_id = ?1 AND status = 'pending' LIMIT 1")
       .bind(memberId)
       .first(),
@@ -97,6 +99,12 @@ export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<
     )
       .bind(memberId)
       .first() as Promise<{ lastAt: string | null } | null>,
+    env.DB.prepare(
+      `SELECT error, processed_at AS at FROM refresh_queue INDEXED BY idx_refresh_queue_member_status
+       WHERE member_id = ?1 AND status = 'failed' AND processed_at >= ?2 ORDER BY id DESC LIMIT 1`
+    )
+      .bind(memberId, new Date(Date.now() - 86_400_000).toISOString())
+      .first() as Promise<{ error: string | null; at: string | null } | null>,
   ]);
 
   return {
@@ -111,6 +119,7 @@ export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<
     nextMilestone: nextThreshold(followers ?? 0),
     pending: pendingRow != null,
     lastProcessedAt: doneRow?.lastAt ?? null,
+    recentFailure: failedRow?.at ? { at: failedRow.at, error: failedRow.error ?? "" } : null,
   };
 }
 

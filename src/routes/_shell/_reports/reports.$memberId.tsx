@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
       tags: detail.member.tags,
       now: new Date().toISOString(),
     });
-    return { report };
+    return { report, frozen: detail.member.frozen ?? false };
   },
   head: ({ loaderData, params }) => {
     const r = loaderData?.report ?? null;
@@ -60,7 +60,7 @@ export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
 });
 
 function ReportPage() {
-  const { report } = Route.useLoaderData();
+  const { report, frozen } = Route.useLoaderData();
   const [copied, setCopied] = useState(false);
 
   const name = report.displayName ?? `@${report.handle}`;
@@ -107,6 +107,13 @@ function ReportPage() {
             {copied ? "已复制" : "复制周报"}
           </button>
         </div>
+
+        {/* 冻结隔离：数据停在冻结前，本周窗口已不再滚动 */}
+        {frozen && (
+          <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-line bg-wash px-5 py-4 text-sm text-mist">
+            该账号在 X 上已无法访问（可能已被冻结或注销），本报告不再更新。
+          </div>
+        )}
 
         {/* 数据卡 */}
         <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">

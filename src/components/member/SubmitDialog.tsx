@@ -21,12 +21,16 @@ type LookupPreview = {
   nextMilestone: number;
   pending: boolean;
   lastProcessedAt: string | null;
+  /** 24h 内最近一次更新失败（后端原始错误，前端映射文案） */
+  recentFailure: { at: string; error: string } | null;
 };
 
 type SubmitResponse = {
   status: string;
   followersAfter: number | null;
   memberId: string;
+  /** status=failed 时的后端原始错误（前端映射文案） */
+  error?: string;
 };
 
 /** 提交失败时的后端错误（error 为机器码，message 可直接展示） */
@@ -44,6 +48,17 @@ type Phase =
   | { kind: "done"; memberId: string; followersAfter: number | null; joined: boolean }
   | { kind: "queued"; memberId: string; throttled: boolean; handle: string; submittedAt: string; joined: boolean }
   | { kind: "error"; message: string };
+
+/** 后端原始采集错误 → 用户文案（错误串含 X 侧 message，映射要兜住未知形态） */
+function friendlyAccountError(error: string | undefined): string {
+  if (error?.includes("User is suspended")) {
+    return "该账号在 X 上已无法访问（可能已被冻结或注销），已暂停追踪更新。";
+  }
+  if (error?.includes("User not found")) {
+    return "在 X 上查无此账号（可能已改名或注销）。";
+  }
+  return "更新没能完成（数据源暂时不可用），稍后再试一次。";
+}
 
 /** 排队轮询：每 10 秒查一次预览接口（读本地库，不耗采集额度），最长等 2 分钟 */
 const POLL_INTERVAL_MS = 10_000;
@@ -125,6 +140,9 @@ export function SubmitDialog({
       if (joined) fireInvite(result.memberId);
       setPhase({ kind: "done", memberId: result.memberId, followersAfter: result.followersAfter, joined });
       refreshBoard();
+    } else if (result.status === "failed") {
+      // 明确失败态：别包装成「排队中」让用户空转 2 分钟
+      setPhase({ kind: "error", message: friendlyAccountError(result.error) });
     } else {
       setPhase({
         kind: "queued",
@@ -253,6 +271,7 @@ export function SubmitDialog({
             submittedAt={phase.submittedAt}
             joined={phase.joined}
             onResolved={(followers) => onQueuedResolved(phase.memberId, followers, phase.joined)}
+            onFailed={(message) => setPhase({ kind: "error", message })}
           />
         )}
         {phase.kind === "error" && <ErrorBody message={phase.message} onBack={() => setPhase({ kind: "idle" })} />}
@@ -292,6 +311,9 @@ function PreviewBody({ member, submitting, onSubmit }: { member: LookupPreview; 
           上次更新 <span className="text-ink">{relativeTime(member.latestRecordedAt)}</span>
         </span>
         {member.pending && <Badge variant="secondary">已在队列</Badge>}
+        {member.recentFailure && !member.pending && (
+          <span className="font-medium text-destructive">上次更新失败</span>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -345,7 +367,8 @@ function DoneBody({ memberId, followersAfter, joined }: { memberId: string; foll
   );
 }
 
-/** 排队确认：自动轮询预览接口，任务完成即转成功态并刷新页面数据 */
+/** 排队确认：自动轮询预览接口，任务完成即转成功态并刷新页面数据；
+ *  任务失败（账号不可达等确定性失败）或成员已隔离（410）即转明确失败态，绝不空转满 2 分钟 */
 function QueuedBody({
   memberId,
   throttled,
@@ -353,6 +376,7 @@ function QueuedBody({
   submittedAt,
   joined,
   onResolved,
+  onFailed,
 }: {
   memberId: string;
   throttled: boolean;
@@ -361,6 +385,8 @@ function QueuedBody({
   joined: boolean;
   /** 队列已消费且新快照落地时回调（参数为最新粉丝数，可能为 null） */
   onResolved: (followers: number | null) => void;
+  /** 本条任务确定失败时回调（参数为可直接展示的文案） */
+  onFailed: (message: string) => void;
 }) {
   const [timedOut, setTimedOut] = useState(false);
 
@@ -373,12 +399,24 @@ function QueuedBody({
       void (async () => {
         try {
           const res = await fetch(`/api/refresh/lookup?handle=${encodeURIComponent(handle)}`);
+          if (res.status === 410) {
+            // 成员已被隔离（连续 404）：本条任务不可能成功，立即终止轮询
+            clearInterval(timer);
+            onFailed("该账号在 X 上已无法访问（可能已被冻结或注销），已暂停追踪更新。");
+            return;
+          }
           if (!res.ok) return;
           const p = (await res.json()) as LookupPreview;
           // 队列已消费 && 快照晚于本次提交 → 生效
           if (!p.pending && p.latestRecordedAt && p.latestRecordedAt >= submittedAt) {
             clearInterval(timer);
             onResolved(p.latestFollowers);
+            return;
+          }
+          // 本条提交后的失败行（处理时间晚于提交）：任务已终态失败，明确告知
+          if (!p.pending && p.recentFailure && p.recentFailure.at >= submittedAt) {
+            clearInterval(timer);
+            onFailed(friendlyAccountError(p.recentFailure.error));
           }
         } catch {
           // 单次轮询失败忽略，下一轮重试

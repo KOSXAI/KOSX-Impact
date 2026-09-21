@@ -77,6 +77,23 @@ describe("enqueueRefresh", () => {
     expect(await enqueueRefresh(env, "alice", at(61_000))).toBe("already_pending");
   });
 
+  it("lookup 预览带 recentFailure：24h 内的 failed 行才算（冻结/失败态提示数据源）", async () => {
+    await seedMember("alice", "alice_x", 900);
+    await env.DB.prepare(
+      "INSERT INTO refresh_queue (member_id, status, requested_at, processed_at, error) VALUES ('alice', 'failed', ?1, ?2, ?3)"
+    ).bind(at(0), new Date(Date.now() - 3_600_000).toISOString(), "SocialData 请求失败（HTTP 404）：User is suspended").run();
+    const preview = await lookupRefreshMember(env, "alice_x");
+    expect(preview?.recentFailure?.error).toContain("User is suspended");
+
+    // 超过 24h 的失败行不提示（旧失败与当前提交无关）
+    await env.DB.prepare("DELETE FROM refresh_queue").run();
+    await env.DB.prepare(
+      "INSERT INTO refresh_queue (member_id, status, requested_at, processed_at, error) VALUES ('alice', 'failed', ?1, ?2, ?3)"
+    ).bind(at(0), at(0), "SocialData 请求失败（HTTP 404）").run();
+    const older = await lookupRefreshMember(env, "alice_x");
+    expect(older?.recentFailure).toBeNull();
+  });
+
   it("防抖窗口内重复提交返回 throttled，窗口后可再次入队", async () => {
     await seedMember("alice", "alice_x", 900);
     // 第一条：入队后由消费逻辑置 done

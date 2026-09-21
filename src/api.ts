@@ -170,11 +170,20 @@ api.post("/api/refresh", async (c) => {
   // 即时通道可能处理的是队列里更旧的一条 pending，且历史上同类 job 的
   // done/failed 行还在，按「最新一行」读回会把别人的结果或旧值当成自己的
   const job = (await c.env.DB.prepare(
-    "SELECT status, followers_after AS followersAfter FROM refresh_queue INDEXED BY idx_refresh_queue_member WHERE member_id = ?1 AND requested_at = ?2 ORDER BY id DESC LIMIT 1"
-  ).bind(member.id, nowIso).first()) as { status: string; followersAfter: number | null } | null;
+    "SELECT status, followers_after AS followersAfter, error FROM refresh_queue INDEXED BY idx_refresh_queue_member WHERE member_id = ?1 AND requested_at = ?2 ORDER BY id DESC LIMIT 1"
+  ).bind(member.id, nowIso).first()) as { status: string; followersAfter: number | null; error: string | null } | null;
 
   // 写库时 cache_bust 已 +1：读端点缓存键自动换新，新请求回源即见新数据，
   // 无需手动清缓存（跨数据中心 purge 本就只能清触发方所在区域）
+  // failed 直出（带原始 error 供前端映射文案）：别把失败包装成「排队中」让用户空转 2 分钟
+  if (job?.status === "failed") {
+    return c.json({
+      status: "failed",
+      error: job.error ?? "",
+      followersAfter: null,
+      memberId: member.id,
+    });
+  }
   return c.json({
     status: job?.status === "done" ? "done" : "queued",
     followersAfter: job?.followersAfter ?? null,

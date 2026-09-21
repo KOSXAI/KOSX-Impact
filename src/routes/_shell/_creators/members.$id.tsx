@@ -306,14 +306,19 @@ function MemberPage() {
 
           <Reveal>
             <div className="border-t border-line pt-6 text-sm text-mist">
-              这是你的账号？
-              <button
-                onClick={() => setSubmitOpen(true)}
-                className="ml-1 font-semibold text-ink underline underline-offset-4 hover:text-mist"
-              >
-                立即自助更新
-              </button>
-              <span className="mx-2">·</span>
+              {/* 冻结成员的自助更新必然失败（后端 410），不再给入口 */}
+              {!member.frozen && (
+                <>
+                  这是你的账号？
+                  <button
+                    onClick={() => setSubmitOpen(true)}
+                    className="ml-1 font-semibold text-ink underline underline-offset-4 hover:text-mist"
+                  >
+                    立即自助更新
+                  </button>
+                  <span className="mx-2">·</span>
+                </>
+              )}
               <Link to="/reports/$memberId" params={{ memberId: member.id }} className="font-semibold text-ink underline underline-offset-4 hover:text-mist">
                 内容周报
               </Link>
