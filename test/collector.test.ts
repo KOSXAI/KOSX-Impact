@@ -374,7 +374,6 @@ describe("账号失效隔离（404 → suspended）", () => {
   // alice 的分片槽是 0（见上方「滚动采集」用例注释）
   const soloRoster: RosterFile = { members: [{ id: "alice", handle: "alice_x", joinedAt: "2026-08-30" }] };
   const notFound = new SocialDataError("SocialData 请求失败（HTTP 404）：User is suspended", 404);
-
   it("连续 3 次 404 自动隔离；隔离后不再出站调用", async () => {
     await env.DB.prepare("INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')").run();
     const { source, getCalls } = countingSource({ alice_x: notFound });
@@ -414,42 +413,24 @@ describe("账号失效隔离（404 → suspended）", () => {
     expect(recovered).toEqual({ status: "active", fail_count: 0 });
   });
 
-  it("suspended 探针：last_fail_at 超过 7 天后重试，成功即恢复 active 并写快照", async () => {
+  it("隔离是终态：不再有任何出站调用，手动恢复前永远停采", async () => {
     await env.DB.prepare(
       `INSERT INTO members (id, handle, joined_at, status, fail_count, last_fail_at)
        VALUES ('alice', 'alice_x', '2026-08-30', 'suspended', 3, '2026-09-10T00:00:00.000Z')`
     ).run();
+    // 就算数据源已恢复正常（账号解封），suspended 也不进采集池——
+    // 没有自动探针：解封无法预测，定时探测就是白烧计费调用；恢复只能手动置回 active
     const { source, getCalls } = countingSource({ alice_x: { followers: 4242 } });
     const summary = await collectWithSource(env, source, soloRoster, undefined, 0);
-    expect(getCalls()).toBe(1);
-    expect(summary.ok).toBe(1);
-    const recovered = (await env.DB.prepare(
+    expect(getCalls()).toBe(0);
+    expect(summary.ok).toBe(0);
+    const row = (await env.DB.prepare(
       "SELECT status, fail_count FROM members WHERE id = 'alice'"
     ).first()) as { status: string; fail_count: number };
-    expect(recovered).toEqual({ status: "active", fail_count: 0 });
+    expect(row).toEqual({ status: "suspended", fail_count: 3 });
     const snap = (await env.DB.prepare(
-      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
-    ).first()) as { followers: number };
-    expect(snap.followers).toBe(4242);
-  });
-
-  it("suspended 探针仍 404：保持隔离，节拍顺延（last_fail_at 刷新）", async () => {
-    await env.DB.prepare(
-      `INSERT INTO members (id, handle, joined_at, status, fail_count, last_fail_at)
-       VALUES ('alice', 'alice_x', '2026-08-30', 'suspended', 3, '2026-09-10T00:00:00.000Z')`
-    ).run();
-    const { source } = countingSource({ alice_x: notFound });
-    await collectWithSource(env, source, soloRoster, undefined, 0);
-    const row = (await env.DB.prepare(
-      "SELECT status, fail_count, last_fail_at FROM members WHERE id = 'alice'"
-    ).first()) as { status: string; fail_count: number; last_fail_at: string };
-    expect(row.status).toBe("suspended");
-    // 节拍顺延：探针失败当天不可能立刻再探
-    expect(juliandayDaysAgo(row.last_fail_at)).toBeLessThan(1);
+      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'"
+    ).first()) as { n: number };
+    expect(snap.n).toBe(0);
   });
 });
-
-/** 探针节拍断言用：last_fail_at 距今几天 */
-function juliandayDaysAgo(iso: string): number {
-  return (Date.now() - new Date(iso).getTime()) / 86_400_000;
-}

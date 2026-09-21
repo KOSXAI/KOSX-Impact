@@ -123,7 +123,8 @@ export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<
   };
 }
 
-/** 隔离中的成员（suspended）：X 账号已不可达（冻结/注销/改名），自动停采待每周探针恢复。
+/** 隔离中的成员（suspended）：X 账号已不可达（冻结/注销/改名），已永久停采，
+ *  恢复只能由维护者手动置回 active。
  *  自助刷新入口用它在返回「未加入」之前给出明确原因，避免把失效账号重新拉回追踪（会白烧调用）。 */
 export async function findSuspendedMember(env: Env, handle: string): Promise<{ id: string } | null> {
   return (await env.DB.prepare(
