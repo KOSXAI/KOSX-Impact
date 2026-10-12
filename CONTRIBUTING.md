@@ -37,7 +37,7 @@ React SSR 页面（TanStack Start）+ JSON API + SVG 嵌入卡 → 全球 CDN �
 
 ```
 .
-├── .github/                  # Issue/PR 模板、CODEOWNERS、Dependabot（无 GitHub Actions）
+├── .github/                  # Issue/PR 模板、CODEOWNERS、Dependabot、GitHub Actions 检查
 ├── data/
 │   ├── members.json          # 成员名册：追踪名单的事实来源（通过 PR 修改）
 │   └── members.schema.json   # 名册的 JSON Schema
@@ -115,15 +115,21 @@ SOCIALDATA_API_KEY=你的key
 | --- | --- |
 | `npm run dev` | 本地启动（Vite + SSR），http://localhost:5173 |
 | `npm run build` | 构建前端与 Worker 产物 |
-| `npm run check` | 名册校验 + typecheck + 测试（提交前的本地检查，无远程 CI） |
-
-注：仓库暂未配置 ESLint——typescript-eslint 尚不支持 TypeScript 7，待其兼容后以 flat config（recommended + react-hooks）并入 check。
+| `npm run check` | 名册校验 + 路由树生成 + typecheck + 测试（本地与 CI 共用） |
 | `npm run cf-typegen` | 重新生成 `worker-configuration.d.ts` |
 | `npm run db:migrate:local` | 应用 D1 迁移（本地） |
 
+注：仓库暂未配置 ESLint——typescript-eslint 尚不支持 TypeScript 7，待其兼容后以 flat config（recommended + react-hooks）并入 check。
+
+### 自动检查（GitHub Actions）
+
+`.github/workflows/check.yml` 在推送到 `main`、提交或更新 PR 时自动运行，也支持手动触发（`workflow_dispatch`）。工作流读取 `.nvmrc` 指定的 Node 版本，执行 `npm ci` 安装锁定依赖，再运行 `npm run check`。
+
+`npm run check` 依次执行成员名册校验、路由树生成、TypeScript 类型检查和 Vitest 测试（含 D1 集成测试）。这些检查不需要配置生产数据源或部署凭据。提交前仍需在本地运行同一命令，并在 PR 中确认远程 `check` 检查通过。
+
 ## 部署（Cloudflare）
 
-本地部署即可，**GitHub 侧不需要任何凭据**（不使用 GitHub Actions）：
+部署仍由本地执行；GitHub Actions 工作流只运行检查，不部署 Worker。当前流程无需在 GitHub 中配置 Cloudflare 或 SocialData 凭据：
 
 一次性准备：
 
@@ -136,7 +142,7 @@ SOCIALDATA_API_KEY=你的key
 之后每次发布：
 
 ```bash
-npm run check      # 本地检查：名册 + typecheck + 测试
+npm run check      # 本地检查：名册 + 路由树生成 + typecheck + 测试
 npm run deploy     # 部署 Worker（Cron Trigger 随 Worker 一起部署）
 git push           # 推送 GitHub
 ```
@@ -153,7 +159,7 @@ git push           # 推送 GitHub
 1. Fork 本仓库，从 `main` 切出分支
 2. 完成改动并在本地验证（`npm run check`）
 3. 发起 PR，按模板填写说明并关联 Issue
-4. 本地 `npm run check` 必须通过（仓库无远程 CI，验证以本地为准），维护者 review 后合并
+4. 本地 `npm run check` 和 PR 的远程 `check` 检查均通过，维护者 review 后合并
 
 数据相关的 PR 额外要求：
 
@@ -162,7 +168,7 @@ git push           # 推送 GitHub
 
 ## 维护者指引
 
-- 开启 `main` 分支保护（本仓库无 GitHub Actions 状态检查，建议要求 review，或以本地 `npm run check` 验证结果为准）
+- 建议开启 `main` 分支保护，要求 review，并将 GitHub Actions 的 `check` 检查设为必需状态检查
 - **名册成员加入（维护者批量）**：在 `data/members.json` 中按 id 排序加入该成员（通过 PR 提交，校验脚本会检查格式）→ 本地跑 `node scripts/sync-new-members.mjs`（新成员会从 SocialData 拉取粉丝数、头像与 **X 显示名**；名下写回 `data/members.json`，随本 PR 一并提交，缺了它会退化成 handle）；执行生成的 `/tmp/onboard.sql` 入库。每次引入新成员时**必须**跑该脚本，避免 `displayName` 缺失
 - **成员退出**：从名册中删除该成员（PR），同步后自动停止公开追踪、数据保留；如成员要求移除历史数据，删除其 `snapshots` / `milestones` 记录
 - **帖子活跃度数据（已纳入每日采集）**：滚动采集（`src/collector.ts`）复用 profile 响应的数字 ID（id_str）自动拉取 tweets 写入 `posts` 表（约 20 帖/人/天，$0.0002/帖，无额外 profile 调用），并清理 90 天前旧帖；`scripts/sync-posts.mjs` 保留为一次性手动补跑入口（profile+tweets 全链路）
