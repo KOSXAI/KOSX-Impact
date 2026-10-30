@@ -6,7 +6,7 @@ import { renderMemberOgPng, renderSiteOgPng, renderReportOgPng, renderTrackOgPng
 import { computeMemberStats } from "./stats";
 import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
 import { syncMemberMentions, syncCommunitySignals } from "./sync-signals";
-import { enqueueRefresh, findSuspendedMember, lookupRefreshMember, normalizeHandle, registerCapReached, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
+import { enqueueRefresh, findSuspendedMember, isHandleExcluded, lookupRefreshMember, normalizeHandle, registerCapReached, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
 import { getSource } from "./sources";
 import { SocialDataError } from "./sources/socialdata";
 import { TRACKS } from "./tracks";
@@ -96,6 +96,12 @@ api.get("/api/refresh/lookup", async (c) => {
 // 自助注册（register:true）且抢到槽时当场拉一次 SocialData——存在即校验、数据即入库：
 // 账号不存在（404）直接拒绝，脏 handle 进不了名单；数据源抖动等非确定性错误降级为
 // 注册 + 入队，由兜底通道补采（宁可稍慢，不让一次网络抖动挡掉正常加入）。
+/** 排除名单命中时的统一话术：不暴露名单机制，也不引导重试 */
+const REGISTRATION_UNAVAILABLE = {
+  error: "registration_unavailable",
+  message: "该账号暂不支持加入本计划，欢迎浏览其他成员。",
+} as const;
+
 api.post("/api/refresh", async (c) => {
   const body = (await c.req.json().catch(() => null)) as
     | { input?: string; register?: boolean }
@@ -115,6 +121,10 @@ api.post("/api/refresh", async (c) => {
       410
     );
   }
+  // 自助加入准入：名单内 handle 不受理，也不触发出站采集（提示不解释具体原因）
+  if (isNewRegistration && (await isHandleExcluded(c.env, handle))) {
+    return c.json(REGISTRATION_UNAVAILABLE, 422);
+  }
   // 自助注册名额闸门：新注册每条都要烧 SocialData 额度并永久扩大分片成本，
   // 全站每日新增有上限（正常加入远够用），触顶一律拒绝，防脚本刷额度
   if (isNewRegistration && (await registerCapReached(c.env, nowIso))) {
@@ -126,7 +136,7 @@ api.post("/api/refresh", async (c) => {
   if (isNewRegistration && (await tryGrabRefreshSlot(c.env, nowIso))) {
     try {
       const stats = await source.fetchStats(handle);
-      await registerMember(c.env, handle, nowIso);
+      if (!(await registerMember(c.env, handle, nowIso))) return c.json(REGISTRATION_UNAVAILABLE, 422);
       member = await lookupRefreshMember(c.env, handle);
       if (!member) return c.json({ error: "register_failed" }, 500);
       await applyFollowerStats(c.env, member.id, stats, nowIso, source);
@@ -146,7 +156,7 @@ api.post("/api/refresh", async (c) => {
   }
 
   if (!member) {
-    await registerMember(c.env, handle, nowIso);
+    if (!(await registerMember(c.env, handle, nowIso))) return c.json(REGISTRATION_UNAVAILABLE, 422);
     member = await lookupRefreshMember(c.env, handle);
     if (!member) return c.json({ error: "register_failed" }, 500);
   }

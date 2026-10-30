@@ -35,6 +35,7 @@ beforeEach(async () => {
   await env.DB.prepare("DELETE FROM milestones").run();
   await env.DB.prepare("DELETE FROM snapshots").run();
   await env.DB.prepare("DELETE FROM members").run();
+  await env.DB.prepare("DELETE FROM excluded_handles").run();
   await env.DB.prepare("DELETE FROM site_meta").run();
 });
 
@@ -261,6 +262,23 @@ describe("registerMember", () => {
       "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'bob'"
     ).first()) as { n: number };
     expect(snapshots.n).toBe(1);
+  });
+
+  it("排除名单内的 handle 不受理：不建新行、不复活 removed", async () => {
+    await env.DB.prepare("INSERT INTO excluded_handles (handle) VALUES ('blocked_x')").run();
+    expect(await registerMember(env, "blocked_x", T0)).toBe(false);
+    const created = (await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM members WHERE handle = 'blocked_x'"
+    ).first()) as { n: number };
+    expect(created.n).toBe(0);
+
+    await seedMember("bob", "bob_x", 1200, "removed");
+    await env.DB.prepare("INSERT INTO excluded_handles (handle) VALUES ('bob_x')").run();
+    expect(await registerMember(env, "bob_x", T0)).toBe(false);
+    const member = (await env.DB.prepare(
+      "SELECT status, self_registered FROM members WHERE id = 'bob'"
+    ).first()) as { status: string; self_registered: number };
+    expect(member).toMatchObject({ status: "removed", self_registered: 0 });
   });
 });
 

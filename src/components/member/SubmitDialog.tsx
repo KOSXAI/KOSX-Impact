@@ -176,6 +176,11 @@ export function SubmitDialog({
     return (await res.json()) as SubmitResponse;
   }
 
+  /** 服务端错误响应（成功响应即使带 error 字段也走正常分支） */
+  function isSubmitError(result: PostResult): result is SubmitError {
+    return typeof (result as SubmitError).error === "string";
+  }
+
   /** 提交未被接受：展示后端错误文案（其余情况统一回落通用提示） */
   function applySubmitError(result: SubmitError) {
     setPhase({ kind: "error", message: result.message ?? "提交出了点问题，稍后再试。" });
@@ -189,7 +194,7 @@ export function SubmitDialog({
         setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
         return;
       }
-      if ("error" in result) {
+      if (isSubmitError(result)) {
         applySubmitError(result);
         return;
       }
@@ -207,7 +212,7 @@ export function SubmitDialog({
         setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
         return;
       }
-      if ("error" in result) {
+      if (isSubmitError(result)) {
         applySubmitError(result);
         return;
       }

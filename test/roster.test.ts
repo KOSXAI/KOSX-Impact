@@ -19,6 +19,7 @@ function rosterOf(...members: RosterFile["members"]): RosterFile {
 beforeEach(async () => {
   await env.DB.prepare("DELETE FROM snapshots").run();
   await env.DB.prepare("DELETE FROM milestones").run();
+  await env.DB.prepare("DELETE FROM excluded_handles").run();
   await env.DB.prepare("DELETE FROM members").run();
 });
 
@@ -105,5 +106,23 @@ describe("syncRoster", () => {
       "SELECT status FROM members WHERE id = 'ghost'"
     ).first()) as { status: string };
     expect(ghost.status).toBe("removed");
+  });
+
+  it("排除名单内的成员不被名册复活，同步后收敛为 removed", async () => {
+    await syncRoster(env, rosterOf(alice, bob));
+    await env.DB.prepare("INSERT INTO excluded_handles (handle) VALUES ('alice_x')").run();
+
+    await syncRoster(env, rosterOf(alice, bob));
+
+    const aliceRow = (await env.DB.prepare(
+      "SELECT status FROM members WHERE id = 'alice'"
+    ).first()) as { status: string };
+    expect(aliceRow.status).toBe("removed");
+
+    // 名单外成员不受影响
+    const bobRow = (await env.DB.prepare(
+      "SELECT status FROM members WHERE id = 'bob'"
+    ).first()) as { status: string };
+    expect(bobRow.status).toBe("active");
   });
 });

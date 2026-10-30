@@ -21,10 +21,19 @@ export const roster = membersFile as RosterFile;
  *   suspended 隔离态不被复活——失效账号永久停采，恢复只能手动置回 active）
  * - 数据库中存在、名册中已不存在且非自助注册的成员标记为 removed（保留历史数据，不删除）
  * - self_registered=1 的自助注册成员不受清扫（他们不在名册里，退出由维护者置 removed）
+ * - 排除名单内的 handle 不参与 upsert，并在同步末尾统一收敛为 removed
  * - 新成员有 baselineFollowers 且尚无快照时，以 joinedAt 为起点回填首条快照
  */
 export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
+  const { results: excludedRows } = await env.DB.prepare(
+    "SELECT handle FROM excluded_handles"
+  ).all();
+  const excluded = new Set(
+    excludedRows.map((r) => (r as { handle: string }).handle.toLowerCase())
+  );
+
   for (const member of roster.members) {
+    if (excluded.has(member.handle.toLowerCase())) continue;
     await env.DB.prepare(
       `INSERT INTO members (id, handle, display_name, joined_at)
        VALUES (?1, ?2, ?3, ?4)
@@ -69,4 +78,11 @@ export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
        WHERE id IN (${batch.map(() => "?").join(",")})`
     ).bind(...batch).run();
   }
+
+  // 名单内成员不参与展示与采集（历史快照与帖子保留）
+  await env.DB.prepare(
+    `UPDATE members SET status = 'removed', updated_at = datetime('now')
+     WHERE status != 'removed'
+       AND lower(handle) IN (SELECT lower(handle) FROM excluded_handles)`
+  ).run();
 }

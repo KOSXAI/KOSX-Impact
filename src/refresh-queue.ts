@@ -167,14 +167,25 @@ export async function tryGrabRefreshSlot(env: Env, nowIso: string): Promise<bool
   return (result.meta.changes ?? 0) > 0;
 }
 
+/** 是否登记为不参与自助加入（名单仅内部维护，不对外提供读取接口） */
+export async function isHandleExcluded(env: Env, handle: string): Promise<boolean> {
+  const row = await env.DB.prepare(
+    "SELECT 1 AS x FROM excluded_handles WHERE lower(handle) = lower(?1) LIMIT 1"
+  ).bind(handle).first();
+  return row !== null;
+}
+
 /**
  * 自助注册：把提交的 handle 直接加入追踪（无审批流，提交即加入并同意公开展示）。
  * - 新 handle：建 members 行（id=handle，与既有命名约定一致），display_name 留空、
  *   由首次采集从 X 公开数据回填；基线快照由队列消费写入（首个快照即成长曲线起点）
  * - 已存在行（含 removed）：恢复 active 并标记 self_registered=1
  * - self_registered=1 使 syncRoster 的 removed 清扫跳过该成员
+ * - 排除名单内的 handle 不受理，返回 false（调用方给统一提示，不解释具体原因）
  */
-export async function registerMember(env: Env, handle: string, nowIso: string): Promise<void> {
+export async function registerMember(env: Env, handle: string, nowIso: string): Promise<boolean> {
+  if (await isHandleExcluded(env, handle)) return false;
+
   const existing = (await env.DB.prepare(
     "SELECT id FROM members WHERE lower(handle) = ?1"
   ).bind(handle).first()) as { id: string } | null;
@@ -183,10 +194,11 @@ export async function registerMember(env: Env, handle: string, nowIso: string): 
     await env.DB.prepare(
       "UPDATE members SET status = 'active', self_registered = 1, updated_at = datetime('now') WHERE id = ?1"
     ).bind(existing.id).run();
-    return;
+    return true;
   }
 
   await env.DB.prepare(
     "INSERT INTO members (id, handle, joined_at, self_registered, status) VALUES (?1, ?1, ?2, 1, 'active')"
   ).bind(handle, nowIso.slice(0, 10)).run();
+  return true;
 }
