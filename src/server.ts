@@ -52,7 +52,9 @@ async function htmlCacheKey(request: Request, env: Env): Promise<Request> {
 /** SSR 页面边缘缓存：GET + 200 + text/html 才进缓存；max-age=0 让浏览器每次回边缘 */
 async function cachedHtml(request: Request, env: Env, build: () => Promise<Response>): Promise<Response> {
   if (request.method !== "GET") return build();
-  const key = await htmlCacheKey(request, env);
+  // 读版本号失败（D1 抖动等）不拖垮页面：跳过缓存直接渲染
+  const key = await htmlCacheKey(request, env).catch(() => null);
+  if (!key) return build();
   const hit = await htmlCache.match(key);
   if (hit) return hit;
   const res = await build();
