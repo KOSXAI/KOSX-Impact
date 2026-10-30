@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import type { DashboardStats } from "@/stats";
-import { RevealItem } from "@/components/motion";
 import { Avatar } from "@/components/member/Avatar";
 import { titleBadgeClass } from "@/components/member/TitleBadge";
 import { titleOf } from "@/milestones";
@@ -19,7 +18,7 @@ export function ClimbsList({ stats }: { stats: DashboardStats }) {
         const member = byId.get(m.memberId);
         const name = m.displayName ?? member?.displayName ?? m.handle;
         return (
-          <RevealItem key={`${m.memberId}-${m.threshold}`} y={12}>
+          <li key={`${m.memberId}-${m.threshold}`}>
             <div className="panel-card card-lift flex items-center gap-x-3 gap-y-2 p-4 sm:gap-x-4 sm:p-5">
               <Avatar url={member?.profileImage} name={name} className="size-10 shrink-0" />
               <div className="min-w-0 flex-1">
@@ -52,7 +51,7 @@ export function ClimbsList({ stats }: { stats: DashboardStats }) {
                 <span className="text-xs text-mist tabular-nums">{fmtDate(m.achievedAt)} 达成</span>
               </div>
             </div>
-          </RevealItem>
+          </li>
         );
       })}
     </ol>

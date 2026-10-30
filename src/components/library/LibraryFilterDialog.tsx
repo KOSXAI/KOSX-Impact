@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { TRACKS, TRACK_OTHER } from "@/tracks";
 import { TRACK_ICONS } from "@/components/member/TrackChip";
 import {
@@ -144,6 +144,8 @@ export function LibraryFilterDialog({
     draft.bucket !== "all" || draft.tracks.length > 0 || draft.tags.length > 0;
 
   return (
+    // reducedMotion="user"：系统开启「减弱动态」时，位移/缩放动画自动降级为仅淡入淡出
+    <MotionConfig reducedMotion="user">
     <AnimatePresence>
       {open && (
         <div key="filter-dialog" className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -164,7 +166,7 @@ export function LibraryFilterDialog({
             role="dialog"
             aria-modal="true"
             aria-label="筛选与排序"
-            className="relative z-10 flex max-h-[82vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-edge bg-surface/95 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_0_rgba(255,255,255,0.08)] outline-none backdrop-blur-xl sm:max-w-2xl"
+            className="relative z-10 flex max-h-[82dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-edge bg-surface/95 shadow-[var(--shadow-pop-xl)] outline-none backdrop-blur-xl sm:max-w-2xl"
           >
             {/* 头：标题 + 清空 + 关闭 */}
             <div className="flex items-center justify-between border-b border-line px-5 py-4 sm:px-7">
@@ -276,7 +278,7 @@ export function LibraryFilterDialog({
                     value={tagQuery}
                     onChange={(e) => setTagQuery(e.target.value)}
                     placeholder="搜索标签"
-                    className="h-9 w-full rounded-full bg-soft-surface pr-3 pl-10 text-sm outline-none transition-colors placeholder:text-mist focus:border-signal/40"
+                    className="h-9 w-full rounded-full bg-soft-surface pr-3 pl-10 text-sm outline-none transition-[background-color,box-shadow] placeholder:text-mist focus-visible:ring-2 focus-visible:ring-ring/60"
                   />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -324,6 +326,7 @@ export function LibraryFilterDialog({
         </div>
       )}
     </AnimatePresence>
+    </MotionConfig>
   );
 }
 
@@ -376,9 +379,9 @@ function FilterChip({
       aria-pressed={active}
       title={title}
       className={cn(
-        "inline-flex h-8 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-full px-3 text-xs transition-all duration-150 active:scale-95 sm:h-9 sm:px-3.5 sm:text-sm",
+        "inline-flex h-8 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-full px-3 text-xs transition-[background-color,color,box-shadow,transform] duration-150 active:scale-95 sm:h-9 sm:px-3.5 sm:text-sm",
         active
-          ? "bg-signal/15 text-signal-ink shadow-[0_0_12px_rgba(255,106,0,0.18)]"
+          ? "bg-signal/15 text-signal-ink shadow-[0_0_12px_color-mix(in_oklab,var(--signal)_18%,transparent)]"
           : "bg-soft-surface text-mist hover:bg-wash-strong hover:text-ink"
       )}
     >

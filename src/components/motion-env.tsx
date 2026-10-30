@@ -31,6 +31,15 @@ export function MotionEnvironmentProvider({ children }: { children: ReactNode })
   return <MotionEnvContext.Provider value={{ hydrated, reduced }}>{children}</MotionEnvContext.Provider>;
 }
 
+/**
+ * 同步读取系统「减弱动态」偏好（仅可在 effect/事件回调里调用，SSR 下恒为 false）。
+ * 子组件的 effect 先于 Provider 的 effect 执行，首次挂载时 context 里的 reduced 还是初始 false，
+ * 动效 effect 需要用它兜底，避免偏好减弱的用户在首次挂载时被播一次入场动画。
+ */
+export function prefersReducedMotionNow(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 /** 读动效环境：Provider 缺席时取 SSR 安全默认值 */
 export function useMotionEnv(): MotionEnv {
   return useContext(MotionEnvContext) ?? SSR_SAFE_DEFAULT;

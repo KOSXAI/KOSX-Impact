@@ -32,7 +32,7 @@ export function MemberRankRow({
     >
       <div
         className={cn(
-          "w-6 shrink-0 tabular-nums",
+          "min-w-6 shrink-0 tabular-nums",
           podium ? `bg-gradient-to-br bg-clip-text font-extrabold text-transparent ${podium.rankNum}` : "text-mist"
         )}
       >

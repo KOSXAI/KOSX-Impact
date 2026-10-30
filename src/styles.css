@@ -95,7 +95,8 @@
   --muted-foreground: var(--mist);
   --accent: var(--soft-surface);
   --accent-foreground: var(--ink);
-  --destructive: #ff5d5d;
+  /* 浅色白底需深红才够对比度，与 --delta-down 同档 */
+  --destructive: var(--delta-down);
   --border: var(--line);
   --input: var(--line);
   --ring: var(--signal);
@@ -104,7 +105,7 @@
   --chart-3: var(--signal-deep);
   --chart-4: var(--mist);
   --chart-5: var(--muted);
-  --success: var(--signal);
+  --success: var(--delta-up);
 }
 
 /* ===== 深色：原唯一主题原样平移，深色观感零变化 ===== */
@@ -168,6 +169,8 @@
   --census-rose: #fb7185;
 
   --signal-ink: var(--signal);
+
+  --destructive: #fb7185;
 }
 
 @theme inline {
@@ -266,6 +269,23 @@
   h1, h2, h3, h4 {
     @apply font-display;
   }
+  /* 全局可见焦点：键盘聚焦时不透明描边（组件各自的 ring 可叠加，不会被 outline-none 吞掉） */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* 减弱动态兜底：系统偏好减弱时，CSS 动画/过渡几乎瞬时完成（JS 动效另在 motion.tsx 内处理） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* 主题切换按钮三态图标：由 html[data-theme-mode] 纯 CSS 驱动，
@@ -295,7 +315,7 @@ html[data-theme-mode="dark"] .theme-icon-dark {
 
 /* 卡片 hover 抬升（无缩放引发的文字虚焦抖动） */
 @utility card-lift {
-  @apply transition-all duration-300 ease-out;
+  @apply transition-[transform,box-shadow] duration-300 ease-out;
   &:hover {
     @apply -translate-y-1;
     box-shadow: var(--hover-lift);
@@ -306,15 +326,6 @@ html[data-theme-mode="dark"] .theme-icon-dark {
 @utility icon-dock {
   @apply rounded-xl border border-edge bg-gradient-to-b from-(--dock-from) to-transparent;
   box-shadow: var(--dock-inset);
-}
-
-/* Tab 内容切换入场（轻上浮淡入，SSR 安全：纯 CSS 动画） */
-@keyframes tab-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
-}
-@utility tab-in {
-  animation: tab-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ===== View Transitions：页面切换过渡（仅 SPA 导航触发，不支持时自动回退） ===== */
