@@ -7,6 +7,7 @@
  * 与分片采集共用同一把 key 与同一个全局熔断（collector 的 sd_circuit_open_until）：
  * 余额耗尽时两条通道一起停，不会一方停一方继续烧。
  */
+import { resetCacheBustMemo } from "./cache";
 import { sdBreakerOpen, tripBreaker } from "./collector";
 import { SocialDataError, FETCH_TIMEOUT_MS } from "./sources/socialdata";
 
@@ -68,7 +69,8 @@ async function throttledGet<T>(env: Env, path: string): Promise<T> {
 async function bumpCacheBust(env: Env): Promise<void> {
   await env.DB.prepare(
     "INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1') ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1"
-  ).run();
+  ).run();  // 本 isolate 立即读到新版本号（不等 5 秒记忆过期）
+  resetCacheBustMemo();
 }
 
 /** 成员被提及：遍历活跃成员，search @handle -filter:replies 拉站外提及，写 member_mentions（幂等） */

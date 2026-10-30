@@ -9,7 +9,25 @@
  * - Cache-Control 拆开共享/浏览器缓存：s-maxage 管 CDN，max-age 默认 60 秒管浏览器，
  *   用户刷新页面不会命中自己浏览器里的旧 JSON。
  */
+import { waitUntil } from "cloudflare:workers";
 import { SITE_URL } from "./lib/site";
+
+/**
+ * 缓存写入放到响应之后：cache.put 要等整个 body 落盘，同步 await 会把这段耗时
+ * 加到首字节时间上。请求上下文外（个别测试/脚本环境）waitUntil 不可用时退回同步写。
+ */
+export function deferCachePut(task: Promise<unknown>): Promise<void> {
+  const guarded = task.then(
+    () => undefined,
+    (e) => console.error("[cache] 写入边缘缓存失败：", e instanceof Error ? e.message : e)
+  );
+  try {
+    waitUntil(guarded);
+    return Promise.resolve();
+  } catch {
+    return guarded;
+  }
+}
 
 export interface CachedResponseOptions {
   /**
@@ -115,18 +133,43 @@ export async function cachedResponse(
     const res = new Response(response.body, response);
     res.headers.set("Cache-Control", `public, s-maxage=${ttl}, max-age=${browserTtl}`);
     if (options?.headers) for (const [k, v] of Object.entries(options.headers)) res.headers.set(k, v);
-    await cache.put(cacheKey, res.clone());
+    await deferCachePut(cache.put(cacheKey, res.clone()));
     return res;
   }
   return response;
 }
 
+/**
+ * cache_bust 的 isolate 级短记忆：每个查询都要先拿版本号拼键，不记忆的话一次 SSR
+ * 要为同一个值打 N 次 D1（边缘缓存全命中时，这就是主要延迟）。
+ * 记忆 5 秒：同一 isolate 内的写入（bumpCacheBust）会立即清掉记忆，
+ * 其他 isolate 的写入最多晚 5 秒可见——数据整点一更，可接受。
+ * 并发请求共享同一个进行中的 Promise，不会同时打出多条相同查询。
+ */
+const CACHE_BUST_MEMO_MS = 5_000;
+let bustMemo: { value: Promise<number>; at: number } | null = null;
+
+/** 清掉版本号记忆：本 isolate 内写过 cache_bust 后调用（测试里直接改 site_meta 时也要调） */
+export function resetCacheBustMemo(): void {
+  bustMemo = null;
+}
+
 /** 读当前 cache_bust（site_meta）：每次数据写库 +1，缓存键随之换新。缺键视为 1。 */
-export async function readCacheBust(env: Env): Promise<number> {
-  const row = (await env.DB.prepare(
+export function readCacheBust(env: Env): Promise<number> {
+  const now = Date.now();
+  if (bustMemo && now - bustMemo.at < CACHE_BUST_MEMO_MS) return bustMemo.value;
+  const value = env.DB.prepare(
     "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
-  ).first()) as { bust: number | null } | null;
-  return row?.bust ?? 1;
+  )
+    .first<{ bust: number | null }>()
+    .then((row) => row?.bust ?? 1);
+  const memo = { value, at: now };
+  bustMemo = memo;
+  // 查询失败不留在记忆里，下一次重新查
+  value.catch(() => {
+    if (bustMemo === memo) bustMemo = null;
+  });
+  return value;
 }
 
 /**
@@ -135,10 +178,16 @@ export async function readCacheBust(env: Env): Promise<number> {
  */
 export async function cachedQuery<T>(env: Env, key: string, ttl: number, build: () => Promise<T>): Promise<T> {
   const bust = await readCacheBust(env);
-  const res = await cachedResponse(
-    new Request(`${SITE_URL}${assertSafeCacheKey(key)}&cb=${bust}`),
-    ttl,
-    async () => new Response(JSON.stringify(await build()), { headers: { "Content-Type": "application/json" } })
-  );
-  return (await res.json()) as T;
+  const url = `${SITE_URL}${assertSafeCacheKey(key)}&cb=${bust}`;
+  const cache = (caches as unknown as { default: Cache }).default;
+  const cacheKey = new Request(url, { method: "GET" });
+  const hit = await cache.match(cacheKey);
+  if (hit) return (await hit.json()) as T;
+  // 未命中：直接返回刚算好的对象（省掉一轮 stringify→parse），写缓存放到响应之后
+  const value = await build();
+  const res = new Response(JSON.stringify(value), {
+    headers: { "Content-Type": "application/json", "Cache-Control": `public, s-maxage=${ttl}, max-age=60` },
+  });
+  await deferCachePut(cache.put(cacheKey, res));
+  return value;
 }

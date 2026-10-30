@@ -50,11 +50,9 @@ type NeighborRow = { id: string; handle: string; displayName: string | null; pro
 type FanCircleRow = NeighborRow & { topHandlesRaw: string | null };
 type MilestoneRow = { threshold: number; achievedAt: string };
 
-/** 成员近 N 帖 + 互动合计（返回 null 表示该成员尚无帖子数据） */
-async function getPostActivity(env: Env, memberId: string, handle: string, limit = 20): Promise<MemberDetail["postActivity"]> {
-  const { results: rows } = await env.DB.prepare(
-    `SELECT ${POST_DISPLAY_FIELDS} FROM posts WHERE member_id = ?1 ORDER BY created_at DESC LIMIT ?2`
-  ).bind(memberId, limit).all<PostRow>();
+/** 成员近 20 帖 + 互动合计（返回 null 表示该成员尚无帖子数据）；行由 getMemberDetail 的 batch 一并取回 */
+const POST_ACTIVITY_LIMIT = 20;
+function buildPostActivity(rows: PostRow[], handle: string): MemberDetail["postActivity"] {
   const posts = rows.map((r) => mapPostRow(r, handle));
   if (posts.length === 0) return null;
   const totals = posts.reduce(
@@ -78,43 +76,67 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     new Request(`${SITE_URL}${CACHE_KEYS.memberDetail(id)}&cb=${bust}`),
     3600,
     async () => {
-    const member = await env.DB.prepare(
-      `SELECT ${MEMBER_FIELDS}, status, location, url, x_created_at AS xCreatedAt
-       FROM members WHERE id = ? AND status IN ('active', 'suspended')`
-    ).bind(id).first<MemberDetailRow & { verified: number | null; status: string }>();
+    // 9 条读查询互不依赖（都只依赖入参 id），合并成一次 D1 batch：一次往返代替逐条串行 await。
+    // 成员不存在时多读的几行可忽略（404 是少数路径）。
+    const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const [memberRes, snapshotRes, milestoneRes, postActRes, post30dRes, fanRes, similarRes, neighborRes, failedRes] =
+      await env.DB.batch([
+        env.DB.prepare(
+          `SELECT ${MEMBER_FIELDS}, status, location, url, x_created_at AS xCreatedAt
+           FROM members WHERE id = ?1 AND status IN ('active', 'suspended')`
+        ).bind(id),
+        env.DB.prepare(
+          `SELECT followers, following, posts, listed_count AS listedCount, favourites_count AS favouritesCount,
+                  recorded_at AS recordedAt
+           FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at`
+        ).bind(id),
+        env.DB.prepare(
+          "SELECT threshold, achieved_at AS achievedAt FROM milestones WHERE member_id = ?1 ORDER BY threshold"
+        ).bind(id),
+        // 帖子活跃度：近 20 帖 + 互动合计（posts 表，尚未采集到时为 null）
+        env.DB.prepare(
+          `SELECT ${POST_DISPLAY_FIELDS} FROM posts WHERE member_id = ?1 ORDER BY created_at DESC LIMIT ?2`
+        ).bind(id, POST_ACTIVITY_LIMIT),
+        // 近 30 天帖子：影响力指数 + 内容洞察（爆款 / 停更 / 互动率中位数）
+        env.DB.prepare(`SELECT ${POST_FIELDS} FROM posts WHERE member_id = ?1 AND created_at >= ?2`).bind(id, cutoff30d),
+        // 粉丝圈画像（尚未采样为 null）
+        env.DB.prepare(
+          `SELECT sampled_at AS sampledAt, sample_size AS sampleSize, avg_followers AS avgFollowers,
+                  pct_followers_1k AS pctFollowers1k, pct_followers_10k AS pctFollowers10k,
+                  verified_pct AS verifiedPct, avg_friends AS avgFriends, avg_tweets AS avgTweets,
+                  avg_age_days AS avgAgeDays, top_handles AS topHandlesRaw
+           FROM fan_profiles WHERE member_id = ?1`
+        ).bind(id),
+        // 相似账号推荐
+        env.DB.prepare(
+          `SELECT handle, name, avatar, reason, difference, created_at AS createdAt
+           FROM similar_accounts WHERE member_id = ?1 ORDER BY created_at`
+        ).bind(id),
+        // 赛道邻居：全体活跃成员 + 最新粉丝（引流 / SEO 用）
+        env.DB.prepare(
+          `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage, m.tracks,
+                  ${LATEST_FOLLOWERS_SQL} AS followers
+           FROM members m WHERE m.status = 'active'`
+        ),
+        // 首采失败态：队列最近一次为 failed（仅在无快照时使用，OG 卡与「排队中」区分用）
+        env.DB.prepare(
+          "SELECT 1 AS x FROM refresh_queue INDEXED BY idx_refresh_queue_member_status WHERE member_id = ?1 AND status = 'failed' LIMIT 1"
+        ).bind(id),
+      ]);
+    const member = (memberRes.results[0] ?? null) as (MemberDetailRow & { verified: number | null; status: string }) | null;
     if (!member) return new Response(JSON.stringify({ error: "member not found" }), { status: 404 });
 
-    const { results: snapshots } = await env.DB.prepare(
-      `SELECT followers, following, posts, listed_count AS listedCount, favourites_count AS favouritesCount,
-              recorded_at AS recordedAt
-       FROM snapshots WHERE member_id = ? ORDER BY recorded_at`
-    ).bind(id).all<SnapshotRowFull>();
-    const { results: milestones } = await env.DB.prepare(
-      "SELECT threshold, achieved_at AS achievedAt FROM milestones WHERE member_id = ? ORDER BY threshold"
-    ).bind(id).all<MilestoneRow>();
+    const snapshots = snapshotRes.results as SnapshotRowFull[];
+    const milestones = milestoneRes.results as MilestoneRow[];
     // 只展示称号大关上的档位（旧阶梯档位不再展示）
     const ladderSet = new Set(MILESTONE_THRESHOLDS);
     const ladderMilestones = milestones.filter((r) => ladderSet.has(r.threshold));
 
-    const memberRow = member!;
-    // 帖子活跃度：近 20 帖 + 互动合计（posts 表，尚未采集到时为 null）
-    const postActivity = await getPostActivity(env, memberRow.id, memberRow.handle);
+    const memberRow = member;
+    const postActivity = buildPostActivity(postActRes.results as PostRow[], memberRow.handle);
+    const posts30d = post30dRes.results as PostRow[];
 
-    // 近 30 天帖子：影响力指数 + 内容洞察（爆款 / 停更 / 互动率中位数）
-    const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    const { results: post30dRows } = await env.DB.prepare(
-      `SELECT ${POST_FIELDS} FROM posts WHERE member_id = ?1 AND created_at >= ?2`
-    ).bind(memberRow.id, cutoff30d).all<PostRow>();
-    const posts30d = post30dRows;
-
-    // 粉丝圈画像（尚未采样为 null）
-    const fanRow = await env.DB.prepare(
-      `SELECT sampled_at AS sampledAt, sample_size AS sampleSize, avg_followers AS avgFollowers,
-              pct_followers_1k AS pctFollowers1k, pct_followers_10k AS pctFollowers10k,
-              verified_pct AS verifiedPct, avg_friends AS avgFriends, avg_tweets AS avgTweets,
-              avg_age_days AS avgAgeDays, top_handles AS topHandlesRaw
-       FROM fan_profiles WHERE member_id = ?1`
-    ).bind(memberRow.id).first<FanProfileRow>();
+    const fanRow = (fanRes.results[0] ?? null) as FanProfileRow | null;
     let fanProfile: FanProfile | null = null;
     if (fanRow) {
       const fr = fanRow;
@@ -132,19 +154,10 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
       };
     }
 
-    // 相似账号推荐
-    const { results: similarRows2 } = await env.DB.prepare(
-      `SELECT handle, name, avatar, reason, difference, created_at AS createdAt
-       FROM similar_accounts WHERE member_id = ?1 ORDER BY created_at`
-    ).bind(memberRow.id).all<SimilarAccount>();
-    const similarAccounts = similarRows2;
+    const similarAccounts = similarRes.results as SimilarAccount[];
+    const neighborRows = neighborRes.results as NeighborRow[];
 
-    // 赛道邻居：本成员在各赛道内的名次 + 同赛道其他成员（引流 / SEO 用，轻量单查询）
-    const { results: neighborRows } = await env.DB.prepare(
-      `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage, m.tracks,
-              ${LATEST_FOLLOWERS_SQL} AS followers
-       FROM members m WHERE m.status = 'active'`
-    ).all<NeighborRow>();
+    // 赛道邻居：本成员在各赛道内的名次 + 同赛道其他成员
     const myTracks = parseStrArray(memberRow.tracks);
     const allNeighbors = neighborRows.map((r) => ({ ...r, tracks: parseStrArray(r.tracks) }));
     const trackRanks = myTracks.map((track) => ({ track, ...rankInTrack(allNeighbors, memberRow.id, track) }));
@@ -204,12 +217,7 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
     if (memberRow.status === "suspended") stats.frozen = true;
 
     // 首采失败态：无快照且队列最近一次为 failed（OG 卡与「排队中」区分用）
-    if (!snapshotRows.length) {
-      const failedRow = await env.DB.prepare(
-        "SELECT 1 AS x FROM refresh_queue INDEXED BY idx_refresh_queue_member_status WHERE member_id = ?1 AND status = 'failed' LIMIT 1"
-      ).bind(memberRow.id).first<{ x: number }>();
-      if (failedRow) stats.collectFailed = true;
-    }
+    if (!snapshotRows.length && failedRes.results.length > 0) stats.collectFailed = true;
 
     // 次级计数：最新快照的当前值 + 近 30 天增量（历史快照缺值的字段不硬算）
     const latestSnap = snapshotRows[snapshotRows.length - 1] ?? null;

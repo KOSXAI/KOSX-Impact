@@ -13,6 +13,7 @@ import { getTopPosts } from "../src/queries";
 import { getAnnualReport, getDailyArchive } from "../src/queries/archive";
 import { getCommunitySignals, getContentRecipe } from "../src/queries/community";
 import { getDashboardStats } from "../src/queries/dashboard";
+import { resetCacheBustMemo } from "../src/cache";
 
 const TABLES = [
   "refresh_queue",
@@ -37,6 +38,8 @@ beforeEach(async () => {
   await env.DB.prepare("INSERT INTO site_meta (key, value) VALUES ('cache_bust', ?)")
     .bind(String(Date.now()))
     .run();
+  // 版本号有 isolate 级短记忆：测试直接改 site_meta，需要同步清掉
+  resetCacheBustMemo();
 });
 
 async function seedMember(id: string, handle: string, over: { tracks?: string; tags?: string; joinedAt?: string } = {}) {

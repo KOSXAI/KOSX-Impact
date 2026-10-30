@@ -206,51 +206,63 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     const snapshotStmt = env.DB.prepare(
       "SELECT member_id AS memberId, followers, listed_count AS listedCount, recorded_at AS recordedAt FROM snapshots WHERE member_id = ?1 ORDER BY recorded_at DESC LIMIT 31"
     );
-    const snapshotBatches = await env.DB.batch<SnapshotRow>(memberList.map((m) => snapshotStmt.bind(m.id)));
-
-    // 首采失败态：从未有快照且刷新队列最近一次记录为 failed（查无账号/持续报错），
-    // 与「排队中」区分用；只查有失败记录的无快照成员， fans 面很小
-    const failedIds = new Set<string>();
-    {
-      const { results: failedRows } = await env.DB.prepare(
+    const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    // 以下查询只依赖成员名单或常量，与逐成员快照一起放进同一次 D1 batch（一次往返）
+    const sharedStmts = [
+      // 首采失败态：从未有快照且刷新队列最近一次记录为 failed（查无账号/持续报错），
+      // 与「排队中」区分用；只查有失败记录的无快照成员，数据面很小
+      env.DB.prepare(
         `SELECT rq.member_id AS memberId FROM refresh_queue rq
          WHERE rq.status = 'failed'
            AND NOT EXISTS (SELECT 1 FROM snapshots s WHERE s.member_id = rq.member_id)
            AND EXISTS (SELECT 1 FROM members m WHERE m.id = rq.member_id AND m.status = 'active')
          GROUP BY rq.member_id`
-      ).all<FailedQueueRow>();
-      for (const r of failedRows) failedIds.add(r.memberId);
-    }
+      ),
+      env.DB.prepare(
+        `SELECT ms.member_id AS memberId, m.handle, m.display_name AS displayName, ms.threshold, ms.achieved_at AS achievedAt
+         FROM milestones ms
+         JOIN members m ON m.id = ms.member_id
+         WHERE m.status = 'active'`
+      ),
+      // 全社群单帖浏览 Top 8（posts 表 + members 联查，带成员展示信息）
+      // INDEXED BY：views_count 索引（0011）按序扫描，取满 8 行即停；不强制时规划器会
+      // 逐成员扫描全部帖子再排序（按 posts 全表行数付费）
+      env.DB.prepare(
+        `SELECT ${TOP_POST_FIELDS}
+         FROM posts p INDEXED BY idx_posts_views
+         JOIN members m ON m.id = p.member_id
+         WHERE m.status = 'active' AND p.views_count IS NOT NULL
+         ORDER BY p.views_count DESC LIMIT 8`
+      ),
+      // 近 30 天全社群帖子：影响力指数 / 内容洞察 / 赛道互动榜的数据源（单次窗口查询）
+      env.DB.prepare(
+        `SELECT member_id AS memberId, ${POST_FIELDS}
+         FROM posts WHERE created_at >= ?1
+           AND EXISTS (SELECT 1 FROM members m WHERE m.id = posts.member_id AND m.status = 'active')`
+      ).bind(cutoff30d),
+      // 成员被提及热度：member_mentions 近 30 天按成员计数（被提及榜数据源）
+      // INDEXED BY：按时间列做范围过滤，走 (mentioned_at, member_id) 索引（0023）；
+      // 不强制时规划器会整扫 (member_id, mentioned_at) 索引（范围落在第二列用不上）
+      env.DB.prepare(
+        `SELECT member_id AS memberId, COUNT(*) AS n FROM member_mentions INDEXED BY idx_member_mentions_mentioned
+         WHERE mentioned_at >= ?1 GROUP BY member_id`
+      ).bind(cutoff30d),
+    ];
+    const batchResults = await env.DB.batch([...memberList.map((m) => snapshotStmt.bind(m.id)), ...sharedStmts]);
+    const snapshotBatches = batchResults.slice(0, memberList.length) as D1Result<SnapshotRow>[];
+    const [failedRes, milestoneRes, topPostRes, post30dRes, mentionRes] = batchResults.slice(memberList.length);
 
-    const { results: milestoneRows } = await env.DB.prepare(
-      `SELECT ms.member_id AS memberId, m.handle, m.display_name AS displayName, ms.threshold, ms.achieved_at AS achievedAt
-       FROM milestones ms
-       JOIN members m ON m.id = ms.member_id
-       WHERE m.status = 'active'`
-    ).all<MilestoneJoinRow>();
+    const failedIds = new Set<string>();
+    for (const r of failedRes.results as FailedQueueRow[]) failedIds.add(r.memberId);
 
-    // 全社群单帖浏览 Top 8（posts 表 + members 联查，带成员展示信息）
-    // INDEXED BY：views_count 索引（0011）按序扫描，取满 8 行即停；不强制时规划器会
-    // 逐成员扫描全部帖子再排序（按 posts 全表行数付费）
-    const { results: topPostRows } = await env.DB.prepare(
-      `SELECT ${TOP_POST_FIELDS}
-       FROM posts p INDEXED BY idx_posts_views
-       JOIN members m ON m.id = p.member_id
-       WHERE m.status = 'active' AND p.views_count IS NOT NULL
-       ORDER BY p.views_count DESC LIMIT 8`
-    ).all<TopPostJoinRow>();
-    const topPosts: PostItem[] = topPostRows.map((r) => ({
+    const milestoneRows = milestoneRes.results as MilestoneJoinRow[];
+
+    const topPosts: PostItem[] = (topPostRes.results as TopPostJoinRow[]).map((r) => ({
       ...mapPostRow(r, r.handle),
       member: { id: r.memberId, handle: r.handle, displayName: r.displayName, profileImage: r.profileImage },
     }));
 
-    // 近 30 天全社群帖子：影响力指数 / 内容洞察 / 赛道互动榜的数据源（单次窗口查询）
-    const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    const { results: post30dRows } = await env.DB.prepare(
-      `SELECT member_id AS memberId, ${POST_FIELDS}
-       FROM posts WHERE created_at >= ?1
-         AND EXISTS (SELECT 1 FROM members m WHERE m.id = posts.member_id AND m.status = 'active')`
-    ).bind(cutoff30d).all<PostRow & { memberId: string }>();
+    const post30dRows = post30dRes.results as Array<PostRow & { memberId: string }>;
     const postsByMember = new Map<string, PostRow[]>();
     for (const r of post30dRows) {
       const list = postsByMember.get(r.memberId) ?? [];
@@ -258,20 +270,8 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       postsByMember.set(r.memberId, list);
     }
 
-    // 成员被提及热度：member_mentions 近 30 天按成员计数（被提及榜数据源）
     const mentionCounts = new Map<string, number>();
-    {
-      const cutoffMention = new Date(Date.now() - 30 * 86_400_000).toISOString();
-      // INDEXED BY：按时间列做范围过滤，走 (mentioned_at, member_id) 索引（0023）；
-      // 不强制时规划器会整扫 (member_id, mentioned_at) 索引（范围落在第二列用不上）
-      const { results: mmRows } = await env.DB.prepare(
-        `SELECT member_id AS memberId, COUNT(*) AS n FROM member_mentions INDEXED BY idx_member_mentions_mentioned
-         WHERE mentioned_at >= ?1 GROUP BY member_id`
-      ).bind(cutoffMention).all<{ memberId: string; n: number }>();
-      for (const r of mmRows) {
-        mentionCounts.set(r.memberId, r.n);
-      }
-    }
+    for (const r of mentionRes.results as Array<{ memberId: string; n: number }>) mentionCounts.set(r.memberId, r.n);
 
     const memberStats = memberList.map((m, i) => {
       const rows: SnapshotRow[] = snapshotBatches[i]?.results ?? [];

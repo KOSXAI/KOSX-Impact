@@ -1,3 +1,4 @@
+import { resetCacheBustMemo } from "./cache";
 import { detectMilestones, MILESTONE_THRESHOLDS } from "./milestones";
 import type { RosterFile } from "./roster";
 import { roster, syncRoster } from "./roster";
@@ -242,7 +243,8 @@ export async function bumpCacheBust(env: Env): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
      ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`
-  ).run();
+  ).run();  // 本 isolate 立即读到新版本号（不等 5 秒记忆过期）
+  resetCacheBustMemo();
 }
 
 /** 与本次采集之前的最新快照对比，写入新跨过的大关（称号大关表）。
