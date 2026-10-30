@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Avatar } from "@/components/member/Avatar";
 import type { PostMediaItem, QuotedPostItem } from "@/stats";
 import { Loader2, Play } from "lucide-react";
@@ -71,17 +71,34 @@ function PhotoGrid({ photos }: { photos: PostMediaItem[] }) {
       {open !== null && (
         <Dialog open onOpenChange={(v) => !v && setOpen(null)}>
           <DialogContent className="max-w-3xl bg-scrim p-2 sm:p-3">
-            <img src={photos[open].url} alt="" referrerPolicy="no-referrer" className="max-h-[80dvh] w-full rounded-lg object-contain" />
+            {/* 对话框必须有名称：视觉隐藏的标题给读屏用 */}
+            <DialogTitle className="sr-only">图片 {open + 1}/{photos.length}</DialogTitle>
+            <img
+              src={photos[open].url}
+              alt={`帖子图片 ${open + 1}`}
+              // 有原始宽高就声明，浏览器据此预留比例防布局抖动；h-auto 让高度按比例算而不是吃 height 属性
+              width={photos[open].width || undefined}
+              height={photos[open].height || undefined}
+              referrerPolicy="no-referrer"
+              className="h-auto max-h-[80dvh] w-full rounded-lg object-contain"
+            />
             {photos.length > 1 && (
-              <div className="flex justify-center gap-1.5">
+              <div className="flex justify-center">
                 {photos.map((m, i) => (
+                  // 外层 24px 透明按钮承接点击，圆点只做视觉
                   <button
                     key={i}
                     type="button"
                     onClick={() => setOpen(i)}
                     aria-label={`第 ${i + 1} 张`}
-                    className={cn("size-1.5 rounded-full transition-colors", i === open ? "bg-ink" : "bg-mist/40")}
-                  />
+                    aria-current={i === open ? "true" : undefined}
+                    className="group/dot inline-flex size-6 cursor-pointer items-center justify-center rounded-full"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn("size-1.5 rounded-full transition-colors group-hover/dot:bg-ink", i === open ? "bg-ink" : "bg-mist/40")}
+                    />
+                  </button>
                 ))}
               </div>
             )}

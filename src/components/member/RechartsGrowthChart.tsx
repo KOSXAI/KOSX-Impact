@@ -77,7 +77,7 @@ export default function RechartsGrowthChart({
             strokeWidth={2.5}
             dot={data.length <= 30 ? { r: 2.5, fill: "var(--color-followers)", strokeWidth: 0 } : false}
             activeDot={{ r: 5, fill: "var(--paper)", stroke: "var(--color-followers)", strokeWidth: 2 }}
-            style={{ filter: "drop-shadow(0 2px 6px rgba(255, 106, 0, 0.45))" }}
+            style={{ filter: "drop-shadow(0 2px 6px color-mix(in oklab, var(--signal) 45%, transparent))" }}
           />
         </LineChart>
     </ChartContainer>

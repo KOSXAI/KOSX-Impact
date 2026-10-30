@@ -34,6 +34,7 @@ export const Route = createFileRoute("/_shell/_creators/members/")({
     if (tag) out.tag = tag;
     const bucket = String(search.bucket ?? "");
     if (bucket === "lt10k" || bucket === "10k-50k" || bucket === "gt50k") out.bucket = bucket;
+    if (String(search.fav ?? "") === "1") out.fav = 1;
     return out;
   },
   loader: () => fetchDashboard(),
@@ -49,9 +50,10 @@ export const Route = createFileRoute("/_shell/_creators/members/")({
         { property: "og:description", content: desc },
         { property: "og:type", content: "website" },
         { property: "og:url", content: `${SITE_URL}/members` },
-        { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
+        // 博主库分享用榜单卡（Top 成员 + 粉丝量），比通用站点卡信息量大
+        { property: "og:image", content: `${SITE_URL}/og/leaderboard.png` },
         { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
+        { name: "twitter:image", content: `${SITE_URL}/og/leaderboard.png` },
       ],
       links: [{ rel: "canonical", href: `${SITE_URL}/members` }],
     };
@@ -85,6 +87,7 @@ function LibraryPage() {
       selTracks={search.track ? search.track.split(",") : []}
       selTags={search.tag ? search.tag.split(",") : []}
       bucket={search.bucket ?? "all"}
+      favOnly={search.fav === 1}
       onPatch={onPatch}
     />
   );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchInsights, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals, fetchContentRecipe } from "@/data.functions";
 import type { PostItem } from "@/stats";
@@ -26,7 +26,19 @@ import {
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
+type PostsSearch = { scope?: "all"; filter?: Exclude<PostFilterKey, "all">; sort?: Exclude<PostSortKey, "views"> };
+
 export const Route = createFileRoute("/_shell/posts")({
+  // 范围 / 形态 / 排序进 URL（与博主库一致：可分享、刷新不丢）；默认值不写进 URL，裸路径保持 canonical
+  validateSearch: (search: Record<string, unknown>): PostsSearch => {
+    const out: PostsSearch = {};
+    if (search.scope === "all") out.scope = "all";
+    const filter = String(search.filter ?? "");
+    if (filter !== "all" && POST_FILTERS.some((f) => f.key === filter)) out.filter = filter as PostsSearch["filter"];
+    const sort = String(search.sort ?? "");
+    if (sort !== "views" && POST_SORTS.some((x) => x.key === sort)) out.sort = sort as PostsSearch["sort"];
+    return out;
+  },
   loader: async () => {
     // insights 用独立轻量缓存（爆款/停更/标签云），不连带拉整份 dashboard。
     // 全站历史帖池不在这里预取：它默认不展示（scope 默认 30d），
@@ -60,37 +72,50 @@ export const Route = createFileRoute("/_shell/posts")({
 
 function PostsPage() {
   const { insights, posts, signals, recipe } = Route.useLoaderData();
-  const [scope, setScope] = useState<"30d" | "all">("30d");
-  const [filter, setFilter] = useState<PostFilterKey>("all");
-  const [sort, setSort] = useState<PostSortKey>("views");
-  // 全站历史池按需加载：初次切到「全站历史」时才请求（走服务端缓存查询层），拿到前显示骨架
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const scope: "30d" | "all" = search.scope ?? "30d";
+  const filter: PostFilterKey = search.filter ?? "all";
+  const sort: PostSortKey = search.sort ?? "views";
+  // 页面内状态切换：替换历史记录、不滚回顶部、不走整页 View Transition
+  const patch = (p: { scope?: "30d" | "all"; filter?: PostFilterKey; sort?: PostSortKey }) =>
+    navigate({
+      search: (prev: PostsSearch) => {
+        const next = { ...prev };
+        if ("scope" in p) next.scope = p.scope === "all" ? "all" : undefined;
+        if ("filter" in p) next.filter = p.filter === "all" ? undefined : (p.filter as PostsSearch["filter"]);
+        if ("sort" in p) next.sort = p.sort === "views" ? undefined : (p.sort as PostsSearch["sort"]);
+        return next;
+      },
+      replace: true,
+      resetScroll: false,
+      viewTransition: false,
+    });
+  const setFilter = (f: PostFilterKey) => patch({ filter: f });
+  const setSort = (x: PostSortKey) => patch({ sort: x });
+  // 全站历史池按需加载：切到「全站历史」（或 URL 直达 ?scope=all）时才请求（走服务端缓存查询层），拿到前显示骨架
   const [allPosts, setAllPosts] = useState<PostItem[] | null>(null);
   const [loadingAll, setLoadingAll] = useState(false);
 
-  const openAllTime = async () => {
-    setScope("all");
-    setFilter("all");
-    setSort("views");
-    if (allPosts || loadingAll) return;
+  useEffect(() => {
+    if (scope !== "all" || allPosts || loadingAll) return;
     setLoadingAll(true);
-    try {
-      setAllPosts(await fetchTopPostsAll());
-    } finally {
-      setLoadingAll(false);
-    }
-  };
+    fetchTopPostsAll()
+      .then(setAllPosts)
+      .finally(() => setLoadingAll(false));
+  }, [scope, allPosts, loadingAll]);
 
-  const following = signals
-    .filter((s) => s.kind === "following")
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 12);
-  const taste = signals
-    .filter((s) => s.kind === "taste")
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 12);
+  const following = useMemo(
+    () => signals.filter((s) => s.kind === "following").sort((a, b) => b.count - a.count).slice(0, 12),
+    [signals]
+  );
+  const taste = useMemo(
+    () => signals.filter((s) => s.kind === "taste").sort((a, b) => b.count - a.count).slice(0, 12),
+    [signals]
+  );
   const pool = scope === "30d" ? posts : (allPosts ?? []);
-  const counts = countByPostFilter(pool);
-  const visible = sortPosts(pool.filter((p) => matchesPostFilter(p, filter)), sort);
+  const counts = useMemo(() => countByPostFilter(pool), [pool]);
+  const visible = useMemo(() => sortPosts(pool.filter((p) => matchesPostFilter(p, filter)), sort), [pool, filter, sort]);
 
   return (
     <>
@@ -211,15 +236,8 @@ function PostsPage() {
               <h2 className="text-xl font-bold">{scope === "30d" ? "精华帖" : "历史 Top 帖"}</h2>
               <SegmentedControl
                 value={scope}
-                onChange={(s) => {
-                  if (s === "all") {
-                    void openAllTime();
-                  } else {
-                    setScope(s);
-                    setFilter("all");
-                    setSort("views");
-                  }
-                }}
+                // 换范围时形态 / 排序回到默认（两个池子的形态分布不同）
+                onChange={(s) => patch({ scope: s, filter: "all", sort: "views" })}
                 options={[
                   { key: "30d" as const, label: "近 30 天" },
                   { key: "all" as const, label: "全站历史" },
@@ -277,7 +295,7 @@ function PostsPage() {
 function PostList({ posts, showRate = false }: { posts: PostItem[]; showRate?: boolean }) {
   if (posts.length === 0) return <p className="mt-5 text-mist">这个筛选下暂无帖子，换个形态或切回全部。</p>;
   return (
-    <main className="mt-5 space-y-3">
+    <div className="mt-5 space-y-3">
       {/* 错峰入场用 RevealGroup/RevealItem：逐个 <Reveal> 会让每行各建一个
           matchMedia 监听与 IntersectionObserver（50 行 = 100 个 effect + 50 次
           挂载后重渲染）；RevealItem 不涉及那套 hook，只吃父级 variants */}
@@ -349,6 +367,6 @@ function PostList({ posts, showRate = false }: { posts: PostItem[]; showRate?: b
           );
         })}
       </RevealGroup>
-    </main>
+    </div>
   );
 }

@@ -18,7 +18,7 @@ import {
 } from "@/components/library/presets";
 import { ClimbsList } from "@/components/leaderboard/ClimbsList";
 import { TEN_K, titleOf } from "@/milestones";
-import { Reveal, RevealItem } from "@/components/motion";
+import { Reveal } from "@/components/motion";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import {
   Columns2,
@@ -27,9 +27,11 @@ import {
   LayoutGrid,
   Rows3,
   Shapes,
+  Star,
 } from "lucide-react";
 import { badge, fmt, signed } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useFavorites } from "@/lib/favorites";
 
 /** 布局密度三态：单列行卡 / 双列卡片 / 卡片网格（多维表格的行高/画册思路），存 localStorage 记住偏好 */
 const LAYOUTS = [
@@ -52,6 +54,7 @@ export function CreatorLibrary({
   selTracks,
   selTags,
   bucket,
+  favOnly,
   onPatch,
 }: {
   stats: DashboardStats;
@@ -62,11 +65,17 @@ export function CreatorLibrary({
   selTracks: string[];
   selTags: string[];
   bucket: FollowersBucket;
+  /** 只看收藏（收藏集合在本机，SSR 首帧为空集） */
+  favOnly: boolean;
   /** 视图/筛选状态统一回写 URL（undefined 的键会从 URL 移除） */
   onPatch: (p: LibrarySearch) => void;
 }) {
   const preset = VIEW_PRESETS[view];
-  const ctx: MetricCtx = { growthMetric, growthRange, trackSort };
+  // 记忆化：ctx 引用稳定，下游 useMemo（sorted / grouped）才不会每次渲染都失效
+  const ctx = useMemo<MetricCtx>(
+    () => ({ growthMetric, growthRange, trackSort }),
+    [growthMetric, growthRange, trackSort],
+  );
 
   const [layout, setLayout] = useState<LayoutKey>(() => {
     try {
@@ -103,10 +112,11 @@ export function CreatorLibrary({
       for (const t of m.tracks) counts[t] = (counts[t] ?? 0) + 1;
     return counts;
   }, [stats.members]);
+  const favorites = useFavorites();
   const hasFilter =
-    selTracks.length > 0 || selTags.length > 0 || bucket !== "all";
+    selTracks.length > 0 || selTags.length > 0 || bucket !== "all" || favOnly;
   const reset = () =>
-    onPatch({ track: undefined, tag: undefined, bucket: undefined });
+    onPatch({ track: undefined, tag: undefined, bucket: undefined, fav: undefined });
   // 筛选入口徽章：已生效的筛选条件数
   const appliedCount =
     selTracks.length + selTags.length + (bucket !== "all" ? 1 : 0);
@@ -126,27 +136,27 @@ export function CreatorLibrary({
       list = list.filter((m) => selTags.some((t) => m.tags.includes(t)));
     if (bucket !== "all")
       list = list.filter((m) => BUCKET_MATCH[bucket](m.latestFollowers ?? 0));
+    if (favOnly) list = list.filter((m) => favorites.includes(m.id));
     return list;
-  }, [preset, stats.members, selTracks, selTags, bucket]);
+  }, [preset, stats.members, selTracks, selTags, bucket, favOnly, favorites]);
   const sorted = useMemo(
     () =>
       preset.sort ? [...base].sort((a, b) => preset.sort!(a, b, ctx)) : base,
-    // ctx 由视图状态派生，直接进依赖
-    [preset, base, growthMetric, growthRange, trackSort],
+    [preset, base, ctx],
   );
 
   /** 行卡流（名次/渐晕/指标跟随当前视图）；rankOffset：赛段分组时保持全站名次 */
   const renderRows = (list: MemberStats[], showTracks = true) => (
     <ol className="space-y-3">
       {list.map((m, i) => (
-        <RevealItem key={m.id} y={16}>
+        <li key={m.id}>
           <MemberRow
             m={m}
             rank={i + 1}
             metric={preset.metric(m, ctx)}
             showTracks={showTracks}
           />
-        </RevealItem>
+        </li>
       ))}
       {list.length === 0 && (
         <li className="text-sm text-mist">{preset.empty}</li>
@@ -169,9 +179,9 @@ export function CreatorLibrary({
       }
       prevSegment = m.nextMilestone;
       rows.push(
-        <RevealItem key={m.id} y={16}>
+        <li key={m.id}>
           <MemberRow m={m} rank={i + 1} metric={preset.metric(m, ctx)} />
-        </RevealItem>,
+        </li>,
       );
     });
     return <ol className="space-y-3">{rows}</ol>;
@@ -281,6 +291,19 @@ export function CreatorLibrary({
             >
               <button
                 type="button"
+                onClick={() => onPatch({ fav: favOnly ? undefined : 1 })}
+                aria-label={favOnly ? "显示全部成员" : "只看收藏"}
+                title={favorites.length ? `只看收藏（${favorites.length}）` : "只看收藏：在成员页点星标收藏"}
+                aria-pressed={favOnly}
+                className={cn(
+                  "inline-flex size-8 cursor-pointer select-none items-center justify-center rounded-full transition-colors",
+                  favOnly ? "bg-primary text-primary-foreground" : "text-mist hover:text-ink",
+                )}
+              >
+                <Star className={cn("size-4", favOnly && "fill-current")} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setFilterOpen(true)}
                 aria-label="筛选"
                 title="筛选"
@@ -288,13 +311,13 @@ export function CreatorLibrary({
                 className={cn(
                   "relative inline-flex size-8 cursor-pointer select-none items-center justify-center gap-1.5 rounded-full transition-colors",
                   appliedCount > 0
-                    ? "bg-primary text-signal-ink"
+                    ? "bg-primary text-primary-foreground"
                     : "text-mist hover:text-ink",
                 )}
               >
                 <Filter className="size-4" aria-hidden="true" />
                 {appliedCount > 0 && (
-                  <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-signal text-[10px] font-bold tabular-nums text-paper">
+                  <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-signal text-[10px] font-bold tabular-nums text-black">
                     {appliedCount}
                   </span>
                 )}
@@ -307,6 +330,7 @@ export function CreatorLibrary({
                     key={l.key}
                     type="button"
                     aria-pressed={active}
+                    aria-label={l.label}
                     title={l.label}
                     onClick={() => setLayout(l.key)}
                     className={cn(
@@ -341,7 +365,11 @@ export function CreatorLibrary({
       <div className="mt-6">
         {base.length === 0 && view !== "climbs" && view !== "track" ? (
           <div className="panel-card p-10 text-center">
-            <p className="text-mist">{preset.empty}</p>
+            <p className="text-mist">
+              {favOnly && favorites.length === 0
+                ? "还没有收藏的成员：在成员页右上角点星标即可收藏（存在本机）。"
+                : preset.empty}
+            </p>
             {hasFilter && (
               <button
                 onClick={reset}

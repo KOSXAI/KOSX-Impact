@@ -87,7 +87,7 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
             fill="url(#trendFill)"
             dot={{ r: 2.5, fill: "var(--color-total)", strokeWidth: 0 }}
             activeDot={{ r: 5, fill: "var(--paper)", stroke: "var(--color-total)", strokeWidth: 2 }}
-            style={{ filter: "drop-shadow(0 2px 6px rgba(255, 106, 0, 0.45))" }}
+            style={{ filter: "drop-shadow(0 2px 6px color-mix(in oklab, var(--signal) 45%, transparent))" }}
           />
         </AreaChart>
     </ChartContainer>

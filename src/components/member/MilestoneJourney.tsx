@@ -50,7 +50,7 @@ export function MilestoneJourney({
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold">称号之路</h2>
             {member.progressToNext >= 80 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-signal/40 bg-signal/10 px-2.5 py-0.5 text-xs font-semibold text-signal-ink shadow-[0_0_10px_rgba(255,106,0,0.2)]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-signal/40 bg-signal/10 px-2.5 py-0.5 text-xs font-semibold text-signal-ink shadow-[0_0_10px_color-mix(in_oklab,var(--signal)_20%,transparent)]">
                 🔥 冲线在即
               </span>
             )}

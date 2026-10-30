@@ -2,7 +2,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * 分段切换控件（pill 组）：全站统一的口径/视图切换器。
- * aria-pressed 让读屏知道每个选项的选中态；sm/md 两档尺寸。
+ * aria-pressed 让读屏知道每个选项的选中态；sm/md 两档尺寸（高 32 / 36px，触屏可点）。
+ * 选项 shrink-0 + nowrap：放进横向滚动容器时不被压扁、不换行。
  */
 export function SegmentedControl<T extends string | number>({
   value,
@@ -34,8 +35,9 @@ export function SegmentedControl<T extends string | number>({
             aria-pressed={active}
             onClick={() => onChange(o.key)}
             className={cn(
-              "cursor-pointer select-none rounded-full font-semibold transition-colors",
-              size === "sm" ? "h-7 px-3 text-xs" : "h-8 px-4 text-sm",
+              "shrink-0 cursor-pointer select-none whitespace-nowrap rounded-full font-semibold transition-colors",
+              "outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+              size === "sm" ? "h-8 px-3 text-xs" : "h-9 px-4 text-sm",
               active ? "bg-primary text-primary-foreground" : "text-mist hover:text-ink"
             )}
           >

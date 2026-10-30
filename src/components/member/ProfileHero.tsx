@@ -1,4 +1,6 @@
 import { Link } from "@tanstack/react-router";
+import { toggleFavorite, useFavorites } from "@/lib/favorites";
+import { toast } from "@/components/ui/toast";
 import type { MemberStats, MemberProfile, PostItem } from "@/stats";
 import type { MemberInsights } from "@/insights";
 import { Avatar } from "@/components/member/Avatar";
@@ -6,7 +8,7 @@ import { BannerImage } from "@/components/member/BannerImage";
 import { TierBadge } from "@/components/member/TierBadge";
 import { Badge } from "@/components/ui/badge";
 import { trackOf } from "@/tracks";
-import { BadgeCheck, ExternalLink, MapPin, PauseCircle, Share2, type LucideIcon, Blocks, CandlestickChart, Globe, PenTool, Shapes, Sparkles } from "lucide-react";
+import { BadgeCheck, ExternalLink, MapPin, PauseCircle, Share2, Star, type LucideIcon, Blocks, CandlestickChart, Globe, PenTool, Shapes, Sparkles } from "lucide-react";
 import { fmtDate } from "@/lib/format";
 import { xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -60,6 +62,27 @@ function ShareButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** 横幅上的收藏钮：本地收藏，博主库可「只看收藏」 */
+function FavoriteButton({ memberId, name }: { memberId: string; name: string }) {
+  const favorites = useFavorites();
+  const on = favorites.includes(memberId);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const now = toggleFavorite(memberId);
+        toast.success(now ? `已收藏 ${name}，博主库可「只看收藏」` : `已取消收藏 ${name}`);
+      }}
+      aria-pressed={on}
+      aria-label={on ? "取消收藏" : "收藏"}
+      title={on ? "取消收藏" : "收藏（存在本机）"}
+      className={frostedBtn}
+    >
+      <Star className={cn("size-4", on && "fill-signal text-signal")} aria-hidden="true" />
+    </button>
+  );
+}
+
 /** 档案卡：横幅 hero + 身份区 + 简介（全部来自 X 公开资料）+ 赛道/标签 chip 与赛道内名次 */
 export function ProfileHero({
   member,
@@ -84,7 +107,7 @@ export function ProfileHero({
     <section className="overflow-hidden rounded-3xl bg-surface shadow-[var(--panel-elev)]">
       <div className="relative h-32 sm:h-44">
         {profile.bannerUrl ? (
-          <BannerImage src={profile.bannerUrl} />
+          <BannerImage src={profile.bannerUrl} priority />
         ) : (
           <div
             aria-hidden="true"
@@ -96,7 +119,8 @@ export function ProfileHero({
           className="from-surface via-surface/30 absolute inset-0 bg-gradient-to-t to-transparent"
         />
         {/* 分享圆钮压在横幅右上角：磨砂玻璃质感，同时填起顶部留白 */}
-        <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-end p-3 sm:p-4">
+        <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-end gap-2 p-3 sm:p-4">
+          <FavoriteButton memberId={member.id} name={name} />
           <ShareButton onClick={onShare} />
         </div>
       </div>
@@ -104,7 +128,7 @@ export function ProfileHero({
         {/* z-10：横幅容器是定位元素会盖住静态兄弟，头像压边必须抬高一层 */}
         <div className="relative z-10 -mt-12 sm:-mt-14">
           <div className="flex items-end gap-4">
-            <Avatar url={member.profileImage} name={name} className="ring-surface size-20 ring-4 sm:size-24" />
+            <Avatar url={member.profileImage} name={name} size="lg" className="ring-surface size-20 ring-4 sm:size-24" />
             <div className="min-w-0 pb-1">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{name}</h1>

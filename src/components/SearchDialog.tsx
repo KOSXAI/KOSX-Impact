@@ -2,6 +2,7 @@ import { useEffect, useDeferredValue, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { roster } from "@/roster";
+import { fetchMemberPicker } from "@/data.functions";
 import { TRACKS } from "@/tracks";
 import { Search, Users, Shapes, CornerDownLeft, ArrowDown, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,13 +22,32 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  // 成员来源：打包名册只是兜底（首帧即可搜）；打开后换成库里的活跃成员
+  // （含自助加入的成员——只搜名册会让他们在搜索里「不存在」）。走服务端轻量缓存。
+  const [members, setMembers] = useState<Array<{ id: string; handle: string; displayName: string | null }>>(
+    () => roster.members.map((m) => ({ id: m.id, handle: m.handle, displayName: m.displayName ?? null }))
+  );
+  useEffect(() => {
+    let cancelled = false;
+    fetchMemberPicker()
+      .then((list) => {
+        if (!cancelled && list.length > 0) setMembers(list);
+      })
+      .catch(() => {
+        /* 拉取失败保留名册兜底 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 打开时重置输入与选中
   useEffect(() => {
     if (open) {
       setQuery("");
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      const t = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
     }
   }, [open]);
 
@@ -44,7 +64,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
     }
 
     // 成员项
-    for (const m of roster.members) {
+    for (const m of members) {
       const name = m.displayName ?? m.handle;
       if (!q || name.toLowerCase().includes(q) || m.handle.toLowerCase().includes(q)) {
         list.push({ type: "member", id: m.id, title: name, subtitle: `@${m.handle}` });
@@ -52,7 +72,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
     }
 
     return list;
-  }, [deferredQuery]);
+  }, [deferredQuery, members]);
 
   // 保证高亮索引在范围内
   useEffect(() => {
@@ -88,7 +108,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
         <DialogTitle className="sr-only">搜索成员与赛道</DialogTitle>
 
         {/* 顶部搜索输入 */}
-        <div className="flex items-center gap-3 border-b border-line/80 px-4 py-3.5">
+        <div className="flex items-center gap-3 border-b border-line/80 px-4 py-3.5 focus-within:bg-wash">
           <Search className="size-5 shrink-0 text-mist" aria-hidden="true" />
           <input
             ref={inputRef}
@@ -96,7 +116,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="搜索成员昵称、@handle 或赛道..."
-            className="flex-1 bg-transparent text-base text-ink placeholder:text-mist/60 outline-none"
+            className="flex-1 bg-transparent text-base text-ink placeholder:text-mist outline-none"
           />
           <kbd className="hidden sm:inline-flex items-center rounded bg-soft-surface px-1.5 py-0.5 text-[10px] font-medium text-mist">
             ESC

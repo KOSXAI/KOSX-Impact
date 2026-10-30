@@ -23,11 +23,11 @@ export function TitleDistribution({ members }: { members: MemberStats[] }) {
         key: threshold,
         name: title,
         count: counts.get(threshold) ?? 0,
-        fill: TITLE_FILL[threshold] ?? "#fbbf24",
+        fill: TITLE_FILL[threshold] ?? "var(--census-g2)",
       }))
       .filter((t) => t.count > 0);
     const novices = counts.get(0) ?? 0;
-    if (novices > 0) rows.push({ key: 0, name: "新人村", count: novices, fill: TITLE_FILL[0] ?? "#94a3b8" });
+    if (novices > 0) rows.push({ key: 0, name: "新人村", count: novices, fill: TITLE_FILL[0] ?? "var(--census-novice)" });
     return rows;
   }, [counts]);
 
@@ -72,7 +72,8 @@ export function TitleDistribution({ members }: { members: MemberStats[] }) {
             onBlur={() => setHovered(null)}
             onClick={() => setPinned((p) => (p === t.key ? null : t.key))}
             className={cn(
-              "h-full min-w-1.5 cursor-pointer rounded-full transition-opacity",
+              // 视觉高度仍是条高 12px；伪元素上下各外扩 10px，点击区 ≥32px
+              "relative h-full min-w-1.5 cursor-pointer rounded-full transition-opacity before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']",
               active != null && active !== t.key && "opacity-35"
             )}
             style={{ flexGrow: t.count, flexBasis: 0, background: t.fill }}

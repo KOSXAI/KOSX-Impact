@@ -67,7 +67,7 @@ export const CACHE_KEYS = {
    *  （v6 时 SSR 要 50 条、API 默认 20 条共用一个键，会互相读到对方的条数） */
   topPosts: "/api/top-posts?v=7",
   /** sitemap.xml（SSR 之外的 Worker 直出，键只作 Cache API 存储用） */
-  sitemap: "/sitemap.xml?v=2",
+  sitemap: "/sitemap.xml?v=3",
   /** 以下为无独立 API 端点的查询层键（/q/ 前缀仅作缓存键，不构成可请求路径） */
   /** 社群信号：共同关注 / 社群热议（内容页策展） */
   communitySignals: "/q/community-signals?v=1",

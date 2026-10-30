@@ -38,7 +38,7 @@ function DialogContent({
         data-slot="dialog-content"
         aria-describedby={undefined}
         className={cn(
-          "fixed left-[50%] top-20 z-50 grid max-h-[85dvh] w-[calc(100%-2rem)] max-w-md -translate-x-[50%] gap-5 overflow-y-auto rounded-2xl border border-edge bg-surface p-5 shadow-[var(--shadow-pop-xl)] sm:top-[50%] sm:-translate-y-[50%] sm:p-6",
+          "fixed left-[50%] top-20 z-50 grid max-h-[calc(100dvh-6rem)] w-[calc(100%-2rem)] max-w-md -translate-x-[50%] gap-5 overflow-y-auto rounded-2xl border border-edge bg-surface p-5 shadow-[var(--shadow-pop-xl)] sm:top-[50%] sm:max-h-[85dvh] sm:-translate-y-[50%] sm:p-6",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
           "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           className
@@ -62,9 +62,9 @@ function DialogCloseX() {
   return (
     <DialogClose
       aria-label="关闭"
-      className="absolute top-4 right-4 rounded-full p-1.5 text-mist transition-all duration-150 hover:bg-wash-strong hover:text-ink active:scale-90"
+      className="absolute top-3 right-3 inline-flex size-9 items-center justify-center rounded-full text-mist transition-[color,background-color,transform] duration-150 hover:bg-wash-strong hover:text-ink active:scale-90"
     >
-      <X className="size-4" />
+      <X className="size-4" aria-hidden="true" />
     </DialogClose>
   )
 }

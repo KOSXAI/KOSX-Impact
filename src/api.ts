@@ -348,7 +348,7 @@ function renderLlmsTxt(): Response {
 - [博主库](https://impact.kosx.ai/members)：同一份成员数据集的多视图库——总排行 / 成长 / 新锐 / 影响力 / 被提及 / 勤快 / 新面孔 / 赛道分组 / 登阶记录，
   筛选（赛道 / 标签 / 粉丝档 / 收藏）与布局密度（单列 / 双列 / 卡片）自由切换，状态进 URL 可分享；复制 @ 清单批量关注。
 - [赛道详情](https://impact.kosx.ai/tracks/ai-tools)：AI工具 / 财经 / 开发者 / 增长 / 出海 五个赛道 + 综合兜底，
-  每个赛道独立页（seo 收录 + 批量关注 + 分享）；赛道榜在榜单页、赛道筛选在成员广场。
+  每个赛道独立页（seo 收录 + 批量关注 + 分享）；赛道分组视图与赛道筛选都在博主库。
 - [内容](https://impact.kosx.ai/posts)：近 30 天精华帖与全站历史 Top 帖、内容洞察（爆款 / 标签云 / 停更）、内容配方（黄金时段 / 形态）、社群品味。
 - [报告](https://impact.kosx.ai/reports)：报告板块入口——社群日报、社群能量报告、年度报告、站外声量。
 - [社群日报](https://impact.kosx.ai/daily)：每日战报——今日登阶 / 涨粉冠军 / 赛道表现 / 最爆内容；支持 ?date=YYYY-MM-DD 归档回看。
@@ -393,6 +393,13 @@ async function renderSitemap(env: Env): Promise<Response> {
       { loc: `${SITE_URL}/posts`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
       { loc: `${SITE_URL}/reports`, lastmod: dataDay, changefreq: "daily", priority: "0.5" },
       { loc: `${SITE_URL}/daily`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
+      // 近 14 天日报归档：归档页内容定格不再变化（lastmod 即当天）
+      ...Array.from({ length: 14 }, (_, i) => {
+        const d = new Date(`${dataDay}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() - (i + 1));
+        const day = d.toISOString().slice(0, 10);
+        return { loc: `${SITE_URL}/daily?date=${day}`, lastmod: day, changefreq: "never", priority: "0.4" };
+      }),
       { loc: `${SITE_URL}/report`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },
       { loc: `${SITE_URL}/annual`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },
       { loc: `${SITE_URL}/about`, lastmod: dataDay, changefreq: "monthly", priority: "0.3" },

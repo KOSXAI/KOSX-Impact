@@ -56,7 +56,7 @@ export function Toaster() {
   const shown = current != null && !leaving;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-5 z-[110] flex justify-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 top-[max(1.25rem,env(safe-area-inset-top))] z-[110] flex justify-center px-4">
       {/* aria-live：复制成功等瞬态提示对读屏可见 */}
       <div role="status" aria-live="polite" className="contents">
         <div

@@ -18,6 +18,7 @@ export const Route = createFileRoute("/_shell/_reports/reports/")({
       { property: "og:url", content: `${SITE_URL}/reports` },
       { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
     ],
     links: [{ rel: "canonical", href: `${SITE_URL}/reports` }],
   }),

@@ -236,4 +236,6 @@ export interface LibrarySearch {
   /** 标签，逗号分隔多选 */
   tag?: string;
   bucket?: Exclude<FollowersBucket, "all">;
+  /** 只看收藏（收藏存在本机 localStorage，URL 只带开关） */
+  fav?: 1;
 }

@@ -9,7 +9,7 @@ import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
 /**
  * 社群日报：社群的「历史总览」——把今天的登阶、涨粉冠军、最爆内容、赛道表现
- * 汇总成一份战报。每天自动更新，属于首页模块的时间切片（顶栏高亮「首页」）。
+ * 汇总成一份战报。每天自动更新，归属报告板块（顶栏高亮「报告」）。
  * ?date=YYYY-MM-DD 查看历史归档（数据透明 / 可追溯）。
  */
 /**
@@ -26,6 +26,34 @@ function archiveDate(value: unknown): string | undefined {
   if (Number.isNaN(Date.parse(`${value}T00:00:00Z`))) return undefined;
   if (value > new Date().toISOString().slice(0, 10)) return undefined;
   return value;
+}
+
+/** YYYY-MM-DD 加减天数（UTC 口径，与归档日期一致） */
+function shiftDay(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+const DAY_NAV_CLS =
+  "inline-flex h-9 items-center rounded-full bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink";
+
+/** 逐日翻阅：归档不再只能手改 URL 才能到达（站内可达，也给爬虫留了链接） */
+function DayNav({ date, today }: { date: string; today: string }) {
+  const prev = shiftDay(date, -1);
+  const next = shiftDay(date, 1);
+  return (
+    <nav aria-label="按日期翻阅日报" className="flex items-center gap-2">
+      <Link to="/daily" search={{ date: prev }} className={DAY_NAV_CLS}>
+        ← {prev.slice(5)}
+      </Link>
+      {date < today && (
+        <Link to="/daily" search={next >= today ? {} : { date: next }} className={DAY_NAV_CLS}>
+          {next >= today ? "最新一期" : next.slice(5)} →
+        </Link>
+      )}
+    </nav>
+  );
 }
 
 export const Route = createFileRoute("/_shell/_reports/daily")({
@@ -89,7 +117,8 @@ function DailyPage() {
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">社群日报</h1>
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-mist tabular-nums">{fmtDate(today)} · 每日更新</span>
-              <Link to="/annual" className="inline-flex h-9 items-center rounded-full bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink">
+              <DayNav date={today} today={today} />
+              <Link to="/annual" className={DAY_NAV_CLS}>
                 年度报告 →
               </Link>
             </div>
@@ -223,13 +252,12 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
               <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">社群日报</h1>
               <p className="mt-2 text-sm font-semibold text-mist tabular-nums">{archive.date} · 历史归档</p>
             </div>
-            <button
-              type="button"
-              onClick={onBack}
-              className="inline-flex h-9 items-center rounded-full bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
-            >
-              ← 最新一期
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <DayNav date={archive.date} today={new Date().toISOString().slice(0, 10)} />
+              <button type="button" onClick={onBack} className={DAY_NAV_CLS}>
+                回到最新
+              </button>
+            </div>
           </div>
         </Reveal>
 

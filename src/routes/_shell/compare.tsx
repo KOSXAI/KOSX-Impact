@@ -4,7 +4,8 @@ import { fetchMemberDetail, fetchMemberPicker } from "@/data.functions";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Search, Users } from "lucide-react";
+import { Link2, Search, Users } from "lucide-react";
+import { toast } from "@/components/ui/toast";
 import { fmt } from "@/lib/format";
 import { SITE_NAME, SITE_URL, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,11 @@ export const Route = createFileRoute("/_shell/compare")({
     return { members, left, right };
   },
   head: ({ loaderData }) => {
+    // 两边都选定时 canonical / og:url 带上 a、b：每组 PK 是独立可分享、可收录的页面
+    const pairUrl =
+      loaderData?.left && loaderData?.right
+        ? `${SITE_URL}/compare?a=${encodeURIComponent(loaderData.left.member.id)}&b=${encodeURIComponent(loaderData.right.member.id)}`
+        : `${SITE_URL}/compare`;
     const name = (d: { member: { displayName: string | null; handle: string } } | null | undefined) =>
       d ? (d.member.displayName ?? d.member.handle) : "";
     const title = loaderData?.left && loaderData?.right
@@ -44,12 +50,12 @@ export const Route = createFileRoute("/_shell/compare")({
         { property: "og:title", content: title },
         { property: "og:description", content: "KOSX 成员数据同屏对比：粉丝、增长、影响力、内容效率与被提及热度。" },
         { property: "og:type", content: "website" },
-        { property: "og:url", content: `${SITE_URL}/compare` },
+        { property: "og:url", content: pairUrl },
         { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:image", content: `${SITE_URL}/og/site.png?v=2` },
       ],
-      links: [{ rel: "canonical", href: `${SITE_URL}/compare` }],
+      links: [{ rel: "canonical", href: pairUrl }],
     };
   },
   component: ComparePage,
@@ -86,7 +92,25 @@ function ComparePage() {
 
       {left && right ? (
         <Reveal delay={0.08}>
-          <div className="mt-8">
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={async () => {
+                const url = `${SITE_URL}/compare?a=${encodeURIComponent(left.member.id)}&b=${encodeURIComponent(right.member.id)}`;
+                try {
+                  await navigator.clipboard.writeText(url);
+                  toast.success("对比链接已复制");
+                } catch {
+                  toast.info("复制失败，请直接复制地址栏链接");
+                }
+              }}
+              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full bg-soft-surface px-4 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
+            >
+              <Link2 className="size-4" aria-hidden="true" />
+              复制对比链接
+            </button>
+          </div>
+          <div className="mt-4">
             <CompareTable left={left} right={right} />
           </div>
         </Reveal>

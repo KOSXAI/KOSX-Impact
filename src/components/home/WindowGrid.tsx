@@ -4,6 +4,7 @@ import { Avatar } from "@/components/member/Avatar";
 import { VIEW_PRESETS, type LibrarySearch, type ViewKey, type MetricCtx, type MetricValue } from "@/components/library/presets";
 import { fmt, postExcerpt, signed } from "@/lib/format";
 import { groupClimbs, titleOf } from "@/milestones";
+import { cn } from "@/lib/utils";
 import type { DashboardStats, MemberStats, PostItem } from "@/stats";
 
 /**
@@ -162,7 +163,11 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               type="button"
               onClick={() => setActiveView(key)}
               aria-pressed={key === active.key}
-              className={key === active.key ? "rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground" : "rounded-full bg-soft-surface px-2.5 py-1 text-xs font-semibold text-mist transition-colors hover:text-ink"}
+              className={cn(
+                // h-8=32px 点击高度；可见焦点环用 ring 代替全局 outline（与 SegmentedControl 一致）
+                "h-8 cursor-pointer rounded-full px-3 text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60",
+                key === active.key ? "bg-primary text-primary-foreground" : "bg-soft-surface text-mist hover:text-ink"
+              )}
             >
               {preset.label}
             </button>
