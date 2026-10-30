@@ -46,9 +46,18 @@ export const fetchAnnualReport = createServerFn({ method: "GET" }).handler(async
 /** 社群信号（共同关注 / 社群热议，内容页策展） */
 export const fetchCommunitySignals = createServerFn({ method: "GET" }).handler(async () => getCommunitySignals(env as Env));
 
-/** 社群日报归档（/daily?date=YYYY-MM-DD 的历史快照） */
+/** 社群日报归档（/daily?date=YYYY-MM-DD 的历史快照）。
+ *  date 是可直接调用的 serverFn 入参：必须严格白名单（格式 + 不得未来日期），
+ *  否则会顺着 CACHE_KEYS.dailyArchive 拼进缓存键——含 `/`、`..`、`#` 的串
+ *  经 URL 规范化后能把内容写进别的路径的缓存（缓存投毒）。 */
 export const fetchDailyArchive = createServerFn({ method: "GET" })
-  .validator((date: string) => date)
+  .validator((date: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
+      throw new Error("invalid_date");
+    }
+    if (date > new Date().toISOString().slice(0, 10)) throw new Error("future_date");
+    return date;
+  })
   .handler(async ({ data }) => getDailyArchive(env as Env, data));
 
 /** 邀请裂变荣誉榜（/report 展示） */

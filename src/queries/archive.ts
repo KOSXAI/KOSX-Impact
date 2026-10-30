@@ -117,6 +117,9 @@ export interface DailyArchiveReport {
 
 /** 社日归档：指定统计日（YYYY-MM-DD）的社群快照——当日总粉丝 / 当日登阶 / 当日提及（/daily?date=） */
 export async function getDailyArchive(env: Env, date: string): Promise<DailyArchiveReport> {
+  // 纵深防御：date 直接拼进缓存键（CACHE_KEYS.dailyArchive），即便上方 serverFn 校验被绕过，
+  // 这里也不能让非白名单串进键（缓存投毒的第二道闸门）
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`非法归档日期：${date}`);
   return cachedQuery(env, CACHE_KEYS.dailyArchive(date), 3600, () => buildDailyArchive(env, date));
 }
 

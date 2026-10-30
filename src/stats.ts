@@ -21,6 +21,18 @@ export function computeGrowthNDays(
 ): number {
   if (snapshots.length === 0) return 0;
   const latest = snapshots[snapshots.length - 1];
+  // n=1 = 「今日」涨粉：基线必须是**上一个不同自然日**的最后一条快照。
+  // 用 cutoff=latest.recordedAt 取窗口会把最新一条自己当成基线，差值恒为 0
+  // （旧实现如此，成长视图的「今日」档一直是空转的 0）。
+  if (n <= 1) {
+    const latestDay = latest.recordedAt.slice(0, 10);
+    for (let i = snapshots.length - 2; i >= 0; i--) {
+      if (snapshots[i].recordedAt.slice(0, 10) !== latestDay) {
+        return latest.followers - snapshots[i].followers;
+      }
+    }
+    return 0; // 当日只有一条快照：没有可比的「昨日收盘」基线
+  }
   const cutoff = new Date(Date.parse(latest.recordedAt) - (n - 1) * 86_400_000).toISOString();
   const first = snapshots.find((s) => s.recordedAt >= cutoff);
   return latest.followers - (first?.followers ?? snapshots[0].followers);

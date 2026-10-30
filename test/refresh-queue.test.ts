@@ -266,7 +266,7 @@ describe("registerMember", () => {
 
   it("排除名单内的 handle 不受理：不建新行、不复活 removed", async () => {
     await env.DB.prepare("INSERT INTO excluded_handles (handle) VALUES ('blocked_x')").run();
-    expect(await registerMember(env, "blocked_x", T0)).toBe(false);
+    expect(await registerMember(env, "blocked_x", T0)).toEqual({ ok: false, reason: "excluded" });
     const created = (await env.DB.prepare(
       "SELECT COUNT(*) AS n FROM members WHERE handle = 'blocked_x'"
     ).first()) as { n: number };
@@ -274,7 +274,7 @@ describe("registerMember", () => {
 
     await seedMember("bob", "bob_x", 1200, "removed");
     await env.DB.prepare("INSERT INTO excluded_handles (handle) VALUES ('bob_x')").run();
-    expect(await registerMember(env, "bob_x", T0)).toBe(false);
+    expect(await registerMember(env, "bob_x", T0)).toEqual({ ok: false, reason: "excluded" });
     const member = (await env.DB.prepare(
       "SELECT status, self_registered FROM members WHERE id = 'bob'"
     ).first()) as { status: string; self_registered: number };

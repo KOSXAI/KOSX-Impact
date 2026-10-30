@@ -4,7 +4,7 @@ import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { StatCard } from "@/components/ui/StatCard";
 import { groupClimbs, titleOf } from "@/milestones";
-import { fmt, postExcerpt } from "@/lib/format";
+import { fmt, postExcerpt, signed } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
@@ -58,10 +58,16 @@ function AnnualPage() {
           <Reveal delay={0.08}>
             <section className="mt-8 panel-card p-6 sm:p-8">
               <h2 className="text-xl font-bold">月度总粉丝</h2>
+              {/* 条形高度用百分比，必须相对一个有确定高度的父元素：item 是 flex 子项
+                  （items-end 下高度 auto），百分比对它无效、bar 会塌成 0；改绝对定位贴底，
+                  父容器 h-36 即 144px 的确定高度 */}
               <div className="mt-5 flex h-36 items-end gap-1.5">
                 {r.monthlyTrend.map((m) => (
-                  <div key={m.month} className="group relative flex-1" title={`${m.month} · ${fmt(m.total)}`}>
-                    <div className="w-full rounded-t-md bg-signal/60 transition-colors group-hover:bg-signal" style={{ height: `${Math.max(6, (m.total / maxMonth) * 100)}%` }} />
+                  <div key={m.month} className="group relative h-full flex-1" title={`${m.month} · ${fmt(m.total)}`}>
+                    <div
+                      className="absolute bottom-0 w-full rounded-t-md bg-signal/60 transition-colors group-hover:bg-signal"
+                      style={{ height: `${Math.max(6, (m.total / maxMonth) * 100)}%` }}
+                    />
                   </div>
                 ))}
               </div>
@@ -85,7 +91,7 @@ function AnnualPage() {
                       <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
                       <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">+{fmt(m.growth)}</span>
+                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">{signed(m.growth)}</span>
                     </Link>
                   </li>
                 ))}

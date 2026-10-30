@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
-import { Dialog, DialogClose, DialogCloseX, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogCloseX, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/member/Avatar";

@@ -22,6 +22,8 @@ export const roster = membersFile as RosterFile;
  * - 数据库中存在、名册中已不存在且非自助注册的成员标记为 removed（保留历史数据，不删除）
  * - self_registered=1 的自助注册成员不受清扫（他们不在名册里，退出由维护者置 removed）
  * - 排除名单内的 handle 不参与 upsert，并在同步末尾统一收敛为 removed
+ * - status_locked=1 的人为状态（维护者手动置 removed/paused）不被本函数覆盖，
+ *   否则「隐私退出」会在下一个整点被名册静默复活
  * - 新成员有 baselineFollowers 且尚无快照时，以 joinedAt 为起点回填首条快照
  */
 export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
@@ -41,7 +43,7 @@ export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
          handle = excluded.handle,
          display_name = COALESCE(display_name, excluded.display_name),
          joined_at = excluded.joined_at,
-         status = CASE WHEN status = 'suspended' THEN status ELSE 'active' END,
+         status = CASE WHEN members.status_locked = 1 OR members.status = 'suspended' THEN members.status ELSE 'active' END,
          updated_at = datetime('now')`
     ).bind(
       member.id,

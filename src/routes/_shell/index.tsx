@@ -87,7 +87,7 @@ function DashboardPage() {
             <div className="text-sm font-medium text-mist">近 30 天新增</div>
             <AnimatedNumber
               value={stats.totalGrowth30d}
-              prefix="+"
+              prefix={stats.totalGrowth30d > 0 ? "+" : ""}
               className="mt-2 block text-5xl font-extrabold tracking-tight text-signal tabular-nums sm:text-6xl"
             />
             <div className="mt-3 text-xs font-semibold text-mist tabular-nums">

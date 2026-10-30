@@ -2,7 +2,7 @@
  * 看板与精华帖查询：getDashboardStats（/api/dashboard 与首页 SSR 共用）与 getTopPosts
  * （/api/top-posts）。缓存键带 cache_bust 数据版本，SSR 与 API 共享边缘缓存。
  */
-import type { DashboardStats, PostItem, MentionItem, TrackStats } from "../stats";
+import type { DashboardStats, PostItem, TrackStats } from "../stats";
 import { computeDashboardStats, computeGrowthNDays } from "../stats";
 import { computeInfluence } from "../influence";
 import { computeMemberInsights, detectViral } from "../insights";
@@ -33,8 +33,6 @@ type InsightPostRow = PostRow & { memberId: string };
 type PickerRow = { id: string; handle: string; displayName: string | null; profileImage: string | null; latestFollowers: number | null; tracks: string | null };
 type FailedQueueRow = { memberId: string };
 type MilestoneJoinRow = { memberId: string; handle: string; displayName: string | null; threshold: number; achievedAt: string };
-type MentionCountRow = { memberId: string; n: number };
-type MentionTrendRow = { d: string; n: number };
 type FollowEdgeRow = { follower_user_id: string; followed_user_id: string };
 type FanRow = { memberId: string; sampledAt: string; sampleSize: number; avgFollowers: number | null; pct10k: number | null; verifiedPct: number | null };
 
@@ -45,10 +43,13 @@ export async function getTopPosts(
   env: Env,
   opts: { days?: number; limit?: number } = {}
 ): Promise<PostItem[]> {
-  const { days = 30, limit = 20 } = opts;
+  const { days = 30, limit: rawLimit = 20 } = opts;
+  // 上限保护 + 写进缓存键：limit 不同结果不同，不进键会让 SSR（50 条）与
+  // /api/top-posts（默认 20 条）互相读到对方的缓存（契约漂移）
+  const limit = Math.min(Math.max(Math.trunc(rawLimit), 1), 100);
   const bust = await readCacheBust(env);
   const res = await cachedResponse(
-    new Request(`${SITE_URL}${CACHE_KEYS.topPosts}&days=${days}&cb=${bust}`),
+    new Request(`${SITE_URL}${CACHE_KEYS.topPosts}&days=${days}&limit=${limit}&cb=${bust}`),
     3600,
     async () => {
       const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
@@ -257,14 +258,6 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       postsByMember.set(r.memberId, list);
     }
 
-    // 品牌声量：最近 20 条站外提及
-    const { results: mentionRows } = await env.DB.prepare(
-      `SELECT keyword, author_handle AS authorHandle, author_name AS authorName, text,
-              tweet_url AS url, sentiment, collected_at AS collectedAt
-       FROM mentions ORDER BY collected_at DESC LIMIT 20`
-    ).all<MentionItem>();
-    const mentions: MentionItem[] = mentionRows;
-
     // 成员被提及热度：member_mentions 近 30 天按成员计数（被提及榜数据源）
     const mentionCounts = new Map<string, number>();
     {
@@ -280,20 +273,6 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
       }
     }
 
-    // 品牌声量趋势：最近 14 天按日计数（首页声量卡迷你图）
-    const mentionsTrend: Array<{ date: string; count: number }> = [];
-    {
-      // collected_at 为「YYYY-MM-DD HH:MM:SS」空格分隔，先取前 10 位再比较，避免 T 分隔的 ISO 串字典序错位
-      const cutoffMentionT = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
-      const { results: mtRows } = await env.DB.prepare(
-        `SELECT substr(collected_at, 1, 10) AS d, COUNT(*) AS n FROM mentions
-         WHERE substr(collected_at, 1, 10) >= ?1 GROUP BY d ORDER BY d`
-      ).bind(cutoffMentionT).all<MentionTrendRow>();
-      for (const r of mtRows) {
-        mentionsTrend.push({ date: r.d, count: r.n });
-      }
-    }
-
     const memberStats = memberList.map((m, i) => {
       const rows: SnapshotRow[] = snapshotBatches[i]?.results ?? [];
       // 窗口内是倒序取的，统计层期望正序
@@ -306,8 +285,9 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     const stats = computeDashboardStats(roster, memberStats, milestoneRows, now);
     // 帖子互动 Top：纯函数层返回空数组，这里用真实查询覆盖
     stats.topPosts = topPosts;
-    stats.mentions = mentions;
-    stats.mentionsTrend = mentionsTrend;
+    // 品牌声量（mentions / mentionsTrend）已随功能整线下架：UI 侧 data.functions 会把
+    // 这两个字段剥离，服务端此前仍在每次缓存重建时白查两条 mentions 查询 + 全窗口
+    // GROUP BY（D1 按行计费）。字段保留为空数组维持 /api/dashboard 的形状。
 
     // 影响力指数：近 30 天帖子 + 最新快照列表收录数 + verified（逐成员）
     const rowById = new Map(memberStats.map((m) => [m.id, m]));

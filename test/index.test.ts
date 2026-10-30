@@ -1,6 +1,7 @@
 import { env, exports } from "cloudflare:workers";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import "../src/api-entry";
+import { handleWorkerRoutes } from "../src/api";
 
 beforeEach(async () => {
   // 全表清扫：后续用例会写 posts / mentions 等表，残留会串数据
@@ -29,6 +30,17 @@ async function seedMember() {
   await env.DB.prepare(
     "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES (?, ?, ?)"
   ).bind("alice", 1234, "2026-08-31T00:00:00Z").run();
+}
+
+/** POST /api/refresh helper：每个用例用独立 CF-Connecting-IP，避免逐个用例
+ *  撞上 isolate 级频率闸门（限流本身另有专门用例覆盖）。 */
+let ipSeq = 0;
+function postRefresh(body: unknown, ip?: string) {
+  return exports.default.fetch("https://example.com/api/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "CF-Connecting-IP": ip ?? `10.0.0.${++ipSeq}` },
+    body: JSON.stringify(body),
+  });
 }
 
 describe("API", () => {
@@ -95,37 +107,182 @@ describe("API", () => {
   });
 
   it("POST /api/refresh 未在册 handle 且无注册意图时返回 404", async () => {
-    const res = await exports.default.fetch("https://example.com/api/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: "newbie_x" }),
-    });
+    const res = await postRefresh({ input: "newbie_x" });
     expect(res.status).toBe(404);
   });
 
-  it("POST /api/refresh 带 register 意图直接建自助成员并入队", async () => {
-    // 预占节流槽：CAS 抢不到 → 不触发真实采集，稳定返回 queued
+  it("POST /api/refresh 带 register 意图：抢不到节流槽时不建行（宁可不注册也不留脏 handle）", async () => {
+    // 预占节流槽：CAS 抢不到 → 没有做存在性校验的机会 → 必须拒绝，而不是先建行
     await env.DB.prepare("INSERT INTO site_meta (key, value) VALUES ('self_refresh_slot_at', ?)").bind(new Date().toISOString()).run();
 
-    const res = await exports.default.fetch("https://example.com/api/refresh", {
+    const res = await postRefresh({ input: "x.com/Newbie_X", register: true });
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("busy");
+
+    const member = await env.DB.prepare("SELECT id FROM members WHERE id = 'newbie_x'").first();
+    expect(member).toBeNull();
+  });
+
+  it("POST /api/refresh 抢到槽且账号存在：注册 + 当场写库（done）", async () => {
+    const originalFetch = globalThis.fetch;
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      calls.push(String(input));
+      // 不带 id_str：避免触发帖子采集分支（数据源内置 20 秒节流会让用例超时）
+      return new Response(JSON.stringify({ followers_count: 1234, name: "Newbie" }), { status: 200 });
+    });
+    try {
+      const res = await postRefresh({ input: "x.com/Newbie_X", register: true });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { status: string; memberId: string; followersAfter: number };
+      expect(body.status).toBe("done"); // 抢到槽 = 当场校验并写库
+      expect(body.memberId).toBe("newbie_x");
+      expect(body.followersAfter).toBe(1234);
+      // 校验确实发生过（存在性校验 = 至少一次出站调用）
+      expect(calls.some((u) => u.includes("/twitter/user/newbie_x"))).toBe(true);
+
+      const member = (await env.DB.prepare("SELECT status, self_registered FROM members WHERE id = 'newbie_x'").first()) as {
+        status: string;
+        self_registered: number;
+      };
+      expect(member).toMatchObject({ status: "active", self_registered: 1 });
+
+      // 当场入库：快照已写
+      const snap = (await env.DB.prepare(
+        "SELECT followers FROM snapshots WHERE member_id = 'newbie_x'"
+      ).first()) as { followers: number } | null;
+      expect(snap?.followers).toBe(1234);
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
+  it("POST /api/refresh 账号不存在：拒绝注册且不建行（脏 handle 进不了名单）", async () => {
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", async () => new Response("not found", { status: 404 }));
+    try {
+      const res = await postRefresh({ input: "ghost_x", register: true });
+      expect(res.status).toBe(422);
+      const member = await env.DB.prepare("SELECT id FROM members WHERE id = 'ghost_x'").first();
+      expect(member).toBeNull();
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
+  it("POST /api/refresh 上游额度受限（402）：合闸 + 拒绝注册，不降级建行", async () => {
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", async () => new Response("payment required", { status: 402 }));
+    try {
+      const res = await postRefresh({ input: "paid_x", register: true });
+      expect(res.status).toBe(503);
+      const member = await env.DB.prepare("SELECT id FROM members WHERE id = 'paid_x'").first();
+      expect(member).toBeNull();
+
+      // 熔断已合闸：冷却期内不再出站
+      const breaker = await env.DB.prepare(
+        "SELECT value FROM site_meta WHERE key = 'sd_circuit_open_until'"
+      ).first();
+      expect(breaker).not.toBeNull();
+
+      const second = await postRefresh({ input: "other_x", register: true });
+      expect(second.status).toBe(503); // 熔断打开：直接 503，连尝试都不尝试
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
+  it("POST /api/refresh 已被人为移除的成员（status_locked）拒绝复活", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at, status, status_locked) VALUES ('gone_x', 'gone_x', '2026-08-01', 'removed', 1)"
+    ).run();
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", async () =>
+      new Response(JSON.stringify({ id_str: "9", followers_count: 500 }), { status: 200 })
+    );
+    try {
+      const res = await postRefresh({ input: "gone_x", register: true });
+      expect(res.status).toBe(403);
+      const member = (await env.DB.prepare("SELECT status FROM members WHERE id = 'gone_x'").first()) as { status: string };
+      expect(member.status).toBe("removed"); // 人为状态不被匿名请求推翻
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
+  it("POST /api/refresh 每日注册名额触顶：429 且不建行", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare("INSERT INTO site_meta (key, value) VALUES (?, '20')")
+      .bind(`register_count:${today}`)
+      .run();
+
+    const res = await postRefresh({ input: "capped_x", register: true });
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("register_cap_reached");
+    const member = await env.DB.prepare("SELECT id FROM members WHERE id = 'capped_x'").first();
+    expect(member).toBeNull();
+  });
+
+  it("POST /api/invite 拒绝自我邀请且不重复计数", async () => {
+    await seedMember();
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at) VALUES ('bob', 'bob_x', '2026-08-02')"
+    ).run();
+
+    const self = await exports.default.fetch("https://example.com/api/invite", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: "x.com/Newbie_X", register: true }),
+      body: JSON.stringify({ inviterId: "alice", invitedMemberId: "alice" }),
     });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { status: string; memberId: string };
-    expect(body.memberId).toBe("newbie_x");
-    // 节流槽已预占：不会当场采集，必为 queued（done 分支由「抢到槽」路径覆盖）
-    expect(body.status).toBe("queued");
+    expect(self.status).toBe(400);
 
-    const member = (await env.DB.prepare(
-      "SELECT status, self_registered FROM members WHERE id = 'newbie_x'"
-    ).first()) as { status: string; self_registered: number };
-    expect(member).toMatchObject({ status: "active", self_registered: 1 });
+    const ok1 = await exports.default.fetch("https://example.com/api/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviterId: "alice", invitedMemberId: "bob" }),
+    });
+    expect(ok1.status).toBe(200);
+    const ok2 = await exports.default.fetch("https://example.com/api/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviterId: "alice", invitedMemberId: "bob" }),
+    });
+    expect(ok2.status).toBe(200);
+    const count = (await env.DB.prepare("SELECT COUNT(*) AS n FROM invite_events").first()) as { n: number };
+    expect(count.n).toBe(1); // 幂等：同一对只计一次
+  });
 
-    const job = (await env.DB.prepare(
-      "SELECT status FROM refresh_queue WHERE member_id = 'newbie_x'"
-    ).first()) as { status: string } | null;
-    expect(job?.status).toBe("pending");
+  it("POST /api/refresh 单 IP 频率闸门：超过每分钟额度返回 429", async () => {
+    const ip = "10.9.9.9";
+    for (let i = 0; i < 10; i++) {
+      const res = await postRefresh({ input: "nobody_x" }, ip);
+      expect(res.status).toBe(404); // 前 10 次放行（未在册且无注册意图）
+    }
+    const blocked = await postRefresh({ input: "nobody_x" }, ip);
+    expect(blocked.status).toBe(429);
+    const body = (await blocked.json()) as { error: string };
+    expect(body.error).toBe("too_many_requests");
+  });
+
+  it("GET /card 非法 id（路径穿越形态）返回 404 卡，不污染其他缓存槽", async () => {
+    // 走 handleWorkerRoutes（真实分发），api-entry 只挂 Hono，/card 不在其中
+    const res = await handleWorkerRoutes(new Request("https://example.com/card/..%2F..%2Fog.svg"), env);
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(404);
+    expect(res!.headers.get("Content-Type")).toContain("image/svg+xml");
+  });
+
+  it("GET /og/tracks 非白名单 slug 返回 404", async () => {
+    const res = await handleWorkerRoutes(new Request("https://example.com/og/tracks/not-a-track.png"), env);
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(404);
+  });
+
+  it("GET /card 合法 id 但成员不存在：返回 404 卡（哨兵）", async () => {
+    const res = await handleWorkerRoutes(new Request("https://example.com/card/nobody.svg"), env);
+    expect(res!.status).toBe(404);
+    expect(await res!.text()).toContain("svg");
   });
 });

@@ -9,7 +9,7 @@ import wasmModule from "@resvg/resvg-wasm/index_bg.wasm?module";
 import { memberOgSvg, siteOgSvg, reportOgSvg, trackOgSvg, boardOgSvg, type OgLogo, type SiteOgStats, type BoardOgStats } from "./og";
 import { getDashboardStats, getMemberDetail } from "./queries";
 import { computeWeeklyReport } from "./weekly";
-import { CACHE_KEYS, cachedResponse, readCacheBust } from "./cache";
+import { CACHE_KEYS, assertSafeCacheKey, cachedResponse, readCacheBust } from "./cache";
 import { SITE_URL } from "./lib/site";
 import { TIER_STYLE, titleOf } from "./milestones";
 import { TRACKS } from "./tracks";
@@ -96,7 +96,7 @@ export function ogNotFound(): Response {
 /** 成员 OG 卡（/og/members/:id.png）：与成员页 SSR 共用 getMemberDetail 的缓存 */
 export async function renderMemberOgPng(env: Env, id: string, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.ogMember(id)}&cb=${bust}`), 21600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogMember(id))}&cb=${bust}`), 21600, async () => {
     const detail = await getMemberDetail(env, id);
     if (!detail) return ogNotFound();
     const logo = await loadLogoMemo(env, origin);
@@ -108,7 +108,7 @@ export async function renderMemberOgPng(env: Env, id: string, origin: string): P
 /** 站点 OG 卡（/og/site.png）：与首页 SSR 共用 getDashboardStats 的缓存 */
 export async function renderSiteOgPng(env: Env, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.ogSite}&cb=${bust}`), 21600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogSite)}&cb=${bust}`), 21600, async () => {
     const stats = await getDashboardStats(env);
     const pick: SiteOgStats = {
       totalFollowers: stats.totalFollowers,
@@ -126,7 +126,7 @@ export async function renderSiteOgPng(env: Env, origin: string): Promise<Respons
 /** 榜单 OG 卡（/og/leaderboard.png）：总排行 Top5，榜单页分享预览 */
 export async function renderLeaderboardOgPng(env: Env, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.ogLeaderboard}&cb=${bust}`), 21600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogLeaderboard)}&cb=${bust}`), 21600, async () => {
     const stats = await getDashboardStats(env);
     const logo = await loadLogoMemo(env, origin);
     const pick: BoardOgStats = {
@@ -142,7 +142,7 @@ export async function renderLeaderboardOgPng(env: Env, origin: string): Promise<
 /** 周报 OG 分享卡（/og/reports/:memberId.png）：周报页分享预览，数据与周报页同源 */
 export async function renderReportOgPng(env: Env, memberId: string, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.ogReport(memberId)}&cb=${bust}`), 21600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogReport(memberId))}&cb=${bust}`), 21600, async () => {
     const detail = await getMemberDetail(env, memberId);
     if (!detail) return ogNotFound();
     const report = computeWeeklyReport({
@@ -182,7 +182,7 @@ export async function renderReportOgPng(env: Env, memberId: string, origin: stri
 /** 赛道 OG 分享卡（/og/tracks/:slug.png）：赛道页分享预览，数据与赛道页同源 */
 export async function renderTrackOgPng(env: Env, slug: string, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.ogTrack(slug)}&cb=${bust}`), 21600, async () => {
+  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogTrack(slug))}&cb=${bust}`), 21600, async () => {
     const track = [...TRACKS].find((t) => t.slug === slug);
     if (!track) return ogNotFound();
     const stats = await getDashboardStats(env);

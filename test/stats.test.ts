@@ -37,6 +37,36 @@ describe("computeGrowthNDays", () => {
   it("空列表返回 0", () => {
     expect(computeGrowthNDays([], 7)).toBe(0);
   });
+
+  it("n=1（今日）取上一个不同自然日的收盘值，不是最新一条自己", () => {
+    // 旧实现 cutoff = latest.recordedAt，find 必然命中最新一条 → 差值恒为 0，
+    // 成长视图「今日」档永远空转。这里钉住修复后的基线口径。
+    const withToday = [
+      { followers: 1000, recordedAt: "2026-09-01T00:00:00Z" },
+      { followers: 1100, recordedAt: "2026-09-02T00:00:00Z" },
+      { followers: 1250, recordedAt: "2026-09-03T06:00:00Z" },
+    ];
+    expect(computeGrowthNDays(withToday, 1)).toBe(150); // 1100 → 1250
+
+    // 同一天有两条（当日 cron + 自助刷新）：基线取前一日最后一条
+    const sameDayTwice = [
+      { followers: 1000, recordedAt: "2026-09-02T00:00:00Z" },
+      { followers: 1100, recordedAt: "2026-09-03T02:00:00Z" },
+      { followers: 1250, recordedAt: "2026-09-03T09:00:00Z" },
+    ];
+    expect(computeGrowthNDays(sameDayTwice, 1)).toBe(250); // 1000 → 1250
+
+    // 只有当日一条：没有可比基线，返回 0（不是拿自己减自己之外的错值）
+    expect(computeGrowthNDays([{ followers: 1000, recordedAt: "2026-09-03T02:00:00Z" }], 1)).toBe(0);
+  });
+
+  it("掉粉时返回负数（负增长必须能显示，不能夹成 0）", () => {
+    const dropping = [
+      { followers: 2000, recordedAt: "2026-09-02T00:00:00Z" },
+      { followers: 1800, recordedAt: "2026-09-03T00:00:00Z" },
+    ];
+    expect(computeGrowthNDays(dropping, 1)).toBe(-200);
+  });
 });
 
 describe("computeMemberStats", () => {

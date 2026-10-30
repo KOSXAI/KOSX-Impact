@@ -2,9 +2,9 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/member/Avatar";
 import { VIEW_PRESETS, type LibrarySearch, type ViewKey, type MetricCtx, type MetricValue } from "@/components/library/presets";
-import { fmt, postExcerpt } from "@/lib/format";
+import { fmt, postExcerpt, signed } from "@/lib/format";
 import { groupClimbs, titleOf } from "@/milestones";
-import type { DashboardStats, MemberStats, PostItem, TrackStats } from "@/stats";
+import type { DashboardStats, MemberStats, PostItem } from "@/stats";
 
 /**
  * 榜单窗格墙：成员榜单（tab 切换七个视图）+ 赛道分组 + 登阶记录 + 内容热点 + 社群话题。
@@ -198,7 +198,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               <span className="text-sm font-semibold">{t.name}</span>
               <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">{t.memberCount} 人</span>
               <span className="shrink-0 text-xs font-bold text-mist tabular-nums">{fmt(t.totalFollowers)}</span>
-              <span className="shrink-0 text-xs font-bold text-signal tabular-nums">+{fmt(t.growth30dTotal)}</span>
+              <span className="shrink-0 text-xs font-bold text-signal tabular-nums">{signed(t.growth30dTotal)}</span>
             </Link>
           ))
         ) : (
@@ -249,7 +249,7 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">{t.memberCount} 人在做</span>
               <span className="shrink-0 text-right text-xs tabular-nums">
                 <span className="block font-bold text-mist">{fmt(t.views30d)}</span>
-                <span className="block text-signal">+{fmt(t.growth30d)}</span>
+                <span className="block text-signal">{signed(t.growth30d)}</span>
               </span>
             </Link>
           ))

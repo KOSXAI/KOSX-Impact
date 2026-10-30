@@ -23,6 +23,9 @@ export function StatCard({
   highlight?: boolean;
   badge?: string;
 }) {
+  // 增量类数值可为负（掉粉）：`+` 前缀只在真正为正时保留，
+  // 否则会渲染成「+-1,234」（调用方统一传 prefix="+"，漏判负值的历史坑）
+  const signPrefix = prefix === "+" && typeof value === "number" && value <= 0 ? "" : prefix;
   return (
     <div
       className={cn(
@@ -51,9 +54,9 @@ export function StatCard({
         )}
       >
         {typeof value === "number" ? (
-          <AnimatedNumber value={value} prefix={prefix} suffix={suffix} />
+          <AnimatedNumber value={value} prefix={signPrefix} suffix={suffix} />
         ) : (
-          `${prefix}${value}${suffix}`
+          `${signPrefix}${value}${suffix}`
         )}
         {hint && <span className="ml-1.5 text-sm font-semibold text-signal-ink">{hint}</span>}
       </div>

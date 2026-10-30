@@ -7,7 +7,7 @@ import { computeMemberStats, computeCountDelta } from "../stats";
 import { computeInfluence } from "../influence";
 import { computeMemberInsights } from "../insights";
 import { MILESTONE_THRESHOLDS } from "../milestones";
-import { CACHE_KEYS, cachedResponse, readCacheBust } from "../cache";
+import { CACHE_KEYS, cachedResponse, isSafeCacheKey, readCacheBust } from "../cache";
 import { SITE_URL } from "../lib/site";
 import {
   LATEST_FOLLOWERS_SQL,
@@ -70,6 +70,9 @@ async function getPostActivity(env: Env, memberId: string, handle: string, limit
 
 /** 成员详情（/api/members/:id 与成员页 SSR 共用，缓存键 ${SITE_URL}/api/members/:id&cb=数据版本） */
 export async function getMemberDetail(env: Env, id: string): Promise<MemberDetail | null> {
+  // id 来自 URL 参数（Hono 会解码 %2E 等转义）并直接拼进缓存键：含 `..`/`#` 的串
+  // 经 URL 规范化能逃逸到别的缓存槽（缓存投毒）。非法 id 一律当作「查无此成员」。
+  if (!isSafeCacheKey(CACHE_KEYS.memberDetail(id))) return null;
   const bust = await readCacheBust(env);
   const res = await cachedResponse(
     new Request(`${SITE_URL}${CACHE_KEYS.memberDetail(id)}&cb=${bust}`),
