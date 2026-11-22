@@ -8,8 +8,8 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, Tooltip, XAxis, YAxis } 
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { fmt, badge } from "@/lib/format";
-import { titleOf } from "@/milestones";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { titleOf } from "@/milestones";
 
 type Snapshot = { followers: number; recordedAt: string };
 
@@ -38,48 +38,67 @@ export default function RechartsGrowthChart({
     const max = includeGoal ? nextMilestone : dataMax + dataSpan * 0.15;
     const span = Math.max(max - min, 1);
     // 目标线固定在图内上沿 8% 处（超出可视范围时仍在图内可见）
-    const goalY = includeGoal ? nextMilestone : min + span * 0.92;
-    const goalLabel = `下一称号「${titleOf(nextMilestone)}」`;
+    const resolvedGoalY = includeGoal ? nextMilestone : min + span * 0.92;
+    const resolvedGoalLabel = `下一称号「${titleOf(nextMilestone)}」`;
     return {
       data: snapshots.map((s) => ({ date: s.recordedAt.slice(5, 10), followers: s.followers })),
-      goalY,
-      goalLabel,
+      goalY: resolvedGoalY,
+      goalLabel: resolvedGoalLabel,
     };
   }, [snapshots, nextMilestone]);
 
   return (
     <ChartContainer config={chartConfig} className="h-full w-full">
-        <LineChart data={data} margin={{ top: 16, right: 16, bottom: 4, left: 8 }}>
-          <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" strokeOpacity={0.4} />
-          <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
-          <YAxis
-            domain={["dataMin - 10%", "dataMax + 15%"]}
-            tickLine={false}
-            axisLine={false}
-            width={isDesktop ? 56 : 40}
-            tickFormatter={(v: number) => (isDesktop ? fmt(Math.round(v)) : badge(Math.round(v)))}
-          />
-          <Tooltip
-            content={<ChartTooltipContent hideLabel indicator="line" />}
-            formatter={(v) => fmt(Number(v))}
-          />
-          <ReferenceLine
-            y={goalY ?? undefined}
-            strokeDasharray="4 4"
-            stroke="var(--muted-foreground)"
-            strokeOpacity={0.6}
-            label={{ value: goalLabel, position: "insideTopRight", fontSize: 12, fill: "var(--muted-foreground)" }}
-          />
-          <Line
-            dataKey="followers"
-            type="monotone"
-            stroke="var(--color-followers)"
-            strokeWidth={2.5}
-            dot={data.length <= 30 ? { r: 2.5, fill: "var(--color-followers)", strokeWidth: 0 } : false}
-            activeDot={{ r: 5, fill: "var(--paper)", stroke: "var(--color-followers)", strokeWidth: 2 }}
-            style={{ filter: "drop-shadow(0 2px 6px color-mix(in oklab, var(--signal) 45%, transparent))" }}
-          />
-        </LineChart>
+      <LineChart data={data} margin={{ top: 16, right: 16, bottom: 4, left: 8 }}>
+        <CartesianGrid
+          vertical={false}
+          strokeDasharray="4 4"
+          stroke="var(--line)"
+          strokeOpacity={0.4}
+        />
+        <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
+        <YAxis
+          domain={["dataMin - 10%", "dataMax + 15%"]}
+          tickLine={false}
+          axisLine={false}
+          width={isDesktop ? 56 : 40}
+          tickFormatter={(v: number) => (isDesktop ? fmt(Math.round(v)) : badge(Math.round(v)))}
+        />
+        <Tooltip
+          content={<ChartTooltipContent hideLabel indicator="line" />}
+          formatter={(v) => fmt(Number(v))}
+        />
+        <ReferenceLine
+          y={goalY ?? undefined}
+          strokeDasharray="4 4"
+          stroke="var(--muted-foreground)"
+          strokeOpacity={0.6}
+          label={{
+            value: goalLabel,
+            position: "insideTopRight",
+            fontSize: 12,
+            fill: "var(--muted-foreground)",
+          }}
+        />
+        <Line
+          dataKey="followers"
+          type="monotone"
+          stroke="var(--color-followers)"
+          strokeWidth={2.5}
+          dot={
+            data.length <= 30 ? { r: 2.5, fill: "var(--color-followers)", strokeWidth: 0 } : false
+          }
+          activeDot={{
+            r: 5,
+            fill: "var(--paper)",
+            stroke: "var(--color-followers)",
+            strokeWidth: 2,
+          }}
+          style={{
+            filter: "drop-shadow(0 2px 6px color-mix(in oklab, var(--signal) 45%, transparent))",
+          }}
+        />
+      </LineChart>
     </ChartContainer>
   );
 }

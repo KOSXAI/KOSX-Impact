@@ -12,7 +12,11 @@ import { deferCachePut, readCacheBust } from "./cache";
 
 // Nitro 入口的 fetch 在 Cloudflare 上接收 (request, env, ctx)，
 // 其自带类型按通用平台声明为 (request, opts)，这里做一次桥接
-const ssrFetch = handler.fetch as unknown as (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
+const ssrFetch = handler.fetch as unknown as (
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+) => Promise<Response>;
 
 /** 基线安全响应头：站点有表单 POST 与大量外链，全响应统一注入 */
 const SECURITY_HEADERS: Record<string, string> = {
@@ -42,7 +46,8 @@ const TRACKING_PARAMS = /^(utm_[a-z]+|fbclid|gclid|igshid|invite)$/i;
  *  构建号保证发版后不会返回引用旧哈希资源的 HTML（旧资源发版后即 404）。 */
 async function htmlCacheKey(request: Request, env: Env): Promise<Request> {
   const url = new URL(request.url);
-  for (const k of [...url.searchParams.keys()]) if (TRACKING_PARAMS.test(k)) url.searchParams.delete(k);
+  for (const k of Array.from(url.searchParams.keys()))
+    if (TRACKING_PARAMS.test(k)) url.searchParams.delete(k);
   url.searchParams.sort();
   url.searchParams.set("__cb", String(await readCacheBust(env)));
   url.searchParams.set("__build", typeof __BUILD_ID__ === "string" ? __BUILD_ID__ : "dev");
@@ -50,7 +55,11 @@ async function htmlCacheKey(request: Request, env: Env): Promise<Request> {
 }
 
 /** SSR 页面边缘缓存：GET + 200 + text/html 才进缓存；max-age=0 让浏览器每次回边缘 */
-async function cachedHtml(request: Request, env: Env, build: () => Promise<Response>): Promise<Response> {
+async function cachedHtml(
+  request: Request,
+  env: Env,
+  build: () => Promise<Response>,
+): Promise<Response> {
   if (request.method !== "GET") return build();
   // 读版本号失败（D1 抖动等）不拖垮页面：跳过缓存直接渲染
   const key = await htmlCacheKey(request, env).catch(() => null);
@@ -72,7 +81,9 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const workerRes = await handleWorkerRoutes(request, env);
     if (workerRes) return withSecurityHeaders(workerRes);
-    return cachedHtml(request, env, async () => withSecurityHeaders(await ssrFetch(request, env, ctx)));
+    return cachedHtml(request, env, async () =>
+      withSecurityHeaders(await ssrFetch(request, env, ctx)),
+    );
   },
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
     await runScheduled(env, ctx, event.cron);

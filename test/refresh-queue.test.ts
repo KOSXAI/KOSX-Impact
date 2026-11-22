@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
+import { drainRefreshQueue, processOldestPending } from "../src/collector";
 import {
   enqueueRefresh,
   lookupRefreshMember,
@@ -7,7 +8,6 @@ import {
   registerMember,
   tryGrabRefreshSlot,
 } from "../src/refresh-queue";
-import { drainRefreshQueue, processOldestPending } from "../src/collector";
 import type { FollowerSource, FollowerStats } from "../src/sources/types";
 
 const T0 = "2026-09-05T00:00:00.000Z";
@@ -41,11 +41,15 @@ beforeEach(async () => {
 
 async function seedMember(id: string, handle: string, baseline: number, status = "active") {
   await env.DB.prepare(
-    "INSERT INTO members (id, handle, joined_at, status) VALUES (?1, ?2, '2026-08-30', ?3)"
-  ).bind(id, handle, status).run();
+    "INSERT INTO members (id, handle, joined_at, status) VALUES (?1, ?2, '2026-08-30', ?3)",
+  )
+    .bind(id, handle, status)
+    .run();
   await env.DB.prepare(
-    "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES (?1, ?2, '2026-08-30T00:00:00Z')"
-  ).bind(id, baseline).run();
+    "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES (?1, ?2, '2026-08-30T00:00:00Z')",
+  )
+    .bind(id, baseline)
+    .run();
 }
 
 describe("normalizeHandle", () => {
@@ -81,16 +85,24 @@ describe("enqueueRefresh", () => {
   it("lookup 预览带 recentFailure：24h 内的 failed 行才算（冻结/失败态提示数据源）", async () => {
     await seedMember("alice", "alice_x", 900);
     await env.DB.prepare(
-      "INSERT INTO refresh_queue (member_id, status, requested_at, processed_at, error) VALUES ('alice', 'failed', ?1, ?2, ?3)"
-    ).bind(at(0), new Date(Date.now() - 3_600_000).toISOString(), "SocialData 请求失败（HTTP 404）：User is suspended").run();
+      "INSERT INTO refresh_queue (member_id, status, requested_at, processed_at, error) VALUES ('alice', 'failed', ?1, ?2, ?3)",
+    )
+      .bind(
+        at(0),
+        new Date(Date.now() - 3_600_000).toISOString(),
+        "SocialData 请求失败（HTTP 404）：User is suspended",
+      )
+      .run();
     const preview = await lookupRefreshMember(env, "alice_x");
     expect(preview?.recentFailure?.error).toContain("User is suspended");
 
     // 超过 24h 的失败行不提示（旧失败与当前提交无关）
     await env.DB.prepare("DELETE FROM refresh_queue").run();
     await env.DB.prepare(
-      "INSERT INTO refresh_queue (member_id, status, requested_at, processed_at, error) VALUES ('alice', 'failed', ?1, ?2, ?3)"
-    ).bind(at(0), at(0), "SocialData 请求失败（HTTP 404）").run();
+      "INSERT INTO refresh_queue (member_id, status, requested_at, processed_at, error) VALUES ('alice', 'failed', ?1, ?2, ?3)",
+    )
+      .bind(at(0), at(0), "SocialData 请求失败（HTTP 404）")
+      .run();
     const older = await lookupRefreshMember(env, "alice_x");
     expect(older?.recentFailure).toBeNull();
   });
@@ -100,8 +112,10 @@ describe("enqueueRefresh", () => {
     // 第一条：入队后由消费逻辑置 done
     await enqueueRefresh(env, "alice", T0);
     await env.DB.prepare(
-      "UPDATE refresh_queue SET status = 'done', processed_at = ?2 WHERE member_id = 'alice'"
-    ).bind("alice", at(1_000)).run();
+      "UPDATE refresh_queue SET status = 'done', processed_at = ?2 WHERE member_id = 'alice'",
+    )
+      .bind("alice", at(1_000))
+      .run();
     // 60 秒防抖窗口内：throttled
     expect(await enqueueRefresh(env, "alice", at(30_000))).toBe("throttled");
     // 窗口外：可再次入队
@@ -125,27 +139,30 @@ describe("drainRefreshQueue", () => {
     await enqueueRefresh(env, "bob", T0);
     await enqueueRefresh(env, "alice", at(1_000));
 
-    const summary = await drainRefreshQueue(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: { followers: 1300 },
-    }));
+    const summary = await drainRefreshQueue(
+      env,
+      stubSource({
+        alice_x: { followers: 1500 },
+        bob_x: { followers: 1300 },
+      }),
+    );
 
     expect(summary.ok).toBe(2);
-    expect(summary.memberIds.sort()).toEqual(["alice", "bob"]);
+    expect(summary.memberIds.toSorted()).toEqual(["alice", "bob"]);
 
     const aliceSnapshot = (await env.DB.prepare(
-      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
+      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1",
     ).first()) as { followers: number };
     expect(aliceSnapshot.followers).toBe(1500);
 
     // 900 → 1500 跨过 1000（1500 不在新大关表上）
     const { results: milestones } = await env.DB.prepare(
-      "SELECT threshold FROM milestones WHERE member_id = 'alice' ORDER BY threshold"
+      "SELECT threshold FROM milestones WHERE member_id = 'alice' ORDER BY threshold",
     ).all();
     expect(milestones).toEqual([{ threshold: 1000 }]);
 
     const job = (await env.DB.prepare(
-      "SELECT status, followers_after FROM refresh_queue WHERE member_id = 'alice'"
+      "SELECT status, followers_after FROM refresh_queue WHERE member_id = 'alice'",
     ).first()) as { status: string; followers_after: number };
     expect(job.status).toBe("done");
     expect(job.followers_after).toBe(1500);
@@ -160,7 +177,7 @@ describe("drainRefreshQueue", () => {
     expect(summary.failed).toBe(1);
 
     const job = (await env.DB.prepare(
-      "SELECT status, error FROM refresh_queue WHERE member_id = 'bob'"
+      "SELECT status, error FROM refresh_queue WHERE member_id = 'bob'",
     ).first()) as { status: string; error: string };
     expect(job.status).toBe("failed");
     expect(job.error).toContain("member not active");
@@ -174,7 +191,7 @@ describe("drainRefreshQueue", () => {
     const first = await drainRefreshQueue(env, failing);
     expect(first.ok).toBe(0);
     let job = (await env.DB.prepare(
-      "SELECT status, attempts FROM refresh_queue WHERE member_id = 'alice'"
+      "SELECT status, attempts FROM refresh_queue WHERE member_id = 'alice'",
     ).first()) as { status: string; attempts: number };
     expect(job.status).toBe("pending");
     expect(job.attempts).toBe(1);
@@ -182,7 +199,7 @@ describe("drainRefreshQueue", () => {
     await drainRefreshQueue(env, failing);
     await drainRefreshQueue(env, failing);
     job = (await env.DB.prepare(
-      "SELECT status, attempts FROM refresh_queue WHERE member_id = 'alice'"
+      "SELECT status, attempts FROM refresh_queue WHERE member_id = 'alice'",
     ).first()) as { status: string; attempts: number };
     expect(job.status).toBe("failed");
     expect(job.attempts).toBe(3);
@@ -194,14 +211,18 @@ describe("drainRefreshQueue", () => {
     await enqueueRefresh(env, "alice", T0);
     await enqueueRefresh(env, "bob", at(1_000));
 
-    const summary = await drainRefreshQueue(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: { followers: 1300 },
-    }), 1);
+    const summary = await drainRefreshQueue(
+      env,
+      stubSource({
+        alice_x: { followers: 1500 },
+        bob_x: { followers: 1300 },
+      }),
+      1,
+    );
 
     expect(summary.ok).toBe(1);
     const { results: statuses } = await env.DB.prepare(
-      "SELECT status FROM refresh_queue ORDER BY requested_at"
+      "SELECT status FROM refresh_queue ORDER BY requested_at",
     ).all();
     expect(statuses).toEqual([{ status: "done" }, { status: "pending" }]);
   });
@@ -214,14 +235,17 @@ describe("processOldestPending", () => {
     await enqueueRefresh(env, "alice", T0);
     await enqueueRefresh(env, "bob", at(1_000));
 
-    const processed = await processOldestPending(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: { followers: 1300 },
-    }));
+    const processed = await processOldestPending(
+      env,
+      stubSource({
+        alice_x: { followers: 1500 },
+        bob_x: { followers: 1300 },
+      }),
+    );
     expect(processed).toBe(true);
 
     const { results: statuses } = await env.DB.prepare(
-      "SELECT member_id, status FROM refresh_queue ORDER BY requested_at"
+      "SELECT member_id, status FROM refresh_queue ORDER BY requested_at",
     ).all();
     expect(statuses).toEqual([
       { member_id: "alice", status: "done" },
@@ -238,8 +262,14 @@ describe("registerMember", () => {
   it("新 handle 直接建自助成员（id=handle，self_registered=1）", async () => {
     await registerMember(env, "newbie_x", T0);
     const member = (await env.DB.prepare(
-      "SELECT id, handle, status, self_registered, joined_at FROM members WHERE handle = 'newbie_x'"
-    ).first()) as { id: string; handle: string; status: string; self_registered: number; joined_at: string };
+      "SELECT id, handle, status, self_registered, joined_at FROM members WHERE handle = 'newbie_x'",
+    ).first()) as {
+      id: string;
+      handle: string;
+      status: string;
+      self_registered: number;
+      joined_at: string;
+    };
     expect(member).toMatchObject({
       id: "newbie_x",
       handle: "newbie_x",
@@ -253,13 +283,13 @@ describe("registerMember", () => {
     await seedMember("bob", "bob_x", 1200, "removed");
     await registerMember(env, "bob_x", T0);
     const member = (await env.DB.prepare(
-      "SELECT status, self_registered FROM members WHERE id = 'bob'"
+      "SELECT status, self_registered FROM members WHERE id = 'bob'",
     ).first()) as { status: string; self_registered: number };
     expect(member).toMatchObject({ status: "active", self_registered: 1 });
 
     // 历史快照保留（未新增行）
     const snapshots = (await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'bob'"
+      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'bob'",
     ).first()) as { n: number };
     expect(snapshots.n).toBe(1);
   });
@@ -268,7 +298,7 @@ describe("registerMember", () => {
     await env.DB.prepare("INSERT INTO excluded_handles (handle) VALUES ('blocked_x')").run();
     expect(await registerMember(env, "blocked_x", T0)).toEqual({ ok: false, reason: "excluded" });
     const created = (await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM members WHERE handle = 'blocked_x'"
+      "SELECT COUNT(*) AS n FROM members WHERE handle = 'blocked_x'",
     ).first()) as { n: number };
     expect(created.n).toBe(0);
 
@@ -276,7 +306,7 @@ describe("registerMember", () => {
     await env.DB.prepare("INSERT INTO excluded_handles (handle) VALUES ('bob_x')").run();
     expect(await registerMember(env, "bob_x", T0)).toEqual({ ok: false, reason: "excluded" });
     const member = (await env.DB.prepare(
-      "SELECT status, self_registered FROM members WHERE id = 'bob'"
+      "SELECT status, self_registered FROM members WHERE id = 'bob'",
     ).first()) as { status: string; self_registered: number };
     expect(member).toMatchObject({ status: "removed", self_registered: 0 });
   });
@@ -284,7 +314,9 @@ describe("registerMember", () => {
 
 describe("昵称策略（writeSnapshot 管线）", () => {
   async function displayNameOf(id: string): Promise<string | null> {
-    const row = (await env.DB.prepare("SELECT display_name FROM members WHERE id = ?1").bind(id).first()) as {
+    const row = (await env.DB.prepare("SELECT display_name FROM members WHERE id = ?1")
+      .bind(id)
+      .first()) as {
       display_name: string | null;
     };
     return row.display_name;
@@ -292,22 +324,25 @@ describe("昵称策略（writeSnapshot 管线）", () => {
 
   it("自助成员（self_registered=1）昵称跟随 X 实时数据", async () => {
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at, self_registered, display_name) VALUES ('alice', 'alice_x', '2026-08-30', 1, '旧昵称')"
+      "INSERT INTO members (id, handle, joined_at, self_registered, display_name) VALUES ('alice', 'alice_x', '2026-08-30', 1, '旧昵称')",
     ).run();
     await env.DB.prepare(
-      "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('alice', 900, '2026-08-30T00:00:00Z')"
+      "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('alice', 900, '2026-08-30T00:00:00Z')",
     ).run();
     await enqueueRefresh(env, "alice", T0);
-    await drainRefreshQueue(env, stubSource({ alice_x: { followers: 1500, displayName: "新昵称" } }));
+    await drainRefreshQueue(
+      env,
+      stubSource({ alice_x: { followers: 1500, displayName: "新昵称" } }),
+    );
     expect(await displayNameOf("alice")).toBe("新昵称");
   });
 
   it("名册成员昵称以名册为准，不被采集覆盖", async () => {
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at, display_name) VALUES ('bob', 'bob_x', '2026-08-30', '名册昵称')"
+      "INSERT INTO members (id, handle, joined_at, display_name) VALUES ('bob', 'bob_x', '2026-08-30', '名册昵称')",
     ).run();
     await env.DB.prepare(
-      "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('bob', 1200, '2026-08-30T00:00:00Z')"
+      "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('bob', 1200, '2026-08-30T00:00:00Z')",
     ).run();
     await enqueueRefresh(env, "bob", T0);
     await drainRefreshQueue(env, stubSource({ bob_x: { followers: 1300, displayName: "X昵称" } }));
@@ -317,7 +352,10 @@ describe("昵称策略（writeSnapshot 管线）", () => {
   it("名册成员缺显示名时由采集回填", async () => {
     await seedMember("alice", "alice_x", 900);
     await enqueueRefresh(env, "alice", T0);
-    await drainRefreshQueue(env, stubSource({ alice_x: { followers: 1500, displayName: "X昵称" } }));
+    await drainRefreshQueue(
+      env,
+      stubSource({ alice_x: { followers: 1500, displayName: "X昵称" } }),
+    );
     expect(await displayNameOf("alice")).toBe("X昵称");
   });
 });

@@ -2,9 +2,7 @@
 // CI 与本地 `npm run validate:members` 都会执行。
 import { readFileSync } from "node:fs";
 
-const roster = JSON.parse(
-  readFileSync(new URL("../data/members.json", import.meta.url), "utf8")
-);
+const roster = JSON.parse(readFileSync(new URL("../data/members.json", import.meta.url), "utf8"));
 
 const errors = [];
 

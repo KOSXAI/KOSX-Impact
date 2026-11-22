@@ -38,7 +38,7 @@ for (const member of members) {
     let cursor = null;
     for (let page = 0; page < 5; page++) {
       const res = await throttledFetch(
-        `/twitter/search?query=${query}&type=Latest${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`
+        `/twitter/search?query=${query}&type=Latest${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
       );
       tweets.push(...(Array.isArray(res.tweets) ? res.tweets : []));
       cursor = res.cursor ?? res.next_cursor ?? null;
@@ -47,12 +47,19 @@ for (const member of members) {
     let kept = 0;
     for (const t of tweets) {
       if (!t.id_str) continue;
-      const author = (t.user?.screen_name || t.author_handle || t.author_username || "").toLowerCase();
+      const author = (
+        t.user?.screen_name ||
+        t.author_handle ||
+        t.author_username ||
+        ""
+      ).toLowerCase();
       if (author === selfHandle(member)) continue; // 本人自提不算「被提及」
       // mentioned_at 是 NOT NULL：缺 created_at 的脏行必须跳过，否则这一行会让整个
       // --file 执行失败、该成员本轮全丢（Worker 侧 src/sync-signals.ts 已有同款保护）
       if (!t.tweet_created_at) {
-        console.warn(`[member-mentions] ${member.handle} 的 tweet ${t.id_str} 缺 tweet_created_at，跳过`);
+        console.warn(
+          `[member-mentions] ${member.handle} 的 tweet ${t.id_str} 缺 tweet_created_at，跳过`,
+        );
         continue;
       }
       // DO NOTHING 而非 INSERT OR REPLACE：REPLACE 会把已入库行的 collected_at 刷成本次时间，
@@ -60,7 +67,7 @@ for (const member of members) {
       sql.push(
         `INSERT INTO member_mentions (member_id, tweet_id, author_handle, author_name, text, mentioned_at, collected_at)
          VALUES (${lit(member.id)}, ${lit(t.id_str)}, ${lit(t.user?.screen_name || t.author_handle || null)}, ${lit(t.user?.name || t.author_name || null)}, ${lit(t.full_text)}, ${lit(t.tweet_created_at)}, ${lit(now)})
-         ON CONFLICT(member_id, tweet_id) DO NOTHING;`
+         ON CONFLICT(member_id, tweet_id) DO NOTHING;`,
       );
       kept++;
     }
@@ -76,7 +83,9 @@ for (const member of members) {
 sql.push(BUMP_CACHE_BUST_SQL);
 
 writeFileSync("/tmp/member-mentions.sql", sql.join("\n\n") + "\n");
-console.log(`\n完成：成员 ${membersOk}/${members.length}，被提及 ${mentionsTotal} 条，写入 /tmp/member-mentions.sql`);
+console.log(
+  `\n完成：成员 ${membersOk}/${members.length}，被提及 ${mentionsTotal} 条，写入 /tmp/member-mentions.sql`,
+);
 console.log(`执行：wrangler d1 execute kosx-impact --remote --file=/tmp/member-mentions.sql`);
 if (failures.length) {
   console.log("失败清单：");

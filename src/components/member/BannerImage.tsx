@@ -7,7 +7,12 @@ import { useState } from "react";
 export function BannerImage({ src, priority = false }: { src: string; priority?: boolean }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
-    return <div aria-hidden="true" className="bg-gradient-to-r size-full from-signal/15 via-surface to-surface" />;
+    return (
+      <div
+        aria-hidden="true"
+        className="size-full bg-gradient-to-r from-signal/15 via-surface to-surface"
+      />
+    );
   }
   return (
     <img

@@ -29,7 +29,7 @@ export function engagementRate(p: PostMetric): number | null {
 
 function median(nums: number[]): number | null {
   if (nums.length === 0) return null;
-  const sorted = [...nums].sort((a, b) => a - b);
+  const sorted = [...nums].toSorted((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
@@ -51,12 +51,10 @@ export function detectViral<T extends PostMetric>(posts: T[]): T[] {
 export function detectInactive(
   posts: PostMetric[],
   now: string,
-  days = 14
+  days = 14,
 ): { inactive: boolean; days: number | null; lastPostAt: string | null } {
   if (posts.length === 0) return { inactive: false, days: null, lastPostAt: null };
-  const lastPostAt = posts
-    .map((p) => p.createdAt)
-    .sort((a, b) => b.localeCompare(a))[0];
+  const lastPostAt = posts.map((p) => p.createdAt).toSorted((a, b) => b.localeCompare(a))[0];
   const elapsed = Math.floor((Date.parse(now) - Date.parse(lastPostAt)) / 86_400_000);
   return { inactive: elapsed > days, days: Math.max(elapsed, 0), lastPostAt };
 }
@@ -76,7 +74,7 @@ export interface MemberInsights<TPost extends PostMetric = PostMetric> {
 
 export function computeMemberInsights<TPost extends PostMetric>(
   posts30d: TPost[],
-  now: string
+  now: string,
 ): MemberInsights<TPost> {
   const inactive = detectInactive(posts30d, now);
   return {

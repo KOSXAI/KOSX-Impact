@@ -1,21 +1,21 @@
-import { useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { fetchDashboard } from "@/data.functions";
-import type { MemberStats, TrackStats } from "@/stats";
-import { TRACKS, TRACK_OTHER } from "@/tracks";
-import { NotFound } from "@/components/NotFound";
-import { StatCard } from "@/components/ui/StatCard";
+import { Check, Copy, Eye, Shapes, Share2 } from "lucide-react";
+import { useState } from "react";
+import { MemberRankRow } from "@/components/leaderboard/MemberRankRow";
+import { PODIUM } from "@/components/leaderboard/podium";
 import { Avatar } from "@/components/member/Avatar";
 import { TitleBadge } from "@/components/member/TitleBadge";
-import { PODIUM } from "@/components/leaderboard/podium";
-import { MemberRankRow } from "@/components/leaderboard/MemberRankRow";
-import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
-import { Check, Copy, Eye, Shapes, Share2 } from "lucide-react";
-import { fmt, fmtDate, postExcerpt } from "@/lib/format";
-import { SITE_NAME, SITE_URL } from "@/lib/site";
 // 图标映射共享单一来源（与成员广场/库视图同源，新赛道加图标只改 TrackChip 一处）
 import { TRACK_ICONS } from "@/components/member/TrackChip";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
+import { NotFound } from "@/components/NotFound";
+import { StatCard } from "@/components/ui/StatCard";
+import { fetchDashboard } from "@/data.functions";
+import { fmt, fmtDate, postExcerpt } from "@/lib/format";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { postEngagementValue } from "@/queries/shared";
+import type { MemberStats, TrackStats } from "@/stats";
+import { TRACKS, TRACK_OTHER } from "@/tracks";
 
 export const Route = createFileRoute("/_shell/_creators/tracks/$slug")({
   loader: async ({ params }) => {
@@ -29,7 +29,9 @@ export const Route = createFileRoute("/_shell/_creators/tracks/$slug")({
     // 赛道内话题标签（去重排序，按出现次数）
     const tagCounts = new Map<string, number>();
     for (const m of members) for (const t of m.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
-    const tags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).map(([tag, count]) => ({ tag, count }));
+    const tags = [...tagCounts.entries()]
+      .toSorted((a, b) => b[1] - a[1])
+      .map(([tag, count]) => ({ tag, count }));
     return { track, trackStat, members, tags };
   },
   head: ({ loaderData }) => {
@@ -57,7 +59,9 @@ export const Route = createFileRoute("/_shell/_creators/tracks/$slug")({
     };
   },
   component: TrackPage,
-  notFoundComponent: () => <NotFound title="这个赛道不存在" description="去赛道总览看看全部赛道。" />,
+  notFoundComponent: () => (
+    <NotFound title="这个赛道不存在" description="去赛道总览看看全部赛道。" />
+  ),
 });
 
 function TrackPage() {
@@ -67,9 +71,12 @@ function TrackPage() {
 
   const Icon = TRACK_ICONS[track.icon] ?? Shapes;
   const isOther = track.slug === TRACK_OTHER.slug;
-  const sorted = [...members].sort((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
+  const sorted = [...members].toSorted(
+    (a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0),
+  );
 
-  const copyAllHandles = async () => {    const text = sorted.map((m) => `@${m.handle}`).join(" ");
+  const copyAllHandles = async () => {
+    const text = sorted.map((m) => `@${m.handle}`).join(" ");
     try {
       await navigator.clipboard.writeText(text);
       setCopiedHandles(true);
@@ -93,118 +100,154 @@ function TrackPage() {
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
       <Reveal y={18}>
-          <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-            <div className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-soft-surface">
-              <Icon className="size-6 text-signal-ink" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{track.name} 赛道</h1>
-              <p className="mt-1.5 text-sm text-mist sm:text-base">{track.description}</p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <button
-                onClick={copyAllHandles}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-surface px-4 text-sm font-semibold transition-colors hover:bg-wash-strong hover:text-ink"
-                title="一键复制赛道全部 @ 清单，到 X 批量关注"
-              >
-                {copiedHandles ? <Check className="size-4 text-signal-ink" /> : <Copy className="size-4" />}
-                {copiedHandles ? "已复制" : "复制全部 @"}
-              </button>
-              <button
-                onClick={copyShare}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-                title="复制分享文案，带上赛道页链接"
-              >
-                {copiedShare ? <Check className="size-4" /> : <Share2 className="size-4" />}
-                {copiedShare ? "已复制" : "分享赛道"}
-              </button>
-            </div>
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+          <div className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-soft-surface">
+            <Icon className="size-6 text-signal-ink" aria-hidden="true" />
           </div>
-        </Reveal>
-
-        {/* 赛道能量卡（综合为过渡桶，只出人数） */}
-        <Reveal delay={0.06}>
-          <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatCard label="赛道成员" value={trackStat.memberCount} />
-            {!isOther && <StatCard label="社群粉丝" value={trackStat.totalFollowers} />}
-            {!isOther && <StatCard label="近 30 天新增" value={trackStat.growth30dTotal} prefix="+" />}
-            {!isOther && <StatCard label="近 30 天内容" value={trackStat.topPosts.length ? `${trackStat.topPosts.length} 帖上榜` : "数据采集中"} />}
+          <div className="min-w-0 flex-1">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{track.name} 赛道</h1>
+            <p className="mt-1.5 text-sm text-mist sm:text-base">{track.description}</p>
           </div>
-        </Reveal>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              onClick={copyAllHandles}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-surface px-4 text-sm font-semibold transition-colors hover:bg-wash-strong hover:text-ink"
+              title="一键复制赛道全部 @ 清单，到 X 批量关注"
+            >
+              {copiedHandles ? (
+                <Check className="size-4 text-signal-ink" />
+              ) : (
+                <Copy className="size-4" />
+              )}
+              {copiedHandles ? "已复制" : "复制全部 @"}
+            </button>
+            <button
+              onClick={copyShare}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              title="复制分享文案，带上赛道页链接"
+            >
+              {copiedShare ? <Check className="size-4" /> : <Share2 className="size-4" />}
+              {copiedShare ? "已复制" : "分享赛道"}
+            </button>
+          </div>
+        </div>
+      </Reveal>
 
-        {/* 赛道成员榜（按粉丝量，前三名荣誉样式） */}
+      {/* 赛道能量卡（综合为过渡桶，只出人数） */}
+      <Reveal delay={0.06}>
+        <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="赛道成员" value={trackStat.memberCount} />
+          {!isOther && <StatCard label="社群粉丝" value={trackStat.totalFollowers} />}
+          {!isOther && (
+            <StatCard label="近 30 天新增" value={trackStat.growth30dTotal} prefix="+" />
+          )}
+          {!isOther && (
+            <StatCard
+              label="近 30 天内容"
+              value={
+                trackStat.topPosts.length ? `${trackStat.topPosts.length} 帖上榜` : "数据采集中"
+              }
+            />
+          )}
+        </div>
+      </Reveal>
+
+      {/* 赛道成员榜（按粉丝量，前三名荣誉样式） */}
+      <Reveal delay={0.08}>
+        <section className="mt-8 panel-card p-6 sm:p-8">
+          <h2 className="text-xl font-bold">成员榜</h2>
+          {sorted.length === 0 ? (
+            <p className="mt-4 text-mist">这个赛道还没有成员上榜。</p>
+          ) : (
+            <RevealGroup className="mt-5 space-y-3">
+              {sorted.map((m, i) => (
+                <RevealItem key={m.id} y={12}>
+                  <TrackMemberRow member={m} rank={i + 1} podium={PODIUM[i]} />
+                </RevealItem>
+              ))}
+            </RevealGroup>
+          )}
+        </section>
+      </Reveal>
+
+      {/* 赛道互动 Top：近 30 天单帖浏览（帖子数据跑起来后出现） */}
+      {!isOther && trackStat.topPosts.length > 0 && (
         <Reveal delay={0.08}>
           <section className="mt-8 panel-card p-6 sm:p-8">
-            <h2 className="text-xl font-bold">成员榜</h2>
-            {sorted.length === 0 ? (
-              <p className="mt-4 text-mist">这个赛道还没有成员上榜。</p>
-            ) : (
-              <RevealGroup className="mt-5 space-y-3">
-                {sorted.map((m, i) => (
-                  <RevealItem key={m.id} y={12}>
-                    <TrackMemberRow member={m} rank={i + 1} podium={PODIUM[i]} />
-                  </RevealItem>
-                ))}
-              </RevealGroup>
-            )}
+            <h2 className="text-xl font-bold">单帖互动 Top</h2>
+            <ol className="mt-5 space-y-2.5">
+              {trackStat.topPosts.map((p, i) => {
+                const name = p.member?.displayName ?? p.member?.handle ?? "?";
+                return (
+                  <li
+                    key={p.tweetId}
+                    className="flex items-center gap-3 rounded-2xl bg-soft-surface px-4 py-3"
+                  >
+                    <div className="w-6 shrink-0 font-extrabold text-mist tabular-nums">
+                      {i + 1}
+                    </div>
+                    <Avatar
+                      url={p.member?.profileImage ?? null}
+                      name={name}
+                      className="size-9 shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <Link
+                          to="/members/$id"
+                          params={{ id: p.member?.id ?? "" }}
+                          className="text-sm font-semibold underline-offset-4 hover:underline"
+                        >
+                          {name}
+                        </Link>
+                        <span className="text-xs text-mist tabular-nums">
+                          {fmtDate(p.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 line-clamp-1 text-xs text-mist">
+                        {postExcerpt(p.text, 60) ?? "链接帖"}
+                      </p>
+                    </div>
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 text-right text-sm font-bold text-signal-ink tabular-nums"
+                      title="查看 X 原文"
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        <Eye className="size-3.5" aria-hidden="true" />
+                        {fmt(postEngagementValue(p))}
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ol>
           </section>
         </Reveal>
+      )}
 
-        {/* 赛道互动 Top：近 30 天单帖浏览（帖子数据跑起来后出现） */}
-        {!isOther && trackStat.topPosts.length > 0 && (
-          <Reveal delay={0.08}>
-            <section className="mt-8 panel-card p-6 sm:p-8">
-              <h2 className="text-xl font-bold">单帖互动 Top</h2>
-              <ol className="mt-5 space-y-2.5">
-                {trackStat.topPosts.map((p, i) => {
-                  const name = p.member?.displayName ?? p.member?.handle ?? "?";
-                  return (
-                    <li key={p.tweetId} className="flex items-center gap-3 rounded-2xl bg-soft-surface px-4 py-3">
-                      <div className="w-6 shrink-0 font-extrabold tabular-nums text-mist">{i + 1}</div>
-                      <Avatar url={p.member?.profileImage ?? null} name={name} className="size-9 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <Link to="/members/$id" params={{ id: p.member?.id ?? "" }} className="text-sm font-semibold underline-offset-4 hover:underline">
-                            {name}
-                          </Link>
-                          <span className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</span>
-                        </div>
-                        <p className="mt-0.5 line-clamp-1 text-xs text-mist">{postExcerpt(p.text, 60) ?? "链接帖"}</p>
-                      </div>
-                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-right text-sm font-bold text-signal-ink tabular-nums" title="查看 X 原文">
-                        <span className="inline-flex items-center gap-1">
-                          <Eye className="size-3.5" aria-hidden="true" />
-                          {fmt(postEngagementValue(p))}
-                        </span>
-                      </a>
-                    </li>
-                  );
-                })}
-              </ol>
-            </section>
-          </Reveal>
-        )}
-
-        {/* 赛道话题标签 */}
-        {tags.length > 0 && (
-          <Reveal delay={0.08}>
-            <section className="mt-8 panel-card p-6 sm:p-8">
-              <h2 className="text-xl font-bold">话题标签</h2>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {tags.slice(0, 12).map(({ tag, count }) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-sm text-mist"
-                    title={`${count} 位赛道成员打上此标签`}
-                  >
-                    #{tag}
-                    <b className="text-ink tabular-nums">{count}</b>
-                  </span>
-                ))}
-              </div>
-            </section>
-          </Reveal>
-        )}
+      {/* 赛道话题标签 */}
+      {tags.length > 0 && (
+        <Reveal delay={0.08}>
+          <section className="mt-8 panel-card p-6 sm:p-8">
+            <h2 className="text-xl font-bold">话题标签</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {tags.slice(0, 12).map(({ tag, count }) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-sm text-mist"
+                  title={`${count} 位赛道成员打上此标签`}
+                >
+                  #{tag}
+                  <b className="text-ink tabular-nums">{count}</b>
+                </span>
+              ))}
+            </div>
+          </section>
+        </Reveal>
+      )}
     </div>
   );
 }
@@ -229,7 +272,11 @@ function TrackMemberRow({
       middle={
         <div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <Link to="/members/$id" params={{ id: m.id }} className="font-semibold underline-offset-4 hover:underline">
+            <Link
+              to="/members/$id"
+              params={{ id: m.id }}
+              className="font-semibold underline-offset-4 hover:underline"
+            >
               {name}
             </Link>
             <TitleBadge threshold={m.prevMilestone} />
@@ -244,7 +291,10 @@ function TrackMemberRow({
           </div>
           {m.tags.length > 0 && (
             <div className="mt-1 truncate text-xs text-mist">
-              {m.tags.slice(0, 4).map((t) => `#${t}`).join("  ")}
+              {m.tags
+                .slice(0, 4)
+                .map((t) => `#${t}`)
+                .join("  ")}
             </div>
           )}
         </div>
@@ -256,8 +306,8 @@ function TrackMemberRow({
             {m.latestFollowers != null
               ? `还差 ${fmt(m.nextMilestone - m.latestFollowers)}`
               : m.collectFailed
-              ? "首次采集未成功"
-              : "排队中"}
+                ? "首次采集未成功"
+                : "排队中"}
           </div>
         </div>
       }

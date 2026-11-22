@@ -1,5 +1,5 @@
-import type { PostItem } from "@/stats";
 import { fmt, postExcerpt } from "@/lib/format";
+import type { PostItem } from "@/stats";
 
 /** 内容密码：从帖子 + 快照挖出的三条实用洞察（全部启发式，样本不足自动隐藏） */
 export function ContentInsights({
@@ -31,11 +31,11 @@ export function ContentInsights({
   // 最有讨论度：评论数 ≥20 且显著多于点赞
   const debate = posts
     .filter((p) => (p.replies ?? 0) >= 20 && (p.replies ?? 0) > (p.likes ?? 0) * 1.5)
-    .sort((a, b) => (b.replies ?? 0) - (a.replies ?? 0))
+    .toSorted((a, b) => (b.replies ?? 0) - (a.replies ?? 0))
     .slice(0, 3);
 
   // 爆款涨粉归因：浏览量最高的帖子，发帖前后 3 天内粉丝跳涨
-  const top = [...posts].sort((a, b) => (b.views ?? 0) - (a.views ?? 0))[0];
+  const top = [...posts].toSorted((a, b) => (b.views ?? 0) - (a.views ?? 0))[0];
   let attribution: { post: PostItem; gained: number } | null = null;
   if (top && (top.views ?? 0) >= 10_000 && snapshots.length >= 2) {
     const postDay = top.createdAt.slice(0, 10);
@@ -61,10 +61,19 @@ export function ContentInsights({
           </div>
         )}
         {attribution && (
-          <a href={attribution.post.url} target="_blank" rel="noopener noreferrer" className="card-lift block rounded-2xl bg-signal/5 p-5 transition-colors hover:bg-wash-strong">
+          <a
+            href={attribution.post.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block card-lift rounded-2xl bg-signal/5 p-5 transition-colors hover:bg-wash-strong"
+          >
             <div className="text-sm text-mist">爆款带来</div>
-            <div className="mt-1.5 text-2xl font-bold text-signal-ink tabular-nums">+{fmt(attribution.gained)} 粉</div>
-            <div className="mt-0.5 line-clamp-1 text-xs text-mist">{postExcerpt(attribution.post.text, 80) ?? "链接帖"}</div>
+            <div className="mt-1.5 text-2xl font-bold text-signal-ink tabular-nums">
+              +{fmt(attribution.gained)} 粉
+            </div>
+            <div className="mt-0.5 line-clamp-1 text-xs text-mist">
+              {postExcerpt(attribution.post.text, 80) ?? "链接帖"}
+            </div>
           </a>
         )}
         {debate.length > 0 && (
@@ -72,8 +81,16 @@ export function ContentInsights({
             <div className="text-sm text-mist">最有讨论度</div>
             <div className="mt-1.5 space-y-1">
               {debate.map((p) => (
-                <a key={p.tweetId} href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm hover:text-ink">
-                  <span className="line-clamp-1 min-w-0 flex-1 text-mist">{postExcerpt(p.text, 60) ?? "链接帖"}</span>
+                <a
+                  key={p.tweetId}
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm hover:text-ink"
+                >
+                  <span className="line-clamp-1 min-w-0 flex-1 text-mist">
+                    {postExcerpt(p.text, 60) ?? "链接帖"}
+                  </span>
                   <b className="shrink-0 tabular-nums">{p.replies ?? 0} 评</b>
                 </a>
               ))}

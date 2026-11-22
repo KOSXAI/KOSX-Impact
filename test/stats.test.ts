@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { badge } from "../src/lib/format";
 import {
   computeCountDelta,
   computeDashboardStats,
@@ -6,7 +7,6 @@ import {
   computeMemberStats,
   daysBetween,
 } from "../src/stats";
-import { badge } from "../src/lib/format";
 
 const NOW = "2026-09-04T00:00:00Z";
 
@@ -57,7 +57,9 @@ describe("computeGrowthNDays", () => {
     expect(computeGrowthNDays(sameDayTwice, 1)).toBe(250); // 1000 → 1250
 
     // 只有当日一条：没有可比基线，返回 0（不是拿自己减自己之外的错值）
-    expect(computeGrowthNDays([{ followers: 1000, recordedAt: "2026-09-03T02:00:00Z" }], 1)).toBe(0);
+    expect(computeGrowthNDays([{ followers: 1000, recordedAt: "2026-09-03T02:00:00Z" }], 1)).toBe(
+      0,
+    );
   });
 
   it("掉粉时返回负数（负增长必须能显示，不能夹成 0）", () => {
@@ -119,7 +121,13 @@ describe("computeMemberStats", () => {
 describe("computeDashboardStats", () => {
   const roster = {
     members: [
-      { id: "m1", handle: "alice", displayName: "Alice", joinedAt: "2026-08-01", baselineFollowers: 1000 },
+      {
+        id: "m1",
+        handle: "alice",
+        displayName: "Alice",
+        joinedAt: "2026-08-01",
+        baselineFollowers: 1000,
+      },
       { id: "m2", handle: "bob", joinedAt: "2026-08-02" },
     ],
   };
@@ -139,9 +147,15 @@ describe("computeDashboardStats", () => {
       { id: "m2", handle: "bob", displayName: null, joinedAt: "2026-08-02", snapshots: [] },
     ];
     const milestones = [
-      { memberId: "m1", handle: "alice", displayName: "Alice", threshold: 1000, achievedAt: "2026-09-02T00:00:00Z" },
+      {
+        memberId: "m1",
+        handle: "alice",
+        displayName: "Alice",
+        threshold: 1000,
+        achievedAt: "2026-09-02T00:00:00Z",
+      },
     ];
-    const stats = computeDashboardStats(roster, rows as never, milestones, NOW);
+    const stats = computeDashboardStats(roster, rows, milestones, NOW);
     expect(stats.totalFollowers).toBe(1500);
     expect(stats.totalGrowth30d).toBe(500);
     expect(stats.tenKMembers).toBe(0);
@@ -170,13 +184,27 @@ describe("computeDashboardStats", () => {
         achievedAt: `2026-09-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
       })),
       // 非阶梯档位不再展示（旧阶梯档位）
-      { memberId: "m2", handle: "bob", displayName: null, threshold: 1250, achievedAt: "2026-09-20T00:00:00Z" },
-      { memberId: "m2", handle: "bob", displayName: null, threshold: 3300, achievedAt: "2026-09-21T00:00:00Z" },
+      {
+        memberId: "m2",
+        handle: "bob",
+        displayName: null,
+        threshold: 1250,
+        achievedAt: "2026-09-20T00:00:00Z",
+      },
+      {
+        memberId: "m2",
+        handle: "bob",
+        displayName: null,
+        threshold: 3300,
+        achievedAt: "2026-09-21T00:00:00Z",
+      },
     ];
     const stats = computeDashboardStats(roster, rows, milestones, NOW);
     expect(stats.recentMilestones).toHaveLength(10);
     expect(stats.recentMilestones[0].achievedAt).toBe("2026-09-12T00:00:00Z");
-    expect(stats.recentMilestones.every((m) => m.threshold !== 1250 && m.threshold !== 3300)).toBe(true);
+    expect(stats.recentMilestones.every((m) => m.threshold !== 1250 && m.threshold !== 3300)).toBe(
+      true,
+    );
   });
 
   it("统计近 30 天社群新增与万粉成员数", () => {
@@ -202,7 +230,7 @@ describe("computeDashboardStats", () => {
         ],
       },
     ];
-    const stats = computeDashboardStats(roster, rows as never, [], NOW);
+    const stats = computeDashboardStats(roster, rows, [], NOW);
     expect(stats.totalGrowth30d).toBe(9510);
     expect(stats.tenKMembers).toBe(1);
     expect(stats.totalFollowers).toBe(10560);

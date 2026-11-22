@@ -37,17 +37,24 @@ describe("parsePostContent", () => {
     expect(parsePostContent("第一段\n\n\n第二段  \n 第三段").text).toBe("第一段\n\n第二段\n第三段");
   });
   it("抽出全部 t.co 链接（去重）并从正文剥离", () => {
-    const { text, links } = parsePostContent("看这个 https://t.co/abc 很赞\nhttps://t.co/abc https://t.co/def");
+    const { text, links } = parsePostContent(
+      "看这个 https://t.co/abc 很赞\nhttps://t.co/abc https://t.co/def",
+    );
     expect(text).toBe("看这个 很赞");
     expect(links).toEqual(["https://t.co/abc", "https://t.co/def"]);
   });
   it("纯链接 / 空内容：正文为 null，链接保留", () => {
-    expect(parsePostContent("https://t.co/only")).toEqual({ text: null, links: ["https://t.co/only"] });
+    expect(parsePostContent("https://t.co/only")).toEqual({
+      text: null,
+      links: ["https://t.co/only"],
+    });
     expect(parsePostContent(null)).toEqual({ text: null, links: [] });
     expect(parsePostContent("   ")).toEqual({ text: null, links: [] });
   });
   it("exclude：媒体 t.co 不进「查看链接」", () => {
-    const { text, links } = parsePostContent("看图 https://t.co/pic 外链 https://t.co/other", ["https://t.co/pic"]);
+    const { text, links } = parsePostContent("看图 https://t.co/pic 外链 https://t.co/other", [
+      "https://t.co/pic",
+    ]);
     expect(text).toBe("看图 外链");
     expect(links).toEqual(["https://t.co/other"]);
   });

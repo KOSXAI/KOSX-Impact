@@ -1,6 +1,6 @@
-import type { SimilarAccount } from "@/stats";
-import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import type { SimilarAccount } from "@/stats";
 
 /** 相似账号卡：内容/人群/风格实质相似的同类账号，外链 X */
 export function SimilarAccountsCard({ accounts }: { accounts: SimilarAccount[] }) {
@@ -26,9 +26,7 @@ export function SimilarAccountsCard({ accounts }: { accounts: SimilarAccount[] }
                 <span className="text-xs text-mist">@{a.handle}</span>
               </div>
               <p className="mt-1.5 text-sm leading-relaxed text-mist">{a.reason}</p>
-              {a.difference && (
-                <p className="mt-1 text-xs text-mist/70">差异：{a.difference}</p>
-              )}
+              {a.difference && <p className="mt-1 text-xs text-mist/70">差异：{a.difference}</p>}
             </li>
           ))}
         </ul>

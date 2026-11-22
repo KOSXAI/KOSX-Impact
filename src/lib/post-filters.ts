@@ -1,9 +1,9 @@
+import { engagementRate } from "../insights";
 /**
  * 精华帖列表（/posts）的形态筛选与排序：纯函数，无 D1/缓存依赖。
  * 数据池由 fetchTopPosts 提供（50 帖），筛选/重排全部在客户端做，零额外请求。
  */
 import type { PostItem } from "../stats";
-import { engagementRate } from "../insights";
 
 export type PostFilterKey = "all" | "original" | "photo" | "video" | "quote";
 
@@ -63,8 +63,8 @@ export function countByPostFilter(posts: PostItem[]): Record<PostFilterKey, numb
  */
 export function sortPosts(posts: PostItem[], sort: PostSortKey): PostItem[] {
   if (sort === "views") return posts;
-  if (sort === "likes") return [...posts].sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+  if (sort === "likes") return [...posts].toSorted((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
   return posts
     .filter((p) => (p.views ?? 0) >= RATE_MIN_VIEWS)
-    .sort((a, b) => (engagementRate(b) ?? 0) - (engagementRate(a) ?? 0));
+    .toSorted((a, b) => (engagementRate(b) ?? 0) - (engagementRate(a) ?? 0));
 }

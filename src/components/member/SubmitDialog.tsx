@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
-import { Dialog, DialogCloseX, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { CircleCheck, Clock3, RefreshCw, SearchCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogCloseX, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { fmt } from "@/lib/format";
 import { xProfileUrl } from "@/lib/site";
-import { CircleCheck, Clock3, RefreshCw, SearchCheck } from "lucide-react";
 
 type LookupPreview = {
   id: string;
@@ -46,7 +46,14 @@ type Phase =
   | { kind: "join"; handle: string }
   | { kind: "joining"; handle: string }
   | { kind: "done"; memberId: string; followersAfter: number | null; joined: boolean }
-  | { kind: "queued"; memberId: string; throttled: boolean; handle: string; submittedAt: string; joined: boolean }
+  | {
+      kind: "queued";
+      memberId: string;
+      throttled: boolean;
+      handle: string;
+      submittedAt: string;
+      joined: boolean;
+    }
   | { kind: "error"; message: string };
 
 /** 后端原始采集错误 → 用户文案（错误串含 X 侧 message，映射要兜住未知形态） */
@@ -63,6 +70,43 @@ function friendlyAccountError(error: string | undefined): string {
 /** 排队轮询：每 10 秒查一次预览接口（读本地库，不耗采集额度），最长等 2 分钟 */
 const POLL_INTERVAL_MS = 10_000;
 const POLL_LIMIT = 12;
+
+/** 邀请裂变归因：新成员加入成功时，把本地记住的邀请人上报一次（幂等，一人只计一次） */
+function fireInvite(memberId: string) {
+  try {
+    const inviter = localStorage.getItem("kosx:invited_by");
+    if (!inviter) return;
+    void fetch("/api/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviterId: inviter, invitedMemberId: memberId }),
+    });
+  } catch {
+    /* 上报失败不影响加入流程 */
+  }
+}
+
+async function postSubmit(body: Record<string, unknown>): Promise<PostResult | null> {
+  const res = await fetch("/api/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    // 服务端错误带可直接展示的文案（如「查无此账号」）；解析失败回落通用错误
+    const payload = (await res.json().catch(() => null)) as {
+      error?: string;
+      message?: string;
+    } | null;
+    return payload?.error ? { error: payload.error, message: payload.message } : null;
+  }
+  return res.json<SubmitResponse>();
+}
+
+/** 服务端错误响应（成功响应即使带 error 字段也走正常分支） */
+function isSubmitError(result: PostResult): result is SubmitError {
+  return typeof (result as SubmitError).error === "string";
+}
 
 /**
  * 「加入追踪」弹窗：输入 X 主页链接或 @ID。
@@ -89,7 +133,8 @@ export function SubmitDialog({
     setInput(defaultHandle ?? "");
     if (defaultHandle) void lookup(defaultHandle);
     else setPhase({ kind: "idle" });
-    // 刻意只依赖 open：defaultHandle 是初始值，跟着变会重置用户输入（仓库暂无 linter，注释替代 disable 标记）
+    // 刻意只依赖 open：defaultHandle 是初始值，跟着变会重置用户输入
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   async function lookup(raw: string) {
@@ -98,13 +143,16 @@ export function SubmitDialog({
     try {
       const res = await fetch(`/api/refresh/lookup?handle=${encodeURIComponent(raw)}`);
       if (res.ok) {
-        setPhase({ kind: "preview", member: (await res.json()) as LookupPreview });
+        setPhase({ kind: "preview", member: await res.json<LookupPreview>() });
       } else if (res.status === 404) {
         setPhase({ kind: "join", handle: raw.trim() });
       } else if (res.status === 410) {
         // 隔离中的成员：明确原因，不引导自助加入（加入会让它绕开隔离继续烧采集额度）
         const payload = (await res.json().catch(() => null)) as { message?: string } | null;
-        setPhase({ kind: "error", message: payload?.message ?? "该账号在 X 上已无法访问，已暂停追踪更新。" });
+        setPhase({
+          kind: "error",
+          message: payload?.message ?? "该账号在 X 上已无法访问，已暂停追踪更新。",
+        });
       } else if (res.status === 400) {
         setPhase({ kind: "error", message: "这个输入不像有效的 @ID 或 X 主页链接。" });
       } else {
@@ -120,25 +168,15 @@ export function SubmitDialog({
     void router.invalidate();
   }
 
-  /** 邀请裂变归因：新成员加入成功时，把本地记住的邀请人上报一次（幂等，一人只计一次） */
-  function fireInvite(memberId: string) {
-    try {
-      const inviter = localStorage.getItem("kosx:invited_by");
-      if (!inviter) return;
-      void fetch("/api/invite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviterId: inviter, invitedMemberId: memberId }),
-      });
-    } catch {
-      /* 上报失败不影响加入流程 */
-    }
-  }
-
   function applySubmitResponse(result: SubmitResponse, joined: boolean, handle: string) {
     if (result.status === "done") {
       if (joined) fireInvite(result.memberId);
-      setPhase({ kind: "done", memberId: result.memberId, followersAfter: result.followersAfter, joined });
+      setPhase({
+        kind: "done",
+        memberId: result.memberId,
+        followersAfter: result.followersAfter,
+        joined,
+      });
       refreshBoard();
     } else if (result.status === "failed") {
       // 明确失败态：别包装成「排队中」让用户空转 2 分钟
@@ -162,25 +200,6 @@ export function SubmitDialog({
     refreshBoard();
   }
 
-  async function post(body: Record<string, unknown>): Promise<PostResult | null> {
-    const res = await fetch("/api/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      // 服务端错误带可直接展示的文案（如「查无此账号」）；解析失败回落通用错误
-      const payload = (await res.json().catch(() => null)) as { error?: string; message?: string } | null;
-      return payload?.error ? { error: payload.error, message: payload.message } : null;
-    }
-    return (await res.json()) as SubmitResponse;
-  }
-
-  /** 服务端错误响应（成功响应即使带 error 字段也走正常分支） */
-  function isSubmitError(result: PostResult): result is SubmitError {
-    return typeof (result as SubmitError).error === "string";
-  }
-
   /** 提交未被接受：展示后端错误文案（其余情况统一回落通用提示） */
   function applySubmitError(result: SubmitError) {
     setPhase({ kind: "error", message: result.message ?? "提交出了点问题，稍后再试。" });
@@ -189,7 +208,7 @@ export function SubmitDialog({
   async function submit(member: LookupPreview) {
     setPhase({ kind: "submitting", member });
     try {
-      const result = await post({ input: member.handle });
+      const result = await postSubmit({ input: member.handle });
       if (!result) {
         setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
         return;
@@ -207,7 +226,7 @@ export function SubmitDialog({
   async function submitJoin(rawHandle: string) {
     setPhase({ kind: "joining", handle: rawHandle });
     try {
-      const result = await post({ input: rawHandle, register: true });
+      const result = await postSubmit({ input: rawHandle, register: true });
       if (!result) {
         setPhase({ kind: "error", message: "提交出了点问题，稍后再试。" });
         return;
@@ -243,10 +262,14 @@ export function SubmitDialog({
                 placeholder="例如 @yourname 或 x.com/yourname"
                 aria-label="X 主页链接或 @ID"
                 autoFocus
-                className="h-11 min-w-0 flex-1 rounded-full bg-soft-surface px-5 text-sm text-ink placeholder:text-mist outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                className="h-11 min-w-0 flex-1 rounded-full bg-soft-surface px-5 text-sm text-ink outline-none placeholder:text-mist focus-visible:ring-2 focus-visible:ring-ring/60"
               />
               <Button type="submit" disabled={phase.kind === "looking" || !input.trim()}>
-                {phase.kind === "looking" ? <RefreshCw className="size-4 animate-spin" /> : <SearchCheck className="size-4" />}
+                {phase.kind === "looking" ? (
+                  <RefreshCw className="size-4 animate-spin" />
+                ) : (
+                  <SearchCheck className="size-4" />
+                )}
                 {phase.kind === "looking" ? "查询中" : "查询"}
               </Button>
             </form>
@@ -262,11 +285,18 @@ export function SubmitDialog({
         )}
 
         {(phase.kind === "join" || phase.kind === "joining") && (
-          <JoinBody joining={phase.kind === "joining"} onJoin={() => void submitJoin(phase.handle)} />
+          <JoinBody
+            joining={phase.kind === "joining"}
+            onJoin={() => void submitJoin(phase.handle)}
+          />
         )}
 
         {phase.kind === "done" && (
-          <DoneBody memberId={phase.memberId} followersAfter={phase.followersAfter} joined={phase.joined} />
+          <DoneBody
+            memberId={phase.memberId}
+            followersAfter={phase.followersAfter}
+            joined={phase.joined}
+          />
         )}
         {phase.kind === "queued" && (
           <QueuedBody
@@ -274,19 +304,28 @@ export function SubmitDialog({
             throttled={phase.throttled}
             handle={phase.handle}
             submittedAt={phase.submittedAt}
-            joined={phase.joined}
             onResolved={(followers) => onQueuedResolved(phase.memberId, followers, phase.joined)}
             onFailed={(message) => setPhase({ kind: "error", message })}
           />
         )}
-        {phase.kind === "error" && <ErrorBody message={phase.message} onBack={() => setPhase({ kind: "idle" })} />}
+        {phase.kind === "error" && (
+          <ErrorBody message={phase.message} onBack={() => setPhase({ kind: "idle" })} />
+        )}
       </DialogContent>
     </Dialog>
   );
 }
 
 /** 预览：确认是自己的账号，再触发更新 */
-function PreviewBody({ member, submitting, onSubmit }: { member: LookupPreview; submitting: boolean; onSubmit: () => void }) {
+function PreviewBody({
+  member,
+  submitting,
+  onSubmit,
+}: {
+  member: LookupPreview;
+  submitting: boolean;
+  onSubmit: () => void;
+}) {
   const name = member.displayName ?? member.handle;
   return (
     <>
@@ -310,7 +349,10 @@ function PreviewBody({ member, submitting, onSubmit }: { member: LookupPreview; 
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line pt-5 text-sm text-mist">
         <span>
-          当前粉丝 <b className="text-ink tabular-nums">{member.latestFollowers != null ? fmt(member.latestFollowers) : "—"}</b>
+          当前粉丝{" "}
+          <b className="text-ink tabular-nums">
+            {member.latestFollowers != null ? fmt(member.latestFollowers) : "—"}
+          </b>
         </span>
         <span>
           上次更新 <span className="text-ink">{relativeTime(member.latestRecordedAt)}</span>
@@ -322,7 +364,11 @@ function PreviewBody({ member, submitting, onSubmit }: { member: LookupPreview; 
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={onSubmit} disabled={submitting || member.pending} className="w-full sm:w-auto">
+        <Button
+          onClick={onSubmit}
+          disabled={submitting || member.pending}
+          className="w-full sm:w-auto"
+        >
           <RefreshCw className={submitting ? "size-4 animate-spin" : "size-4"} />
           {submitting ? "正在更新" : member.pending ? "排队处理中" : "立即更新我的数据"}
         </Button>
@@ -351,7 +397,15 @@ function JoinBody({ joining, onJoin }: { joining: boolean; onJoin: () => void })
   );
 }
 
-function DoneBody({ memberId, followersAfter, joined }: { memberId: string; followersAfter: number | null; joined: boolean }) {
+function DoneBody({
+  memberId,
+  followersAfter,
+  joined,
+}: {
+  memberId: string;
+  followersAfter: number | null;
+  joined: boolean;
+}) {
   return (
     <>
       <DialogTitle className="flex items-center gap-2.5">
@@ -359,7 +413,7 @@ function DoneBody({ memberId, followersAfter, joined }: { memberId: string; foll
         {joined ? "已加入追踪" : "已更新"}
       </DialogTitle>
       {followersAfter != null && (
-        <div className="tabular-nums text-3xl font-bold">{fmt(followersAfter)}</div>
+        <div className="text-3xl font-bold tabular-nums">{fmt(followersAfter)}</div>
       )}
       <div className="flex flex-wrap items-center gap-3">
         <Button asChild className="w-full sm:w-auto">
@@ -379,7 +433,6 @@ function QueuedBody({
   throttled,
   handle,
   submittedAt,
-  joined,
   onResolved,
   onFailed,
 }: {
@@ -387,7 +440,6 @@ function QueuedBody({
   throttled: boolean;
   handle: string;
   submittedAt: string;
-  joined: boolean;
   /** 队列已消费且新快照落地时回调（参数为最新粉丝数，可能为 null） */
   onResolved: (followers: number | null) => void;
   /** 本条任务确定失败时回调（参数为可直接展示的文案） */
@@ -411,7 +463,7 @@ function QueuedBody({
             return;
           }
           if (!res.ok) return;
-          const p = (await res.json()) as LookupPreview;
+          const p = await res.json<LookupPreview>();
           // 队列已消费 && 快照晚于本次提交 → 生效
           if (!p.pending && p.latestRecordedAt && p.latestRecordedAt >= submittedAt) {
             clearInterval(timer);
@@ -433,7 +485,8 @@ function QueuedBody({
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
-    // 刻意空依赖：轮询器一次启动常驻，读 ref 不需要进依赖（仓库暂无 linter，注释替代 disable 标记）
+    // 刻意空依赖：轮询器一次启动常驻，读 ref 不需要进依赖
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const waiting = !throttled && !timedOut;

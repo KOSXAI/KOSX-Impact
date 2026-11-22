@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowUpDown, Search, Shapes, Tags, Users, X, type LucideIcon } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { TRACKS, TRACK_OTHER } from "@/tracks";
-import { TRACK_ICONS } from "@/components/member/TrackChip";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   FOLLOWERS_BUCKETS,
   GROWTH_METRICS,
@@ -14,9 +13,10 @@ import {
   type TrackSortKey,
   type ViewKey,
 } from "@/components/library/presets";
+import { TRACK_ICONS } from "@/components/member/TrackChip";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { ArrowUpDown, Search, Shapes, Tags, Users, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TRACKS, TRACK_OTHER } from "@/tracks";
 
 /** 标签 chips 默认展示条数，其余折进「+N」 */
 const TAG_PREVIEW = 8;
@@ -50,6 +50,10 @@ function seedDraft(seed: FilterSeed): FilterDraft {
     range: seed.growthRange,
     gsort: seed.trackSort,
   };
+}
+
+function toggleParam<T>(cur: T[], v: T): T[] {
+  return cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
 }
 
 /**
@@ -89,7 +93,15 @@ export function LibraryFilterDialog({
     setTagQuery("");
     // seed 是打开瞬间的快照，跟随其字段即可；刻意不把 seed 整体放进依赖，避免父级重渲时冲掉草稿
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, seed.bucket, seed.selTracks, seed.selTags, seed.growthMetric, seed.growthRange, seed.trackSort]);
+  }, [
+    open,
+    seed.bucket,
+    seed.selTracks,
+    seed.selTags,
+    seed.growthMetric,
+    seed.growthRange,
+    seed.trackSort,
+  ]);
 
   const apply = () => {
     const patch: LibrarySearch = {
@@ -134,198 +146,203 @@ export function LibraryFilterDialog({
 
   const tagQueryTrim = tagQuery.trim();
   const tagsExpanded =
-    showAllTags || draft.tags.some((t) => !tagCounts.slice(0, TAG_PREVIEW).some((x) => x.tag === t));
+    showAllTags ||
+    draft.tags.some((t) => !tagCounts.slice(0, TAG_PREVIEW).some((x) => x.tag === t));
   const visibleTagChips = tagQueryTrim
     ? tagCounts.filter((t) => t.tag.toLowerCase().includes(tagQueryTrim.toLowerCase()))
     : tagCounts.slice(0, tagsExpanded ? tagCounts.length : TAG_PREVIEW);
-  const toggleParam = <T,>(cur: T[], v: T): T[] =>
-    cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
-  const dirty =
-    draft.bucket !== "all" || draft.tracks.length > 0 || draft.tags.length > 0;
+  const dirty = draft.bucket !== "all" || draft.tracks.length > 0 || draft.tags.length > 0;
 
   return (
     // reducedMotion="user"：系统开启「减弱动态」时，位移/缩放动画自动降级为仅淡入淡出
     <MotionConfig reducedMotion="user">
-    <AnimatePresence>
-      {open && (
-        <div key="filter-dialog" className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="absolute inset-0 bg-scrim backdrop-blur-md"
-          />
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ type: "spring", stiffness: 380, damping: 30 }}
-            ref={panelRef}
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-label="筛选与排序"
-            className="relative z-10 flex max-h-[82dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-edge bg-surface/95 shadow-[var(--shadow-pop-xl)] outline-none backdrop-blur-xl sm:max-w-2xl"
+      <AnimatePresence>
+        {open && (
+          <div
+            key="filter-dialog"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
           >
-            {/* 头：标题 + 清空 + 关闭 */}
-            <div className="flex items-center justify-between border-b border-line px-5 py-4 sm:px-7">
-              <h2 className="text-lg font-bold">筛选与排序</h2>
-              <div className="flex items-center gap-4">
-                {dirty && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="absolute inset-0 bg-scrim backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              ref={panelRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label="筛选与排序"
+              className="relative z-10 flex max-h-[82dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-edge bg-surface/95 shadow-[var(--shadow-pop-xl)] backdrop-blur-xl outline-none sm:max-w-2xl"
+            >
+              {/* 头：标题 + 清空 + 关闭 */}
+              <div className="flex items-center justify-between border-b border-line px-5 py-4 sm:px-7">
+                <h2 className="text-lg font-bold">筛选与排序</h2>
+                <div className="flex items-center gap-4">
+                  {dirty && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDraft((d) => ({ ...d, bucket: "all", tracks: [], tags: [] }))
+                      }
+                      className="cursor-pointer text-sm text-mist transition-colors hover:text-ink"
+                    >
+                      清空
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setDraft((d) => ({ ...d, bucket: "all", tracks: [], tags: [] }))}
-                    className="cursor-pointer text-sm text-mist transition-colors hover:text-ink"
+                    onClick={onClose}
+                    aria-label="关闭"
+                    className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-surface text-mist transition-colors hover:bg-wash-strong hover:text-ink"
                   >
-                    清空
+                    <X className="size-4" aria-hidden="true" />
                   </button>
+                </div>
+              </div>
+
+              {/* 体：排序口径（视图自带）→ 筛选组；草稿态，随便点都不抖 */}
+              <div className="flex-1 space-y-6 overflow-y-auto px-5 py-4 sm:px-7 sm:py-6">
+                {view === "growth" && (
+                  <section>
+                    <SectionTitle icon={ArrowUpDown}>排序口径</SectionTitle>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <SegmentedControl
+                        value={draft.metric ?? "growth"}
+                        onChange={(k) => setDraft({ ...draft, metric: k })}
+                        options={GROWTH_METRICS.map((x) => ({ key: x.key, label: x.label }))}
+                        ariaLabel="成长指标"
+                      />
+                      <SegmentedControl
+                        value={draft.range ?? 30}
+                        onChange={(r) => setDraft({ ...draft, range: r })}
+                        options={GROWTH_RANGES.map((x) => ({ key: x.key, label: x.label }))}
+                        ariaLabel="时间范围"
+                      />
+                    </div>
+                  </section>
                 )}
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="关闭"
-                  className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-surface text-mist transition-colors hover:bg-wash-strong hover:text-ink"
-                >
-                  <X className="size-4" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-
-            {/* 体：排序口径（视图自带）→ 筛选组；草稿态，随便点都不抖 */}
-            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-4 sm:px-7 sm:py-6">
-              {view === "growth" && (
+                {view === "track" && (
+                  <section>
+                    <SectionTitle icon={ArrowUpDown}>组内排序</SectionTitle>
+                    <div className="mt-2.5">
+                      <SegmentedControl
+                        value={draft.gsort ?? "followers"}
+                        onChange={(k) => setDraft({ ...draft, gsort: k })}
+                        options={TRACK_SORTS.map((x) => ({ key: x.key, label: x.label }))}
+                        ariaLabel="组内排序"
+                      />
+                    </div>
+                  </section>
+                )}
                 <section>
-                  <SectionTitle icon={ArrowUpDown}>排序口径</SectionTitle>
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                    <SegmentedControl
-                      value={draft.metric ?? "growth"}
-                      onChange={(k) => setDraft({ ...draft, metric: k as GrowthMetricKey })}
-                      options={GROWTH_METRICS.map((x) => ({ key: x.key, label: x.label }))}
-                      ariaLabel="成长指标"
-                    />
-                    <SegmentedControl
-                      value={draft.range ?? 30}
-                      onChange={(r) => setDraft({ ...draft, range: r as GrowthRange })}
-                      options={GROWTH_RANGES.map((x) => ({ key: x.key, label: x.label }))}
-                      ariaLabel="时间范围"
-                    />
-                  </div>
-                </section>
-              )}
-              {view === "track" && (
-                <section>
-                  <SectionTitle icon={ArrowUpDown}>组内排序</SectionTitle>
-                  <div className="mt-2.5">
-                    <SegmentedControl
-                      value={draft.gsort ?? "followers"}
-                      onChange={(k) => setDraft({ ...draft, gsort: k as TrackSortKey })}
-                      options={TRACK_SORTS.map((x) => ({ key: x.key, label: x.label }))}
-                      ariaLabel="组内排序"
-                    />
-                  </div>
-                </section>
-              )}
-              <section>
-                <SectionTitle icon={Users}>粉丝量</SectionTitle>
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {FOLLOWERS_BUCKETS.map((b) => (
-                    <FilterChip
-                      key={b.key}
-                      active={draft.bucket === b.key}
-                      onClick={() => setDraft({ ...draft, bucket: b.key })}
-                    >
-                      {b.label}
-                    </FilterChip>
-                  ))}
-                </div>
-              </section>
-              <section>
-                <SectionTitle icon={Shapes} count={draft.tracks.length}>
-                  赛道
-                </SectionTitle>
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {[...TRACKS, TRACK_OTHER].map((t) => {
-                    const count = trackCounts[t.name] ?? 0;
-                    if (count === 0) return null;
-                    const Icon = TRACK_ICONS[t.icon] ?? Shapes;
-                    return (
+                  <SectionTitle icon={Users}>粉丝量</SectionTitle>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {FOLLOWERS_BUCKETS.map((b) => (
                       <FilterChip
-                        key={t.slug}
-                        active={draft.tracks.includes(t.name)}
-                        dashed={t === TRACK_OTHER}
-                        title={t.description}
-                        onClick={() => setDraft({ ...draft, tracks: toggleParam(draft.tracks, t.name) })}
+                        key={b.key}
+                        active={draft.bucket === b.key}
+                        onClick={() => setDraft({ ...draft, bucket: b.key })}
                       >
-                        <Icon className="size-3.5" aria-hidden="true" />
-                        {t.name}
+                        {b.label}
                       </FilterChip>
-                    );
-                  })}
-                </div>
-              </section>
-              <section>
-                <SectionTitle icon={Tags} count={draft.tags.length}>
-                  标签
-                </SectionTitle>
-                <div className="relative mt-3">
-                  <Search
-                    className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-mist"
-                    aria-hidden="true"
-                  />
-                  <input
-                    type="text"
-                    value={tagQuery}
-                    onChange={(e) => setTagQuery(e.target.value)}
-                    placeholder="搜索标签"
-                    className="h-9 w-full rounded-full bg-soft-surface pr-3 pl-10 text-sm outline-none transition-[background-color,box-shadow] placeholder:text-mist focus-visible:ring-2 focus-visible:ring-ring/60"
-                  />
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {visibleTagChips.map(({ tag }) => (
-                    <FilterChip
-                      key={tag}
-                      active={draft.tags.includes(tag)}
-                      onClick={() => setDraft({ ...draft, tags: toggleParam(draft.tags, tag) })}
-                    >
-                      {tag}
-                    </FilterChip>
-                  ))}
-                  {tagCounts.length > TAG_PREVIEW && !tagQueryTrim && (
-                    <FilterChip active={tagsExpanded} onClick={() => setShowAllTags((v) => !v)}>
-                      {tagsExpanded ? "收起" : `+${tagCounts.length - TAG_PREVIEW}`}
-                    </FilterChip>
-                  )}
-                  {tagQueryTrim && visibleTagChips.length === 0 && (
-                    <p className="text-sm text-mist">没有匹配「{tagQueryTrim}」的标签</p>
-                  )}
-                </div>
-              </section>
-            </div>
-
-            {/* 尾：取消 / 确认 */}
-            <div className="flex items-center justify-end gap-3 border-t border-line px-5 py-4 sm:px-7">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="h-9 cursor-pointer rounded-full bg-soft-surface px-5 text-sm font-semibold text-mist transition-colors hover:text-ink sm:h-10"
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  onClick={apply}
-                  className="h-9 cursor-pointer rounded-full bg-signal px-6 text-sm font-bold text-paper shadow-lg shadow-signal/30 transition-transform hover:scale-[1.02] active:scale-95 sm:h-10"
-                >
-                  确认
-                </button>
+                    ))}
+                  </div>
+                </section>
+                <section>
+                  <SectionTitle icon={Shapes} count={draft.tracks.length}>
+                    赛道
+                  </SectionTitle>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {[...TRACKS, TRACK_OTHER].map((t) => {
+                      const count = trackCounts[t.name] ?? 0;
+                      if (count === 0) return null;
+                      const Icon = TRACK_ICONS[t.icon] ?? Shapes;
+                      return (
+                        <FilterChip
+                          key={t.slug}
+                          active={draft.tracks.includes(t.name)}
+                          dashed={t === TRACK_OTHER}
+                          title={t.description}
+                          onClick={() =>
+                            setDraft({ ...draft, tracks: toggleParam(draft.tracks, t.name) })
+                          }
+                        >
+                          <Icon className="size-3.5" aria-hidden="true" />
+                          {t.name}
+                        </FilterChip>
+                      );
+                    })}
+                  </div>
+                </section>
+                <section>
+                  <SectionTitle icon={Tags} count={draft.tags.length}>
+                    标签
+                  </SectionTitle>
+                  <div className="relative mt-3">
+                    <Search
+                      className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-mist"
+                      aria-hidden="true"
+                    />
+                    <input
+                      type="text"
+                      value={tagQuery}
+                      onChange={(e) => setTagQuery(e.target.value)}
+                      placeholder="搜索标签"
+                      className="h-9 w-full rounded-full bg-soft-surface pr-3 pl-10 text-sm transition-[background-color,box-shadow] outline-none placeholder:text-mist focus-visible:ring-2 focus-visible:ring-ring/60"
+                    />
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {visibleTagChips.map(({ tag }) => (
+                      <FilterChip
+                        key={tag}
+                        active={draft.tags.includes(tag)}
+                        onClick={() => setDraft({ ...draft, tags: toggleParam(draft.tags, tag) })}
+                      >
+                        {tag}
+                      </FilterChip>
+                    ))}
+                    {tagCounts.length > TAG_PREVIEW && !tagQueryTrim && (
+                      <FilterChip active={tagsExpanded} onClick={() => setShowAllTags((v) => !v)}>
+                        {tagsExpanded ? "收起" : `+${tagCounts.length - TAG_PREVIEW}`}
+                      </FilterChip>
+                    )}
+                    {tagQueryTrim && visibleTagChips.length === 0 && (
+                      <p className="text-sm text-mist">没有匹配「{tagQueryTrim}」的标签</p>
+                    )}
+                  </div>
+                </section>
               </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+
+              {/* 尾：取消 / 确认 */}
+              <div className="flex items-center justify-end gap-3 border-t border-line px-5 py-4 sm:px-7">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="h-9 cursor-pointer rounded-full bg-soft-surface px-5 text-sm font-semibold text-mist transition-colors hover:text-ink sm:h-10"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    onClick={apply}
+                    className="h-9 cursor-pointer rounded-full bg-signal px-6 text-sm font-bold text-paper shadow-lg shadow-signal/30 transition-transform hover:scale-[1.02] active:scale-95 sm:h-10"
+                  >
+                    确认
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </MotionConfig>
   );
 }
@@ -346,7 +363,7 @@ function SectionTitle({
       <Icon className="size-3.5 text-mist" aria-hidden="true" />
       {children}
       {count != null && count > 0 && (
-        <span className="ml-0.5 rounded-full bg-signal/15 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-signal-ink">
+        <span className="ml-0.5 rounded-full bg-signal/15 px-1.5 py-0.5 text-[11px] leading-none font-semibold text-signal-ink">
           {count}
         </span>
       )}
@@ -379,10 +396,10 @@ function FilterChip({
       aria-pressed={active}
       title={title}
       className={cn(
-        "inline-flex h-8 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-full px-3 text-xs transition-[background-color,color,box-shadow,transform] duration-150 active:scale-95 sm:h-9 sm:px-3.5 sm:text-sm",
+        "inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-xs transition-[background-color,color,box-shadow,transform] duration-150 select-none active:scale-95 sm:h-9 sm:px-3.5 sm:text-sm",
         active
           ? "bg-signal/15 text-signal-ink shadow-[0_0_12px_color-mix(in_oklab,var(--signal)_18%,transparent)]"
-          : "bg-soft-surface text-mist hover:bg-wash-strong hover:text-ink"
+          : "bg-soft-surface text-mist hover:bg-wash-strong hover:text-ink",
       )}
     >
       {children}

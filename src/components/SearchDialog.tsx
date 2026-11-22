@@ -1,11 +1,11 @@
-import { useEffect, useDeferredValue, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { roster } from "@/roster";
-import { fetchMemberPicker } from "@/data.functions";
-import { TRACKS } from "@/tracks";
 import { Search, Users, Shapes, CornerDownLeft, ArrowDown, ArrowUp } from "lucide-react";
+import { useEffect, useDeferredValue, useMemo, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { fetchMemberPicker } from "@/data.functions";
 import { cn } from "@/lib/utils";
+import { roster } from "@/roster";
+import { TRACKS } from "@/tracks";
 
 interface SearchDialogProps {
   open: boolean;
@@ -24,8 +24,10 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   const navigate = useNavigate();
   // 成员来源：打包名册只是兜底（首帧即可搜）；打开后换成库里的活跃成员
   // （含自助加入的成员——只搜名册会让他们在搜索里「不存在」）。走服务端轻量缓存。
-  const [members, setMembers] = useState<Array<{ id: string; handle: string; displayName: string | null }>>(
-    () => roster.members.map((m) => ({ id: m.id, handle: m.handle, displayName: m.displayName ?? null }))
+  const [members, setMembers] = useState<
+    Array<{ id: string; handle: string; displayName: string | null }>
+  >(() =>
+    roster.members.map((m) => ({ id: m.id, handle: m.handle, displayName: m.displayName ?? null })),
   );
   useEffect(() => {
     let cancelled = false;
@@ -81,8 +83,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
 
   const selectItem = (item: SearchItem) => {
     onOpenChange(false);
-    if (item.type === "member") navigate({ to: "/members/$id", params: { id: item.id } });
-    else navigate({ to: "/tracks/$slug", params: { slug: item.id } });
+    if (item.type === "member") void navigate({ to: "/members/$id", params: { id: item.id } });
+    else void navigate({ to: "/tracks/$slug", params: { slug: item.id } });
   };
 
   // 键盘导航
@@ -104,7 +106,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden border-edge bg-surface/98 shadow-[var(--shadow-pop-xl)] backdrop-blur-xl">
+      <DialogContent className="max-w-lg gap-0 overflow-hidden border-edge bg-surface/98 p-0 shadow-[var(--shadow-pop-xl)] backdrop-blur-xl">
         <DialogTitle className="sr-only">搜索成员与赛道</DialogTitle>
 
         {/* 顶部搜索输入 */}
@@ -116,9 +118,9 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="搜索成员昵称、@handle 或赛道..."
-            className="flex-1 bg-transparent text-base text-ink placeholder:text-mist outline-none"
+            className="flex-1 bg-transparent text-base text-ink outline-none placeholder:text-mist"
           />
-          <kbd className="hidden sm:inline-flex items-center rounded bg-soft-surface px-1.5 py-0.5 text-[10px] font-medium text-mist">
+          <kbd className="hidden items-center rounded bg-soft-surface px-1.5 py-0.5 text-[10px] font-medium text-mist sm:inline-flex">
             ESC
           </kbd>
         </div>
@@ -126,9 +128,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
         {/* 结果列表 */}
         <div className="max-h-80 overflow-y-auto p-2">
           {results.length === 0 ? (
-            <div className="py-10 text-center text-sm text-mist">
-              没有找到匹配的成员或赛道
-            </div>
+            <div className="py-10 text-center text-sm text-mist">没有找到匹配的成员或赛道</div>
           ) : (
             <div className="space-y-1">
               {results.map((item, idx) => {
@@ -141,28 +141,37 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                     onClick={() => selectItem(item)}
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors cursor-pointer select-none",
-                      isSelected ? "bg-wash-strong text-ink" : "text-mist hover:bg-wash hover:text-ink"
+                      "flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors select-none",
+                      isSelected
+                        ? "bg-wash-strong text-ink"
+                        : "text-mist hover:bg-wash hover:text-ink",
                     )}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={cn(
-                        "flex size-8 shrink-0 items-center justify-center rounded-lg",
-                        isMember 
-                          ?"bg-soft-surface text-mist"
-                          : "border-signal/30 bg-signal/10 text-signal-ink"
-                      )}>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className={cn(
+                          "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                          isMember
+                            ? "bg-soft-surface text-mist"
+                            : "border-signal/30 bg-signal/10 text-signal-ink",
+                        )}
+                      >
                         {isMember ? <Users className="size-4" /> : <Shapes className="size-4" />}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="truncate font-semibold text-sm text-ink">{item.title}</span>
-                          <span className="text-xs text-mist/70 truncate">{item.subtitle}</span>
+                          <span className="truncate text-sm font-semibold text-ink">
+                            {item.title}
+                          </span>
+                          <span className="truncate text-xs text-mist/70">{item.subtitle}</span>
                         </div>
                       </div>
                     </div>
                     {isSelected && (
-                      <CornerDownLeft className="size-4 shrink-0 text-mist ml-2" aria-hidden="true" />
+                      <CornerDownLeft
+                        className="ml-2 size-4 shrink-0 text-mist"
+                        aria-hidden="true"
+                      />
                     )}
                   </button>
                 );
@@ -175,16 +184,16 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
         <div className="flex items-center justify-between border-t border-line/60 bg-paper/60 px-4 py-2 text-[11px] text-mist/70">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="rounded bg-soft-surface px-1 py-0.2 font-mono">
+              <kbd className="py-0.2 rounded bg-soft-surface px-1 font-mono">
                 <ArrowUp className="inline size-2.5" />
               </kbd>
-              <kbd className="rounded bg-soft-surface px-1 py-0.2 font-mono">
+              <kbd className="py-0.2 rounded bg-soft-surface px-1 font-mono">
                 <ArrowDown className="inline size-2.5" />
               </kbd>
               切换
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="rounded bg-soft-surface px-1 py-0.2 font-mono">↵</kbd>
+              <kbd className="py-0.2 rounded bg-soft-surface px-1 font-mono">↵</kbd>
               直达
             </span>
           </div>

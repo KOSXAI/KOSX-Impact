@@ -28,7 +28,9 @@ export function MotionEnvironmentProvider({ children }: { children: ReactNode })
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  return <MotionEnvContext.Provider value={{ hydrated, reduced }}>{children}</MotionEnvContext.Provider>;
+  return (
+    <MotionEnvContext.Provider value={{ hydrated, reduced }}>{children}</MotionEnvContext.Provider>
+  );
 }
 
 /**
@@ -37,7 +39,9 @@ export function MotionEnvironmentProvider({ children }: { children: ReactNode })
  * 动效 effect 需要用它兜底，避免偏好减弱的用户在首次挂载时被播一次入场动画。
  */
 export function prefersReducedMotionNow(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return (
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
 }
 
 /** 读动效环境：Provider 缺席时取 SSR 安全默认值 */

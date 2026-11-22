@@ -19,7 +19,7 @@ import { SITE_URL } from "./lib/site";
 export function deferCachePut(task: Promise<unknown>): Promise<void> {
   const guarded = task.then(
     () => undefined,
-    (e) => console.error("[cache] 写入边缘缓存失败：", e instanceof Error ? e.message : e)
+    (e) => console.error("[cache] 写入边缘缓存失败：", e instanceof Error ? e.message : e),
   );
   try {
     waitUntil(guarded);
@@ -115,7 +115,7 @@ export async function cachedResponse(
   request: Request,
   ttl: number,
   build: () => Promise<Response>,
-  options?: CachedResponseOptions
+  options?: CachedResponseOptions,
 ): Promise<Response> {
   // DOM lib 的 CacheStorage 与 Workers CacheStorage 同名合并后丢失 default，
   // 此处显式按 Workers 运行时类型取用
@@ -132,7 +132,8 @@ export async function cachedResponse(
     const browserTtl = options?.browserTtl ?? 60;
     const res = new Response(response.body, response);
     res.headers.set("Cache-Control", `public, s-maxage=${ttl}, max-age=${browserTtl}`);
-    if (options?.headers) for (const [k, v] of Object.entries(options.headers)) res.headers.set(k, v);
+    if (options?.headers)
+      for (const [k, v] of Object.entries(options.headers)) res.headers.set(k, v);
     await deferCachePut(cache.put(cacheKey, res.clone()));
     return res;
   }
@@ -159,7 +160,7 @@ export function readCacheBust(env: Env): Promise<number> {
   const now = Date.now();
   if (bustMemo && now - bustMemo.at < CACHE_BUST_MEMO_MS) return bustMemo.value;
   const value = env.DB.prepare(
-    "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
+    "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'",
   )
     .first<{ bust: number | null }>()
     .then((row) => row?.bust ?? 1);
@@ -176,7 +177,12 @@ export function readCacheBust(env: Env): Promise<number> {
  * 查询层便捷封装（queries/ 各模块共用）：cache_bust 拼键 + JSON 序列化进出。
  * 没有独立 API 端点的查询（社群信号 / 内容配方 / 归档等）也走同一套边缘缓存。
  */
-export async function cachedQuery<T>(env: Env, key: string, ttl: number, build: () => Promise<T>): Promise<T> {
+export async function cachedQuery<T>(
+  env: Env,
+  key: string,
+  ttl: number,
+  build: () => Promise<T>,
+): Promise<T> {
   const bust = await readCacheBust(env);
   const url = `${SITE_URL}${assertSafeCacheKey(key)}&cb=${bust}`;
   const cache = (caches as unknown as { default: Cache }).default;
@@ -186,7 +192,10 @@ export async function cachedQuery<T>(env: Env, key: string, ttl: number, build: 
   // 未命中：直接返回刚算好的对象（省掉一轮 stringify→parse），写缓存放到响应之后
   const value = await build();
   const res = new Response(JSON.stringify(value), {
-    headers: { "Content-Type": "application/json", "Cache-Control": `public, s-maxage=${ttl}, max-age=60` },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": `public, s-maxage=${ttl}, max-age=60`,
+    },
   });
   await deferCachePut(cache.put(cacheKey, res));
   return value;

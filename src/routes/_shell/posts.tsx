@@ -1,17 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchInsights, fetchTopPosts, fetchTopPostsAll, fetchCommunitySignals, fetchContentRecipe } from "@/data.functions";
-import type { PostItem } from "@/stats";
-import { engagementRate } from "@/insights";
-import { Avatar } from "@/components/member/Avatar";
-import { InsightsSection } from "@/components/dashboard/InsightsSection";
+import {
+  ExternalLink,
+  Eye,
+  Heart,
+  MessageCircle,
+  Percent,
+  Repeat2,
+  Users,
+  TrendingUp,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { PostBody } from "@/components/content/PostText";
+import { InsightsSection } from "@/components/dashboard/InsightsSection";
+import { PODIUM } from "@/components/leaderboard/podium";
+import { Avatar } from "@/components/member/Avatar";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
+import { Metric } from "@/components/ui/Metric";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Metric } from "@/components/ui/Metric";
-import { PODIUM } from "@/components/leaderboard/podium";
-import { ExternalLink, Eye, Heart, MessageCircle, Percent, Repeat2, Users, TrendingUp } from "lucide-react";
+import {
+  fetchInsights,
+  fetchTopPosts,
+  fetchTopPostsAll,
+  fetchCommunitySignals,
+  fetchContentRecipe,
+} from "@/data.functions";
+import { engagementRate } from "@/insights";
 import { fmt, fmtDate } from "@/lib/format";
 import {
   POST_FILTERS,
@@ -25,18 +39,29 @@ import {
 } from "@/lib/post-filters";
 import { SITE_NAME, SITE_URL, SLOGAN, xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import type { PostItem } from "@/stats";
 
-type PostsSearch = { scope?: "all"; filter?: Exclude<PostFilterKey, "all">; sort?: Exclude<PostSortKey, "views"> };
+type PostsSearch = {
+  scope?: "all";
+  filter?: Exclude<PostFilterKey, "all">;
+  sort?: Exclude<PostSortKey, "views">;
+};
+
+function paramStr(v: unknown): string {
+  return typeof v === "string" ? v : typeof v === "number" ? String(v) : "";
+}
 
 export const Route = createFileRoute("/_shell/posts")({
   // 范围 / 形态 / 排序进 URL（与博主库一致：可分享、刷新不丢）；默认值不写进 URL，裸路径保持 canonical
   validateSearch: (search: Record<string, unknown>): PostsSearch => {
     const out: PostsSearch = {};
     if (search.scope === "all") out.scope = "all";
-    const filter = String(search.filter ?? "");
-    if (filter !== "all" && POST_FILTERS.some((f) => f.key === filter)) out.filter = filter as PostsSearch["filter"];
-    const sort = String(search.sort ?? "");
-    if (sort !== "views" && POST_SORTS.some((x) => x.key === sort)) out.sort = sort as PostsSearch["sort"];
+    const filter = paramStr(search.filter);
+    if (filter !== "all" && POST_FILTERS.some((f) => f.key === filter))
+      out.filter = filter as PostsSearch["filter"];
+    const sort = paramStr(search.sort);
+    if (sort !== "views" && POST_SORTS.some((x) => x.key === sort))
+      out.sort = sort as PostsSearch["sort"];
     return out;
   },
   loader: async () => {
@@ -54,7 +79,10 @@ export const Route = createFileRoute("/_shell/posts")({
   head: () => ({
     meta: [
       { title: `内容 · ${SITE_NAME}` },
-      { name: "description", content: `${SITE_NAME} 社群内容：爆款帖、话题标签、停更检测 + 近 30 天单帖浏览 Top——看看大家都在聊什么、什么内容最受欢迎。` },
+      {
+        name: "description",
+        content: `${SITE_NAME} 社群内容：爆款帖、话题标签、停更检测 + 近 30 天单帖浏览 Top——看看大家都在聊什么、什么内容最受欢迎。`,
+      },
       { property: "og:title", content: `内容 · ${SITE_NAME}` },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
@@ -83,8 +111,8 @@ function PostsPage() {
       search: (prev: PostsSearch) => {
         const next = { ...prev };
         if ("scope" in p) next.scope = p.scope === "all" ? "all" : undefined;
-        if ("filter" in p) next.filter = p.filter === "all" ? undefined : (p.filter as PostsSearch["filter"]);
-        if ("sort" in p) next.sort = p.sort === "views" ? undefined : (p.sort as PostsSearch["sort"]);
+        if ("filter" in p) next.filter = p.filter === "all" ? undefined : p.filter;
+        if ("sort" in p) next.sort = p.sort === "views" ? undefined : p.sort;
         return next;
       },
       replace: true,
@@ -100,22 +128,40 @@ function PostsPage() {
   useEffect(() => {
     if (scope !== "all" || allPosts || loadingAll) return;
     setLoadingAll(true);
-    fetchTopPostsAll()
+    void fetchTopPostsAll()
       .then(setAllPosts)
       .finally(() => setLoadingAll(false));
   }, [scope, allPosts, loadingAll]);
 
   const following = useMemo(
-    () => signals.filter((s) => s.kind === "following").sort((a, b) => b.count - a.count).slice(0, 12),
-    [signals]
+    () =>
+      signals
+        .filter((s) => s.kind === "following")
+        .toSorted((a, b) => b.count - a.count)
+        .slice(0, 12),
+    [signals],
   );
   const taste = useMemo(
-    () => signals.filter((s) => s.kind === "taste").sort((a, b) => b.count - a.count).slice(0, 12),
-    [signals]
+    () =>
+      signals
+        .filter((s) => s.kind === "taste")
+        .toSorted((a, b) => b.count - a.count)
+        .slice(0, 12),
+    [signals],
   );
-  const pool = scope === "30d" ? posts : (allPosts ?? []);
+  const pool = useMemo(
+    () => (scope === "30d" ? posts : (allPosts ?? [])),
+    [scope, posts, allPosts],
+  );
   const counts = useMemo(() => countByPostFilter(pool), [pool]);
-  const visible = useMemo(() => sortPosts(pool.filter((p) => matchesPostFilter(p, filter)), sort), [pool, filter, sort]);
+  const visible = useMemo(
+    () =>
+      sortPosts(
+        pool.filter((p) => matchesPostFilter(p, filter)),
+        sort,
+      ),
+    [pool, filter, sort],
+  );
 
   return (
     <>
@@ -147,10 +193,17 @@ function PostsPage() {
                     <div className="text-sm font-semibold text-mist">社群黄金时段</div>
                     <ul className="mt-3 space-y-2">
                       {recipe.hours.map((h) => (
-                        <li key={h.hour} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2">
-                          <span className="w-14 shrink-0 font-bold tabular-nums">{String(h.hour).padStart(2, "0")}:00</span>
+                        <li
+                          key={h.hour}
+                          className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2"
+                        >
+                          <span className="w-14 shrink-0 font-bold tabular-nums">
+                            {String(h.hour).padStart(2, "0")}:00
+                          </span>
                           <span className="text-xs text-mist tabular-nums">{h.count} 帖</span>
-                          <span className="ml-auto text-sm font-bold text-signal-ink tabular-nums">{fmt(h.avgViews)}</span>
+                          <span className="ml-auto text-sm font-bold text-signal-ink tabular-nums">
+                            {fmt(h.avgViews)}
+                          </span>
                           <span className="text-xs text-mist">平均曝光</span>
                         </li>
                       ))}
@@ -162,13 +215,20 @@ function PostsPage() {
                     <div className="text-sm font-semibold text-mist">什么形态最吃香</div>
                     <ul className="mt-3 space-y-2">
                       {recipe.forms.map((f) => (
-                        <li key={f.label} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2">
+                        <li
+                          key={f.label}
+                          className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2"
+                        >
                           <span className="w-16 shrink-0 font-bold">{f.label}</span>
                           <span className="text-xs text-mist tabular-nums">{f.count} 帖</span>
-                          <span className="ml-auto text-sm font-bold tabular-nums">{fmt(f.avgViews)}</span>
+                          <span className="ml-auto text-sm font-bold tabular-nums">
+                            {fmt(f.avgViews)}
+                          </span>
                           <span className="text-xs text-mist">平均曝光</span>
                           <span className="w-14 shrink-0 text-right text-xs font-semibold text-signal-ink tabular-nums">
-                            {f.engagementRate != null ? `${(f.engagementRate * 100).toFixed(1)}%` : "—"}
+                            {f.engagementRate != null
+                              ? `${(f.engagementRate * 100).toFixed(1)}%`
+                              : "—"}
                           </span>
                           <span className="text-xs text-mist">互动率</span>
                         </li>
@@ -196,10 +256,19 @@ function PostsPage() {
                     <ul className="mt-3 space-y-2">
                       {following.map((s) => (
                         <li key={s.handle}>
-                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl bg-soft-surface px-3 py-2 transition-colors hover:bg-wash-strong">
-                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.name ?? `@${s.handle}`}</span>
+                          <a
+                            href={xProfileUrl(s.handle)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 rounded-xl bg-soft-surface px-3 py-2 transition-colors hover:bg-wash-strong"
+                          >
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                              {s.name ?? `@${s.handle}`}
+                            </span>
                             <span className="truncate text-xs text-mist">@{s.handle}</span>
-                            <b className="shrink-0 text-xs text-signal-ink tabular-nums">{s.count} 人</b>
+                            <b className="shrink-0 text-xs text-signal-ink tabular-nums">
+                              {s.count} 人
+                            </b>
                           </a>
                         </li>
                       ))}
@@ -215,9 +284,18 @@ function PostsPage() {
                     <ul className="mt-3 space-y-2">
                       {taste.map((s) => (
                         <li key={s.handle}>
-                          <a href={xProfileUrl(s.handle)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl bg-soft-surface px-3 py-2 transition-colors hover:bg-wash-strong">
-                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">@{s.handle}</span>
-                            <b className="shrink-0 text-xs text-signal-ink tabular-nums">被提 {s.count} 次</b>
+                          <a
+                            href={xProfileUrl(s.handle)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 rounded-xl bg-soft-surface px-3 py-2 transition-colors hover:bg-wash-strong"
+                          >
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                              @{s.handle}
+                            </span>
+                            <b className="shrink-0 text-xs text-signal-ink tabular-nums">
+                              被提 {s.count} 次
+                            </b>
                           </a>
                         </li>
                       ))}
@@ -261,16 +339,33 @@ function PostsPage() {
                       onClick={() => setFilter(f.key)}
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors",
-                        active ? "bg-primary text-primary-foreground" : "bg-soft-surface text-mist hover:text-ink"
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-soft-surface text-mist hover:text-ink",
                       )}
                     >
                       {f.label}
-                      <b className={cn("text-xs tabular-nums", active ? "opacity-90" : "opacity-70")}>{n}</b>
+                      <b
+                        className={cn("text-xs tabular-nums", active ? "opacity-90" : "opacity-70")}
+                      >
+                        {n}
+                      </b>
                     </button>
                   );
                 })}
-                <span title={sort === "rate" ? `互动率仅统计浏览 ≥ ${RATE_MIN_VIEWS} 的帖子` : undefined} className="ml-auto">
-                  <SegmentedControl value={sort} onChange={setSort} options={POST_SORTS} size="sm" ariaLabel="精华帖排序" />
+                <span
+                  title={
+                    sort === "rate" ? `互动率仅统计浏览 ≥ ${RATE_MIN_VIEWS} 的帖子` : undefined
+                  }
+                  className="ml-auto"
+                >
+                  <SegmentedControl
+                    value={sort}
+                    onChange={setSort}
+                    options={POST_SORTS}
+                    size="sm"
+                    ariaLabel="精华帖排序"
+                  />
                 </span>
               </div>
             )}
@@ -293,7 +388,8 @@ function PostsPage() {
 }
 
 function PostList({ posts, showRate = false }: { posts: PostItem[]; showRate?: boolean }) {
-  if (posts.length === 0) return <p className="mt-5 text-mist">这个筛选下暂无帖子，换个形态或切回全部。</p>;
+  if (posts.length === 0)
+    return <p className="mt-5 text-mist">这个筛选下暂无帖子，换个形态或切回全部。</p>;
   return (
     <div className="mt-5 space-y-3">
       {/* 错峰入场用 RevealGroup/RevealItem：逐个 <Reveal> 会让每行各建一个
@@ -308,58 +404,74 @@ function PostList({ posts, showRate = false }: { posts: PostItem[]; showRate?: b
               <article
                 className={cn(
                   "p-4 sm:p-5",
-                  podium ? `card-lift rounded-2xl bg-surface ${podium.ring}` : "panel-card"
+                  podium ? `card-lift rounded-2xl bg-surface ${podium.ring}` : "panel-card",
                 )}
               >
-              <div className="flex items-start gap-3">
-                <div
-                  className={cn(
-                    "w-7 shrink-0 text-center font-extrabold tabular-nums",
-                    podium ? "bg-gradient-to-br bg-clip-text text-transparent" : "text-mist",
-                    podium?.rankNum
-                  )}
-                >
-                  {i + 1}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <Link
-                      to="/members/$id"
-                      params={{ id: p.member?.id ?? "" }}
-                      className="flex items-center gap-2 font-semibold underline-offset-4 hover:underline"
-                    >
-                      <Avatar url={p.member?.profileImage ?? null} name={name} className="size-6" />
-                      {name}
-                    </Link>
-                    <span className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</span>
-                    <a
-                      href={p.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-mist underline-offset-4 hover:text-signal-ink hover:underline"
-                    >
-                      X 原文
-                      <ExternalLink className="size-3" />
-                    </a>
+                <div className="flex items-start gap-3">
+                  <div
+                    className={cn(
+                      "w-7 shrink-0 text-center font-extrabold tabular-nums",
+                      podium ? "bg-gradient-to-br bg-clip-text text-transparent" : "text-mist",
+                      podium?.rankNum,
+                    )}
+                  >
+                    {i + 1}
                   </div>
-                  <PostBody post={p} className="mt-2" />
-                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
-                    <Metric icon={<Eye className="size-3.5" />} value={p.views} label="浏览" />
-                    <Metric icon={<Heart className="size-3.5" />} value={p.likes} label="点赞" />
-                    <Metric icon={<MessageCircle className="size-3.5" />} value={p.replies} label="评论" />
-                    <Metric icon={<Repeat2 className="size-3.5" />} value={p.retweets} label="转推" />
-                    {/* 互动率排序时逐帖亮出比率，排序才可验证 */}
-                    {showRate && (() => {
-                      const r = engagementRate(p);
-                      return r == null ? null : (
-                        <span className="inline-flex items-center gap-1 font-semibold text-signal-ink" title="互动率">
-                          <Percent className="size-3.5" aria-hidden="true" />
-                          <span className="tabular-nums">{(r * 100).toFixed(1)}%</span>
-                          <span className="sr-only">互动率</span>
-                        </span>
-                      );
-                    })()}
-                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <Link
+                        to="/members/$id"
+                        params={{ id: p.member?.id ?? "" }}
+                        className="flex items-center gap-2 font-semibold underline-offset-4 hover:underline"
+                      >
+                        <Avatar
+                          url={p.member?.profileImage ?? null}
+                          name={name}
+                          className="size-6"
+                        />
+                        {name}
+                      </Link>
+                      <span className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</span>
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-mist underline-offset-4 hover:text-signal-ink hover:underline"
+                      >
+                        X 原文
+                        <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+                    <PostBody post={p} className="mt-2" />
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+                      <Metric icon={<Eye className="size-3.5" />} value={p.views} label="浏览" />
+                      <Metric icon={<Heart className="size-3.5" />} value={p.likes} label="点赞" />
+                      <Metric
+                        icon={<MessageCircle className="size-3.5" />}
+                        value={p.replies}
+                        label="评论"
+                      />
+                      <Metric
+                        icon={<Repeat2 className="size-3.5" />}
+                        value={p.retweets}
+                        label="转推"
+                      />
+                      {/* 互动率排序时逐帖亮出比率，排序才可验证 */}
+                      {showRate &&
+                        (() => {
+                          const r = engagementRate(p);
+                          return r == null ? null : (
+                            <span
+                              className="inline-flex items-center gap-1 font-semibold text-signal-ink"
+                              title="互动率"
+                            >
+                              <Percent className="size-3.5" aria-hidden="true" />
+                              <span className="tabular-nums">{(r * 100).toFixed(1)}%</span>
+                              <span className="sr-only">互动率</span>
+                            </span>
+                          );
+                        })()}
+                    </div>
                   </div>
                 </div>
               </article>

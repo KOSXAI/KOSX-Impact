@@ -36,7 +36,7 @@ export function postExcerpt(text: string | null | undefined, max = 34): string |
  */
 export function parsePostContent(
   raw: string | null | undefined,
-  exclude: string[] = []
+  exclude: string[] = [],
 ): { text: string | null; links: string[] } {
   if (!raw) return { text: null, links: [] };
   const links: string[] = [];
@@ -55,9 +55,10 @@ export function parsePostContent(
   return { text: text || null, links };
 }
 
+const short = (v: number): string =>
+  Number.isInteger(v) ? String(v) : v.toFixed(1).replace(/\.0$/, "");
+
 export function badge(threshold: number): string {
-  const short = (v: number): string =>
-    Number.isInteger(v) ? String(v) : v.toFixed(1).replace(/\.0$/, "");
   if (threshold >= 100_000_000) return `${short(threshold / 100_000_000)}亿`;
   if (threshold >= 10000) return `${short(threshold / 10000)}万`;
   if (threshold >= 1000) return `${short(threshold / 1000)}千`;

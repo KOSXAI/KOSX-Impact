@@ -1,10 +1,16 @@
-import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  VIEW_PRESETS,
+  type LibrarySearch,
+  type ViewKey,
+  type MetricCtx,
+  type MetricValue,
+} from "@/components/library/presets";
 import { Avatar } from "@/components/member/Avatar";
-import { VIEW_PRESETS, type LibrarySearch, type ViewKey, type MetricCtx, type MetricValue } from "@/components/library/presets";
 import { fmt, postExcerpt, signed } from "@/lib/format";
-import { groupClimbs, titleOf } from "@/milestones";
 import { cn } from "@/lib/utils";
+import { groupClimbs, titleOf } from "@/milestones";
 import type { DashboardStats, MemberStats, PostItem } from "@/stats";
 
 /**
@@ -43,12 +49,24 @@ const VIEW_ORDER: ViewKey[] = [
 function RankDelta({ delta }: { delta: number | null }) {
   if (delta == null || delta === 0) return null;
   if (delta > 0) {
-    return <span className="shrink-0 text-[11px] font-bold text-delta-up tabular-nums">↑{delta}</span>;
+    return (
+      <span className="shrink-0 text-[11px] font-bold text-delta-up tabular-nums">↑{delta}</span>
+    );
   }
-  return <span className="shrink-0 text-[11px] font-bold text-delta-down tabular-nums">↓{Math.abs(delta)}</span>;
+  return (
+    <span className="shrink-0 text-[11px] font-bold text-delta-down tabular-nums">
+      ↓{Math.abs(delta)}
+    </span>
+  );
 }
 
-function WindowShell({ title, hint, to, search, children }: {
+function WindowShell({
+  title,
+  hint,
+  to,
+  search,
+  children,
+}: {
   title: string;
   hint?: string;
   to: string;
@@ -56,12 +74,16 @@ function WindowShell({ title, hint, to, search, children }: {
   children: ReactNode;
 }) {
   return (
-    <section className="panel-card flex flex-col p-4 sm:p-5">
+    <section className="flex flex-col panel-card p-4 sm:p-5">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-mist" title={hint}>
           {title}
         </h3>
-        <Link to={to} search={search} className="shrink-0 text-xs font-semibold text-signal underline-offset-4 hover:underline">
+        <Link
+          to={to}
+          search={search}
+          className="shrink-0 text-xs font-semibold text-signal underline-offset-4 hover:underline"
+        >
           完整榜 ›
         </Link>
       </div>
@@ -70,7 +92,12 @@ function WindowShell({ title, hint, to, search, children }: {
   );
 }
 
-function MemberRow({ rank, m, metric, delta }: {
+function MemberRow({
+  rank,
+  m,
+  metric,
+  delta,
+}: {
   rank: number;
   m: MemberStats;
   metric: MetricValue | null;
@@ -81,7 +108,7 @@ function MemberRow({ rank, m, metric, delta }: {
     <Link
       to="/members/$id"
       params={{ id: m.id }}
-      className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
+      className="flex min-h-10 flex-1 items-center gap-2 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
     >
       <span className="w-4 shrink-0 text-right text-xs text-mist tabular-nums">{rank}</span>
       <Avatar url={m.profileImage} name={name} className="size-6 shrink-0" />
@@ -89,7 +116,13 @@ function MemberRow({ rank, m, metric, delta }: {
       {metric?.tone !== "signal" && delta != null && delta !== 0 && <RankDelta delta={delta} />}
       {metric && (
         <span className="shrink-0 text-right">
-          <span className={metric.tone === "signal" ? "text-sm font-bold text-signal tabular-nums" : "text-sm font-bold tabular-nums"}>
+          <span
+            className={
+              metric.tone === "signal"
+                ? "text-sm font-bold text-signal tabular-nums"
+                : "text-sm font-bold tabular-nums"
+            }
+          >
             {metric.value}
           </span>
         </span>
@@ -99,16 +132,29 @@ function MemberRow({ rank, m, metric, delta }: {
 }
 
 function PostRow({ p }: { p: PostItem }) {
-  const value = (p.viewsGain ?? 0) > 0 && p.views != null ? `${fmt(p.views)} · +${fmt(p.viewsGain!)}` : p.views != null ? fmt(p.views) : `${fmt(p.likes ?? 0)} 赞`;
+  const value =
+    (p.viewsGain ?? 0) > 0 && p.views != null
+      ? `${fmt(p.views)} · +${fmt(p.viewsGain!)}`
+      : p.views != null
+        ? fmt(p.views)
+        : `${fmt(p.likes ?? 0)} 赞`;
   return (
     <a
       href={p.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
+      className="flex min-h-10 flex-1 items-center gap-2 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
     >
-      {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-6 shrink-0" />}
-      <span className="min-w-0 flex-1 truncate text-xs text-mist">{postExcerpt(p.text) ?? "链接帖"}</span>
+      {p.member && (
+        <Avatar
+          url={p.member.profileImage}
+          name={p.member.displayName ?? p.member.handle}
+          className="size-6 shrink-0"
+        />
+      )}
+      <span className="min-w-0 flex-1 truncate text-xs text-mist">
+        {postExcerpt(p.text) ?? "链接帖"}
+      </span>
       <span className="shrink-0 text-xs font-bold text-mist tabular-nums">{value}</span>
     </a>
   );
@@ -125,11 +171,11 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
         const preset = VIEW_PRESETS[k];
         const rows = [...stats.members]
           .filter((m) => (preset.filter ? preset.filter(m) : true))
-          .sort(preset.sort ? (a, b) => preset.sort!(a, b, LIB_CTX) : () => 0)
+          .toSorted(preset.sort ? (a, b) => preset.sort!(a, b, LIB_CTX) : () => 0)
           .slice(0, 5);
         return { key: k, preset, rows };
       }),
-    [stats.members]
+    [stats.members],
   );
   const active = memberViews.find((v) => v.key === activeView) ?? memberViews[0];
 
@@ -138,25 +184,33 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
     () =>
       stats.trackStats
         .filter((t) => t.memberCount > 0 && t.name !== "综合")
-        .sort((a, b) => b.totalFollowers - a.totalFollowers),
-    [stats.trackStats]
+        .toSorted((a, b) => b.totalFollowers - a.totalFollowers),
+    [stats.trackStats],
   );
 
   // 登阶记录窗格：最近登阶事件流（同人多篇合并）
-  const climbGroups = useMemo(() => groupClimbs(stats.recentMilestones).slice(0, 5), [stats.recentMilestones]);
+  const climbGroups = useMemo(
+    () => groupClimbs(stats.recentMilestones).slice(0, 5),
+    [stats.recentMilestones],
+  );
   const memberById = useMemo(() => new Map(stats.members.map((m) => [m.id, m])), [stats.members]);
 
   // 内容热点窗格：今日爆帖优先（正在发生），无增量数据回退累计浏览
   const hotPosts = useMemo(
     () => (stats.trendingPosts?.length ? stats.trendingPosts : stats.topPosts).slice(0, 5),
-    [stats.trendingPosts, stats.topPosts]
+    [stats.trendingPosts, stats.topPosts],
   );
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {/* 成员榜单：tab 切换七个视图 */}
-      <WindowShell title="成员榜单" to="/members" search={VIEW_LINK[active.key]} hint="七个榜单视角，切到哪个看哪个">
-      <div className="flex flex-wrap gap-1.5">
+      <WindowShell
+        title="成员榜单"
+        to="/members"
+        search={VIEW_LINK[active.key]}
+        hint="七个榜单视角，切到哪个看哪个"
+      >
+        <div className="flex flex-wrap gap-1.5">
           {memberViews.map(({ key, preset }) => (
             <button
               key={key}
@@ -165,8 +219,10 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               aria-pressed={key === active.key}
               className={cn(
                 // h-8=32px 点击高度；可见焦点环用 ring 代替全局 outline（与 SegmentedControl 一致）
-                "h-8 cursor-pointer rounded-full px-3 text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60",
-                key === active.key ? "bg-primary text-primary-foreground" : "bg-soft-surface text-mist hover:text-ink"
+                "h-8 cursor-pointer rounded-full px-3 text-xs font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                key === active.key
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-soft-surface text-mist hover:text-ink",
               )}
             >
               {preset.label}
@@ -198,12 +254,18 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               key={t.name}
               to="/members"
               search={{ view: "track", track: t.name }}
-              className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
+              className="flex min-h-10 flex-1 items-center gap-2 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
             >
               <span className="text-sm font-semibold">{t.name}</span>
-              <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">{t.memberCount} 人</span>
-              <span className="shrink-0 text-xs font-bold text-mist tabular-nums">{fmt(t.totalFollowers)}</span>
-              <span className="shrink-0 text-xs font-bold text-signal tabular-nums">{signed(t.growth30dTotal)}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">
+                {t.memberCount} 人
+              </span>
+              <span className="shrink-0 text-xs font-bold text-mist tabular-nums">
+                {fmt(t.totalFollowers)}
+              </span>
+              <span className="shrink-0 text-xs font-bold text-signal tabular-nums">
+                {signed(t.growth30dTotal)}
+              </span>
             </Link>
           ))
         ) : (
@@ -219,11 +281,19 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               key={g.key}
               to="/members/$id"
               params={{ id: g.memberId }}
-              className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
+              className="flex min-h-10 flex-1 items-center gap-2 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
             >
-              <Avatar url={memberById.get(g.memberId)?.profileImage} name={g.items[0].displayName ?? g.items[0].handle} className="size-6 shrink-0" />
-              <span className="min-w-0 flex-1 truncate text-sm">{g.items[0].displayName ?? g.items[0].handle}</span>
-              <span className="shrink-0 truncate text-xs font-bold text-gold-text">「{titleOf(g.items[0].threshold)}」</span>
+              <Avatar
+                url={memberById.get(g.memberId)?.profileImage}
+                name={g.items[0].displayName ?? g.items[0].handle}
+                className="size-6 shrink-0"
+              />
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {g.items[0].displayName ?? g.items[0].handle}
+              </span>
+              <span className="shrink-0 truncate text-xs font-bold text-gold-text">
+                「{titleOf(g.items[0].threshold)}」
+              </span>
             </Link>
           ))
         ) : (
@@ -248,10 +318,12 @@ export function WindowGrid({ stats }: { stats: DashboardStats }) {
               key={t.tag}
               to="/members"
               search={{ tag: t.tag }}
-              className="flex items-center gap-2 min-h-10 flex-1 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
+              className="flex min-h-10 flex-1 items-center gap-2 rounded-xl bg-soft-surface px-3 py-1.5 transition-colors hover:bg-wash-strong"
             >
               <span className="shrink-0 text-sm font-semibold text-ink">{t.tag}</span>
-              <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">{t.memberCount} 人在做</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-mist tabular-nums">
+                {t.memberCount} 人在做
+              </span>
               <span className="shrink-0 text-right text-xs tabular-nums">
                 <span className="block font-bold text-mist">{fmt(t.views30d)}</span>
                 <span className="block text-signal">{signed(t.growth30d)}</span>

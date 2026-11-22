@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  countByPostFilter,
-  matchesPostFilter,
-  sortPosts,
-  type PostFilterKey,
-} from "../src/lib/post-filters";
+import { countByPostFilter, matchesPostFilter, sortPosts } from "../src/lib/post-filters";
 import type { PostItem } from "../src/stats";
 
 /** 最小可用 PostItem（只带筛选/排序要读的字段） */
@@ -26,8 +21,16 @@ function post(over: Partial<PostItem> & { tweetId: string }): PostItem {
 describe("matchesPostFilter", () => {
   const original = post({ tweetId: "1", tweetType: "tweet" });
   const quote = post({ tweetId: "2", tweetType: "quote" });
-  const photoPost = post({ tweetId: "3", tweetType: "tweet", media: [{ kind: "photo", url: "u" }] });
-  const videoPost = post({ tweetId: "4", tweetType: "tweet", media: [{ kind: "video", url: "u" }] });
+  const photoPost = post({
+    tweetId: "3",
+    tweetType: "tweet",
+    media: [{ kind: "photo", url: "u" }],
+  });
+  const videoPost = post({
+    tweetId: "4",
+    tweetType: "tweet",
+    media: [{ kind: "video", url: "u" }],
+  });
   const unenriched = post({ tweetId: "5", tweetType: null, media: null });
 
   it("原创：只认 tweet_type=tweet，未补齐字段的行不归入", () => {
@@ -68,13 +71,20 @@ describe("countByPostFilter", () => {
 
 describe("sortPosts", () => {
   it("浏览排序保持服务端顺序（服务端带 NULL 互动兜底，客户端不可重排）", () => {
-    const pool = [post({ tweetId: "a", views: 5, likes: 999 }), post({ tweetId: "b", views: 100, likes: 1 })];
+    const pool = [
+      post({ tweetId: "a", views: 5, likes: 999 }),
+      post({ tweetId: "b", views: 100, likes: 1 }),
+    ];
     expect(sortPosts(pool, "views")).toBe(pool);
   });
   it("点赞排序按 likes 降序，缺失视为 0", () => {
     const sorted = sortPosts(
-      [post({ tweetId: "a", likes: 3 }), post({ tweetId: "b", likes: 100 }), post({ tweetId: "c" })],
-      "likes"
+      [
+        post({ tweetId: "a", likes: 3 }),
+        post({ tweetId: "b", likes: 100 }),
+        post({ tweetId: "c" }),
+      ],
+      "likes",
     );
     expect(sorted.map((p) => p.tweetId)).toEqual(["b", "a", "c"]);
   });

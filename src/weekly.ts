@@ -1,3 +1,5 @@
+import { detectInactive, detectViral, medianEngagement } from "./insights";
+import { titleOf } from "./milestones";
 /**
  * 成员内容周报（动态计算，不落存储表）：近 7 天滚动窗口数据合成，
  * 与全站 7 天口径一致（数据每天一采，窗口终点 = 最近一次快照）。
@@ -5,8 +7,6 @@
  */
 import type { PostItem, WeeklyReport } from "./stats";
 import type { MemberStats } from "./stats";
-import { titleOf } from "./milestones";
-import { detectInactive, detectViral, medianEngagement } from "./insights";
 
 /** 帖子行（queries 层 posts30d 结构：PostMetric + 展示所需字段） */
 export type ReportPost = Parameters<typeof medianEngagement>[0][number] & {
@@ -38,6 +38,9 @@ const toPostItem = (p: ReportPost, handle: string): PostItem => ({
   url: `https://x.com/${encodeURIComponent(handle)}/status/${p.tweetId}`,
 });
 
+const viewKey = (p: ReportPost) =>
+  p.views ?? (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0) + (p.quotes ?? 0);
+
 export function computeWeeklyReport(input: WeeklyReportInput): WeeklyReport {
   const { member, snapshots, milestones, posts30d, handle, tracks, tags, now } = input;
   const latest = snapshots[snapshots.length - 1] ?? null;
@@ -51,12 +54,13 @@ export function computeWeeklyReport(input: WeeklyReportInput): WeeklyReport {
   const followersStart = latest ? (firstInWindow?.followers ?? snapshots[0]?.followers ?? 0) : 0;
   const followersEnd = latest?.followers ?? 0;
   const growth = followersEnd - followersStart;
-  const growthPct = growth === 0 ? 0 : followersStart > 0 ? growth / Math.max(followersStart, 100) : null;
+  const growthPct =
+    growth === 0 ? 0 : followersStart > 0 ? growth / Math.max(followersStart, 100) : null;
 
   // 窗口内登阶（最近一条）
   const windowStartMs = Date.parse(windowStart);
   let milestoneAchieved: WeeklyReport["milestoneAchieved"] = null;
-  for (const ms of [...milestones].sort((a, b) => b.achievedAt.localeCompare(a.achievedAt))) {
+  for (const ms of [...milestones].toSorted((a, b) => b.achievedAt.localeCompare(a.achievedAt))) {
     if (Date.parse(ms.achievedAt) >= windowStartMs) {
       milestoneAchieved = ms;
       break;
@@ -65,9 +69,7 @@ export function computeWeeklyReport(input: WeeklyReportInput): WeeklyReport {
 
   // 窗口内帖子（created_at >= windowStart；posts30d 已是近 30 天窗口）
   const inWindow = posts30d.filter((p) => p.createdAt >= windowStart);
-  const viewKey = (p: ReportPost) =>
-    p.views ?? (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0) + (p.quotes ?? 0);
-  const topPosts = [...inWindow].sort((a, b) => viewKey(b) - viewKey(a)).slice(0, 3);
+  const topPosts = [...inWindow].toSorted((a, b) => viewKey(b) - viewKey(a)).slice(0, 3);
 
   const inactive = detectInactive(posts30d, now);
 

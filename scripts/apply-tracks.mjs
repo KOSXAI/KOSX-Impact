@@ -17,7 +17,10 @@ import { fileURLToPath } from "node:url";
 import { WRANGLER_BIN } from "./_lib.mjs";
 
 // 从 src/tracks.ts 提取全部赛道名（name: "X" 字段）：TRACKS 正式赛道 + TRACK_OTHER 综合
-const tracksSrc = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "..", "src", "tracks.ts"), "utf-8");
+const tracksSrc = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "..", "src", "tracks.ts"),
+  "utf-8",
+);
 const TRACK_WHITELIST = [...tracksSrc.matchAll(/name: "([^"]+)"/g)].map((m) => m[1]);
 if (TRACK_WHITELIST.length < 2) {
   console.error(`从 src/tracks.ts 提取赛道名失败（仅得 ${TRACK_WHITELIST.length} 个），拒绝校验`);
@@ -44,9 +47,13 @@ function runSql(stmt) {
   const file = "/tmp/apply-tracks.sql";
   writeFileSync(file, stmt + ";\n");
   return JSON.parse(
-    execFileSync(WRANGLER_BIN, ["d1", "execute", "kosx-impact", "--remote", "--json", "--file", file], {
-      encoding: "utf-8",
-    })
+    execFileSync(
+      WRANGLER_BIN,
+      ["d1", "execute", "kosx-impact", "--remote", "--json", "--file", file],
+      {
+        encoding: "utf-8",
+      },
+    ),
   );
 }
 
@@ -92,8 +99,8 @@ for (const m of members) {
   const finalTags = clear ? [] : [...new Set(tags)];
   const res = runSql(
     `UPDATE members SET tracks = ${sql(JSON.stringify(finalTracks))}, tags = ${sql(
-      JSON.stringify(finalTags)
-    )}, updated_at = datetime('now') WHERE handle = ${sql(handle)} AND status = 'active'`
+      JSON.stringify(finalTags),
+    )}, updated_at = datetime('now') WHERE handle = ${sql(handle)} AND status = 'active'`,
   );
   const changed = res?.[0]?.meta?.changes ?? 0;
   if (changed === 0) {
@@ -104,14 +111,16 @@ for (const m of members) {
   if (typeof confidence === "number" && confidence < LOW_CONFIDENCE) {
     lowConf.push(`@${handle} (${confidence})`);
   }
-  console.log(`✓ @${handle} -> ${finalTracks.length ? finalTracks.join("/") : "(清空)"} · ${finalTags.length} 标签${confidence != null ? ` · conf=${confidence}` : ""}`);
+  console.log(
+    `✓ @${handle} -> ${finalTracks.length ? finalTracks.join("/") : "(清空)"} · ${finalTags.length} 标签${confidence != null ? ` · conf=${confidence}` : ""}`,
+  );
 }
 
 // 有写入成功才 bump cache_bust（读端点缓存键换新，各数据中心立即可见）
 if (ok > 0) {
   runSql(
     `INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
-     ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`
+     ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`,
   );
   console.log(`\n已写库 ${ok} 位，cache_bust +1`);
 }
@@ -128,5 +137,7 @@ if (lowConf.length) {
   console.log(`\n⚠ 低置信度 ${lowConf.length} 条（已写库，建议人工复查）：`);
   for (const l of lowConf) console.log("  " + l);
 }
-console.log(`\n完成：写库 ${ok}，拒绝 ${rejected.length}，未匹配 ${notFound.length}，低置信 ${lowConf.length}`);
+console.log(
+  `\n完成：写库 ${ok}，拒绝 ${rejected.length}，未匹配 ${notFound.length}，低置信 ${lowConf.length}`,
+);
 if (rejected.length || notFound.length) process.exitCode = 1;

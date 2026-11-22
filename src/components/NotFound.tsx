@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import { Link } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 /**
  * 全站 404 兜底卡：统一视觉（与错误页同款 padding 节奏），带返回链接。
@@ -11,7 +11,7 @@ export function NotFound({ title, description }: { title: string; description?: 
   }, [title]);
 
   return (
-    <main className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16 text-center">
+    <main className="mx-auto max-w-4xl px-[clamp(18px,2.2vw,34px)] py-12 text-center sm:py-16">
       <h1 className="text-3xl font-bold">{title}</h1>
       {description && <p className="mt-3 text-mist">{description}</p>}
       <div className="mt-6 flex justify-center gap-3">

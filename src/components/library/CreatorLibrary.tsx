@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import type { DashboardStats, MemberStats } from "@/stats";
-import { TRACKS, TRACK_OTHER } from "@/tracks";
-import { MiniMemberCard } from "@/components/member/MiniMemberCard";
-import { TRACK_ICONS } from "@/components/member/TrackChip";
-import { MemberRow } from "@/components/library/MemberRow";
+import { Columns2, Filter, Flag, LayoutGrid, Rows3, Shapes, Star } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ClimbsList } from "@/components/leaderboard/ClimbsList";
 import { LibraryFilterDialog } from "@/components/library/LibraryFilterDialog";
+import { MemberRow } from "@/components/library/MemberRow";
 import {
   BUCKET_MATCH,
   VIEW_PRESETS,
@@ -16,22 +14,16 @@ import {
   type TrackSortKey,
   type ViewKey,
 } from "@/components/library/presets";
-import { ClimbsList } from "@/components/leaderboard/ClimbsList";
-import { TEN_K, titleOf } from "@/milestones";
+import { MiniMemberCard } from "@/components/member/MiniMemberCard";
+import { TRACK_ICONS } from "@/components/member/TrackChip";
 import { Reveal } from "@/components/motion";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import {
-  Columns2,
-  Filter,
-  Flag,
-  LayoutGrid,
-  Rows3,
-  Shapes,
-  Star,
-} from "lucide-react";
+import { useFavorites } from "@/lib/favorites";
 import { badge, fmt, signed } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useFavorites } from "@/lib/favorites";
+import { TEN_K, titleOf } from "@/milestones";
+import type { DashboardStats, MemberStats } from "@/stats";
+import { TRACKS, TRACK_OTHER } from "@/tracks";
 
 /** 布局密度三态：单列行卡 / 双列卡片 / 卡片网格（多维表格的行高/画册思路），存 localStorage 记住偏好 */
 const LAYOUTS = [
@@ -41,9 +33,6 @@ const LAYOUTS = [
 ] as const;
 type LayoutKey = (typeof LAYOUTS)[number]["key"];
 const LAYOUT_STORE_KEY = "kosx:libLayout";
-
-/** 标签 chips 默认展示条数，其余折进「+N」 */
-const TAG_PREVIEW = 8;
 
 export function CreatorLibrary({
   stats,
@@ -80,9 +69,7 @@ export function CreatorLibrary({
   const [layout, setLayout] = useState<LayoutKey>(() => {
     try {
       const raw =
-        typeof localStorage !== "undefined"
-          ? localStorage.getItem(LAYOUT_STORE_KEY)
-          : null;
+        typeof localStorage !== "undefined" ? localStorage.getItem(LAYOUT_STORE_KEY) : null;
       return raw === "duo" || raw === "cards" ? raw : "rows";
     } catch {
       return "rows";
@@ -99,27 +86,23 @@ export function CreatorLibrary({
   // 筛选选项的计数（从全体成员聚合，随筛选状态不重置）
   const tagCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const m of stats.members)
-      for (const t of m.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+    for (const m of stats.members) for (const t of m.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
     return [...counts.entries()]
       .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+      .toSorted((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
       .slice(0, 15);
   }, [stats.members]);
   const trackCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const m of stats.members)
-      for (const t of m.tracks) counts[t] = (counts[t] ?? 0) + 1;
+    for (const m of stats.members) for (const t of m.tracks) counts[t] = (counts[t] ?? 0) + 1;
     return counts;
   }, [stats.members]);
   const favorites = useFavorites();
-  const hasFilter =
-    selTracks.length > 0 || selTags.length > 0 || bucket !== "all" || favOnly;
+  const hasFilter = selTracks.length > 0 || selTags.length > 0 || bucket !== "all" || favOnly;
   const reset = () =>
     onPatch({ track: undefined, tag: undefined, bucket: undefined, fav: undefined });
   // 筛选入口徽章：已生效的筛选条件数
-  const appliedCount =
-    selTracks.length + selTags.length + (bucket !== "all" ? 1 : 0);
+  const appliedCount = selTracks.length + selTags.length + (bucket !== "all" ? 1 : 0);
 
   // 筛选弹窗：草稿态与标签搜索都收在 LibraryFilterDialog 内部（见该文件），
   // 这里只留「开/关」；这样弹窗里每敲一个字符不会连带重渲整个列表
@@ -127,41 +110,32 @@ export function CreatorLibrary({
 
   // 视图口径过滤 → 用户筛选 → 排序
   const base = useMemo(() => {
-    let list = preset.filter
-      ? stats.members.filter(preset.filter)
-      : stats.members;
+    let list = preset.filter ? stats.members.filter(preset.filter) : stats.members;
     if (selTracks.length > 0)
       list = list.filter((m) => selTracks.some((t) => m.tracks.includes(t)));
-    if (selTags.length > 0)
-      list = list.filter((m) => selTags.some((t) => m.tags.includes(t)));
-    if (bucket !== "all")
-      list = list.filter((m) => BUCKET_MATCH[bucket](m.latestFollowers ?? 0));
+    if (selTags.length > 0) list = list.filter((m) => selTags.some((t) => m.tags.includes(t)));
+    if (bucket !== "all") list = list.filter((m) => BUCKET_MATCH[bucket](m.latestFollowers ?? 0));
     if (favOnly) list = list.filter((m) => favorites.includes(m.id));
     return list;
   }, [preset, stats.members, selTracks, selTags, bucket, favOnly, favorites]);
   const sorted = useMemo(
-    () =>
-      preset.sort ? [...base].sort((a, b) => preset.sort!(a, b, ctx)) : base,
+    () => (preset.sort ? [...base].toSorted((a, b) => preset.sort!(a, b, ctx)) : base),
     [preset, base, ctx],
   );
 
   /** 行卡流（名次/渐晕/指标跟随当前视图）；rankOffset：赛段分组时保持全站名次 */
-  const renderRows = (list: MemberStats[], showTracks = true) => (
-    <ol className="space-y-3">
-      {list.map((m, i) => (
-        <li key={m.id}>
-          <MemberRow
-            m={m}
-            rank={i + 1}
-            metric={preset.metric(m, ctx)}
-            showTracks={showTracks}
-          />
-        </li>
-      ))}
-      {list.length === 0 && (
-        <li className="text-sm text-mist">{preset.empty}</li>
-      )}
-    </ol>
+  const renderRows = useCallback(
+    (list: MemberStats[], showTracks = true) => (
+      <ol className="space-y-3">
+        {list.map((m, i) => (
+          <li key={m.id}>
+            <MemberRow m={m} rank={i + 1} metric={preset.metric(m, ctx)} showTracks={showTracks} />
+          </li>
+        ))}
+        {list.length === 0 && <li className="text-sm text-mist">{preset.empty}</li>}
+      </ol>
+    ),
+    [preset, ctx],
   );
 
   // 总排行的称号赛段：沿用旧榜单的做法——扁平名次列表，相邻成员的下一道大关不同处插分割线
@@ -170,12 +144,7 @@ export function CreatorLibrary({
     let prevSegment: number | null = null;
     sorted.forEach((m, i) => {
       if (prevSegment !== null && m.nextMilestone !== prevSegment) {
-        rows.push(
-          <SegmentDivider
-            key={`seg-${m.nextMilestone}`}
-            threshold={m.nextMilestone}
-          />,
-        );
+        rows.push(<SegmentDivider key={`seg-${m.nextMilestone}`} threshold={m.nextMilestone} />);
       }
       prevSegment = m.nextMilestone;
       rows.push(
@@ -188,77 +157,74 @@ export function CreatorLibrary({
   };
 
   /** 卡片网格（cols=2 双列 / 3 网格），指标与名次角标跟随当前视图；内容随视图直接换，不加逐卡弹入 */
-  const renderCards = (list: MemberStats[], cols: 2 | 3) => (
-    <div
-      className={cn(
-        "grid grid-cols-1 gap-3",
-        cols === 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3",
-      )}
-    >
-      {list.map((m, i) => (
-        <MiniMemberCard key={m.id} m={m} metric={preset.metric(m, ctx)} rank={i + 1} />
-      ))}
-    </div>
+  const renderCards = useCallback(
+    (list: MemberStats[], cols: 2 | 3) => (
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-3",
+          cols === 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3",
+        )}
+      >
+        {list.map((m, i) => (
+          <MiniMemberCard key={m.id} m={m} metric={preset.metric(m, ctx)} rank={i + 1} />
+        ))}
+      </div>
+    ),
+    [preset, ctx],
   );
 
   /** 赛道分组视图：一条数据集按赛道字段分组，组内再按粉丝/增长排。
    *  memo 化：弹窗里的标签搜索词与列表同处一个组件，不缓存的话每敲一个字符
    *  都会把这 6 组「过滤 + 排序」全部重跑一遍 */
-  const grouped = useMemo(() => (
-    <div>
-      {[...TRACKS, TRACK_OTHER].map((t) => {
-        const group = base.filter((m) => m.tracks.includes(t.name));
-        if (group.length === 0) return null;
-        const gsorted =
-          trackSort === "growth"
-            ? [...group].sort((a, b) => b.growth7d - a.growth7d)
-            : [...group].sort(
-                (a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0),
-              );
-        const Icon = TRACK_ICONS[t.icon] ?? Shapes;
-        const stat = stats.trackStats.find((s) => s.name === t.name);
-        const isOther = t === TRACK_OTHER;
-        return (
-          <section key={t.slug} className="mt-9 first:mt-0">
-            <div
-              className={cn(
-                "flex flex-wrap items-center gap-2.5 rounded-2xl bg-soft-surface px-4 py-2.5",
-              )}
-              title={t.description}
-            >
-              <Icon
+  const grouped = useMemo(
+    () => (
+      <div>
+        {[...TRACKS, TRACK_OTHER].map((t) => {
+          const group = base.filter((m) => m.tracks.includes(t.name));
+          if (group.length === 0) return null;
+          const gsorted =
+            trackSort === "growth"
+              ? [...group].toSorted((a, b) => b.growth7d - a.growth7d)
+              : [...group].toSorted((a, b) => (b.latestFollowers ?? 0) - (a.latestFollowers ?? 0));
+          const Icon = TRACK_ICONS[t.icon] ?? Shapes;
+          const stat = stats.trackStats.find((s) => s.name === t.name);
+          const isOther = t === TRACK_OTHER;
+          return (
+            <section key={t.slug} className="mt-9 first:mt-0">
+              <div
                 className={cn(
-                  "size-4 shrink-0",
-                  isOther ? "text-mist" : "text-signal-ink",
+                  "flex flex-wrap items-center gap-2.5 rounded-2xl bg-soft-surface px-4 py-2.5",
                 )}
-                aria-hidden="true"
-              />
-              <h2 className="text-sm font-bold">{t.name}</h2>
-              <span className="text-xs text-mist tabular-nums">
-                {group.length} 位
-              </span>
-              {!isOther && stat ? (
-                <span className="ml-auto text-xs text-mist tabular-nums">
-                  粉丝 {fmt(stat.totalFollowers)} · 30 天{" "}
-                  <b className="text-signal-ink">{signed(stat.growth30dTotal)}</b>
-                </span>
-              ) : (
-                <span className="ml-auto text-xs text-mist">
-                  过渡桶：攒够人数再细分
-                </span>
-              )}
-            </div>
-            <div className="mt-4">
-              {layout === "rows"
-                ? renderRows(gsorted, false)
-                : renderCards(gsorted, layout === "duo" ? 2 : 3)}
-            </div>
-          </section>
-        );
-      })}
-      {base.length === 0 && <p className="text-sm text-mist">{preset.empty}</p>}
-    </div>
-  ), [base, trackSort, layout, stats.trackStats, preset, ctx]);
+                title={t.description}
+              >
+                <Icon
+                  className={cn("size-4 shrink-0", isOther ? "text-mist" : "text-signal-ink")}
+                  aria-hidden="true"
+                />
+                <h2 className="text-sm font-bold">{t.name}</h2>
+                <span className="text-xs text-mist tabular-nums">{group.length} 位</span>
+                {!isOther && stat ? (
+                  <span className="ml-auto text-xs text-mist tabular-nums">
+                    粉丝 {fmt(stat.totalFollowers)} · 30 天{" "}
+                    <b className="text-signal-ink">{signed(stat.growth30dTotal)}</b>
+                  </span>
+                ) : (
+                  <span className="ml-auto text-xs text-mist">过渡桶：攒够人数再细分</span>
+                )}
+              </div>
+              <div className="mt-4">
+                {layout === "rows"
+                  ? renderRows(gsorted, false)
+                  : renderCards(gsorted, layout === "duo" ? 2 : 3)}
+              </div>
+            </section>
+          );
+        })}
+        {base.length === 0 && <p className="text-sm text-mist">{preset.empty}</p>}
+      </div>
+    ),
+    [base, trackSort, layout, stats.trackStats, preset, renderRows, renderCards],
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-8 sm:py-10">
@@ -269,7 +235,7 @@ export function CreatorLibrary({
             value={view}
             onChange={(v) =>
               onPatch({
-                view: v as ViewKey,
+                view: v,
                 metric: undefined,
                 range: undefined,
                 gsort: undefined,
@@ -293,10 +259,14 @@ export function CreatorLibrary({
                 type="button"
                 onClick={() => onPatch({ fav: favOnly ? undefined : 1 })}
                 aria-label={favOnly ? "显示全部成员" : "只看收藏"}
-                title={favorites.length ? `只看收藏（${favorites.length}）` : "只看收藏：在成员页点星标收藏"}
+                title={
+                  favorites.length
+                    ? `只看收藏（${favorites.length}）`
+                    : "只看收藏：在成员页点星标收藏"
+                }
                 aria-pressed={favOnly}
                 className={cn(
-                  "inline-flex size-8 cursor-pointer select-none items-center justify-center rounded-full transition-colors",
+                  "inline-flex size-8 cursor-pointer items-center justify-center rounded-full transition-colors select-none",
                   favOnly ? "bg-primary text-primary-foreground" : "text-mist hover:text-ink",
                 )}
               >
@@ -309,7 +279,7 @@ export function CreatorLibrary({
                 title="筛选"
                 aria-pressed={appliedCount > 0}
                 className={cn(
-                  "relative inline-flex size-8 cursor-pointer select-none items-center justify-center gap-1.5 rounded-full transition-colors",
+                  "relative inline-flex size-8 cursor-pointer items-center justify-center gap-1.5 rounded-full transition-colors select-none",
                   appliedCount > 0
                     ? "bg-primary text-primary-foreground"
                     : "text-mist hover:text-ink",
@@ -317,7 +287,7 @@ export function CreatorLibrary({
               >
                 <Filter className="size-4" aria-hidden="true" />
                 {appliedCount > 0 && (
-                  <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-signal text-[10px] font-bold tabular-nums text-black">
+                  <span className="absolute -top-1 -right-1 inline-flex size-4 items-center justify-center rounded-full bg-signal text-[10px] font-bold text-black tabular-nums">
                     {appliedCount}
                   </span>
                 )}
@@ -334,10 +304,8 @@ export function CreatorLibrary({
                     title={l.label}
                     onClick={() => setLayout(l.key)}
                     className={cn(
-                      "inline-flex size-8 cursor-pointer select-none items-center justify-center rounded-full transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "text-mist hover:text-ink",
+                      "inline-flex size-8 cursor-pointer items-center justify-center rounded-full transition-colors select-none",
+                      active ? "bg-primary text-primary-foreground" : "text-mist hover:text-ink",
                     )}
                   >
                     <Icon className="size-4" aria-hidden="true" />
@@ -359,7 +327,6 @@ export function CreatorLibrary({
         onApply={onPatch}
         onClose={() => setFilterOpen(false)}
       />
-
 
       {/* 列表本体：同一份数据，随视图 × 筛选 × 布局变形 */}
       <div className="mt-6">
@@ -410,9 +377,7 @@ function SegmentDivider({ threshold }: { threshold: number }) {
       <span
         className={cn(
           "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-          tenK
-            ? "bg-signal/10 text-signal-ink"
-            : "bg-soft-surface text-mist",
+          tenK ? "bg-signal/10 text-signal-ink" : "bg-soft-surface text-mist",
         )}
       >
         <Flag className="size-3" aria-hidden="true" />

@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchAnnualReport } from "@/data.functions";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { StatCard } from "@/components/ui/StatCard";
-import { groupClimbs, titleOf } from "@/milestones";
+import { fetchAnnualReport } from "@/data.functions";
 import { fmt, postExcerpt, signed } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { groupClimbs, titleOf } from "@/milestones";
 
 /**
  * 年度影响力报告：本年至今的社群叙事——YTD 增长 / 月度总粉丝 / 年度登阶 / Top 涨粉与声量 / 年度最火内容。
@@ -14,13 +14,21 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
 export const Route = createFileRoute("/_shell/_reports/annual")({
   loader: () => fetchAnnualReport(),
   head: ({ loaderData }) => {
-    const title = loaderData ? `${loaderData.year} 年度影响力报告 · ${SITE_NAME}` : `年度影响力报告 · ${SITE_NAME}`;
+    const title = loaderData
+      ? `${loaderData.year} 年度影响力报告 · ${SITE_NAME}`
+      : `年度影响力报告 · ${SITE_NAME}`;
     return {
       meta: [
         { title },
-        { name: "description", content: `${SITE_NAME} 年度报告：年度增长、月度趋势、登阶与最火内容。` },
+        {
+          name: "description",
+          content: `${SITE_NAME} 年度报告：年度增长、月度趋势、登阶与最火内容。`,
+        },
         { property: "og:title", content: title },
-        { property: "og:description", content: `${SITE_NAME} 年度报告：年度增长、月度趋势、登阶与最火内容。` },
+        {
+          property: "og:description",
+          content: `${SITE_NAME} 年度报告：年度增长、月度趋势、登阶与最火内容。`,
+        },
         { property: "og:type", content: "website" },
         { property: "og:url", content: `${SITE_URL}/annual` },
         { property: "og:image", content: `${SITE_URL}/og/site.png?v=2` },
@@ -63,7 +71,11 @@ function AnnualPage() {
                   父容器 h-36 即 144px 的确定高度 */}
               <div className="mt-5 flex h-36 items-end gap-1.5">
                 {r.monthlyTrend.map((m) => (
-                  <div key={m.month} className="group relative h-full flex-1" title={`${m.month} · ${fmt(m.total)}`}>
+                  <div
+                    key={m.month}
+                    className="group relative h-full flex-1"
+                    title={`${m.month} · ${fmt(m.total)}`}
+                  >
                     <div
                       className="absolute bottom-0 w-full rounded-t-md bg-signal/60 transition-colors group-hover:bg-signal"
                       style={{ height: `${Math.max(6, (m.total / maxMonth) * 100)}%` }}
@@ -87,11 +99,25 @@ function AnnualPage() {
               <ul className="mt-4 space-y-2.5">
                 {r.topGrowers.map((m, i) => (
                   <li key={m.memberId}>
-                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
-                      <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
-                      <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">{signed(m.growth)}</span>
+                    <Link
+                      to="/members/$id"
+                      params={{ id: m.memberId }}
+                      className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong"
+                    >
+                      <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">
+                        {i + 1}
+                      </span>
+                      <Avatar
+                        url={m.profileImage}
+                        name={m.displayName ?? m.handle}
+                        className="size-8 shrink-0"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                        {m.displayName ?? m.handle}
+                      </span>
+                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">
+                        {signed(m.growth)}
+                      </span>
                     </Link>
                   </li>
                 ))}
@@ -102,11 +128,25 @@ function AnnualPage() {
               <ul className="mt-4 space-y-2.5">
                 {r.topMentions.map((m, i) => (
                   <li key={m.memberId}>
-                    <Link to="/members/$id" params={{ id: m.memberId }} className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
-                      <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">{i + 1}</span>
-                      <Avatar url={m.profileImage} name={m.displayName ?? m.handle} className="size-8 shrink-0" />
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{m.displayName ?? m.handle}</span>
-                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">{m.count} 次</span>
+                    <Link
+                      to="/members/$id"
+                      params={{ id: m.memberId }}
+                      className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong"
+                    >
+                      <span className="w-5 shrink-0 text-center font-bold text-mist tabular-nums">
+                        {i + 1}
+                      </span>
+                      <Avatar
+                        url={m.profileImage}
+                        name={m.displayName ?? m.handle}
+                        className="size-8 shrink-0"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                        {m.displayName ?? m.handle}
+                      </span>
+                      <span className="shrink-0 font-bold text-signal-ink tabular-nums">
+                        {m.count} 次
+                      </span>
                     </Link>
                   </li>
                 ))}
@@ -127,17 +167,32 @@ function AnnualPage() {
                   const name = g.items[0].displayName ?? g.items[0].handle;
                   return (
                     <li key={g.key}>
-                      <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
-                        <Avatar url={g.items[0].profileImage} name={name} className="size-8 shrink-0" />
+                      <Link
+                        to="/members/$id"
+                        params={{ id: g.memberId }}
+                        className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong"
+                      >
+                        <Avatar
+                          url={g.items[0].profileImage}
+                          name={name}
+                          className="size-8 shrink-0"
+                        />
                         <span className="min-w-0 truncate text-sm font-semibold">{name}</span>
                         <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
-                          {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (
-                            <span key={c.threshold} className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text">
-                              「{titleOf(c.threshold)}」
-                            </span>
-                          ))}
+                          {[...g.items]
+                            .toSorted((a, b) => a.threshold - b.threshold)
+                            .map((c) => (
+                              <span
+                                key={c.threshold}
+                                className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text"
+                              >
+                                「{titleOf(c.threshold)}」
+                              </span>
+                            ))}
                         </span>
-                        <span className="shrink-0 text-xs text-mist tabular-nums">{g.date} · {g.items.length} 枚</span>
+                        <span className="shrink-0 text-xs text-mist tabular-nums">
+                          {g.date} · {g.items.length} 枚
+                        </span>
                       </Link>
                     </li>
                   );
@@ -155,13 +210,31 @@ function AnnualPage() {
               <ul className="mt-4 space-y-2.5">
                 {r.topPosts.map((p) => (
                   <li key={p.tweetId}>
-                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong">
-                      {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-8 shrink-0" />}
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 rounded-xl bg-soft-surface px-3 py-2.5 transition-colors hover:bg-wash-strong"
+                    >
+                      {p.member && (
+                        <Avatar
+                          url={p.member.profileImage}
+                          name={p.member.displayName ?? p.member.handle}
+                          className="size-8 shrink-0"
+                        />
+                      )}
                       <span className="min-w-0 flex-1">
-                        <span className="line-clamp-1 text-sm">{postExcerpt(p.text, 60) ?? "链接帖"}</span>
-                        <span className="mt-0.5 block text-xs text-mist">{p.member ? p.member.displayName ?? p.member.handle : ""} · {p.createdAt.slice(0, 10)}</span>
+                        <span className="line-clamp-1 text-sm">
+                          {postExcerpt(p.text, 60) ?? "链接帖"}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-mist">
+                          {p.member ? (p.member.displayName ?? p.member.handle) : ""} ·{" "}
+                          {p.createdAt.slice(0, 10)}
+                        </span>
                       </span>
-                      <span className="shrink-0 font-bold tabular-nums">{p.views != null ? fmt(p.views) : "—"}</span>
+                      <span className="shrink-0 font-bold tabular-nums">
+                        {p.views != null ? fmt(p.views) : "—"}
+                      </span>
                     </a>
                   </li>
                 ))}
@@ -173,4 +246,3 @@ function AnnualPage() {
     </>
   );
 }
-

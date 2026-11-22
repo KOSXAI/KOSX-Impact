@@ -1,17 +1,20 @@
-import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { Reveal } from "@/components/motion";
+import { useState } from "react";
 import { SubmitDialog } from "@/components/member/SubmitDialog";
+import { Reveal } from "@/components/motion";
+import { Button } from "@/components/ui/button";
+import { badge } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 import { MILESTONES } from "@/milestones";
-import { badge } from "@/lib/format";
 
 export const Route = createFileRoute("/_shell/about")({
   head: () => ({
     meta: [
       { title: `关于 · ${SITE_NAME}` },
-      { name: "description", content: `${SITE_NAME}的数据口径、来源与加入方式——公开透明是这块看板的前提。` },
+      {
+        name: "description",
+        content: `${SITE_NAME}的数据口径、来源与加入方式——公开透明是这块看板的前提。`,
+      },
       { property: "og:title", content: `关于 · ${SITE_NAME}` },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
@@ -33,7 +36,7 @@ function AboutPage() {
         <Reveal y={18}>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">关于 {SITE_NAME}</h1>
         </Reveal>
-  
+
         <main className="mt-10 space-y-12 sm:mt-14">
           <Reveal>
             <section>
@@ -44,20 +47,25 @@ function AboutPage() {
               </p>
             </section>
           </Reveal>
-  
+
           <Reveal>
             <section>
               <h2 className="text-2xl font-bold">称号大关与段位</h2>
-              <p className="mt-3 max-w-2xl leading-relaxed text-mist">万粉不是终点，只是大关中的一道。</p>
+              <p className="mt-3 max-w-2xl leading-relaxed text-mist">
+                万粉不是终点，只是大关中的一道。
+              </p>
               <ul className="mt-3 max-w-2xl list-disc space-y-2 pl-6 leading-relaxed text-mist">
                 <li>
-                  <b className="text-ink">称号大关</b>：跨过一道大关领一个称号——百粉「百里挑一」、五千粉「学富五车」、万粉「万人迷」……进度条实时显示距下一称号的进度，每个称号都是好彩头。
+                  <b className="text-ink">称号大关</b>
+                  ：跨过一道大关领一个称号——百粉「百里挑一」、五千粉「学富五车」、万粉「万人迷」……进度条实时显示距下一称号的进度，每个称号都是好彩头。
                 </li>
                 <li>
-                  <b className="text-ink">总排行按大关分赛段</b>：分割线处标注大关门槛与称号，同一赛段里的人冲的是同一个称号，谁先冲线一目了然。
+                  <b className="text-ink">总排行按大关分赛段</b>
+                  ：分割线处标注大关门槛与称号，同一赛段里的人冲的是同一个称号，谁先冲线一目了然。
                 </li>
                 <li>
-                  <b className="text-ink">段位徽章</b>只升不降：新芽 → 千粉新秀 → 万粉达人 → 十万粉影响力 → 百万粉传奇 → 千万粉神话 → 亿级传说。
+                  <b className="text-ink">段位徽章</b>只升不降：新芽 → 千粉新秀 → 万粉达人 →
+                  十万粉影响力 → 百万粉传奇 → 千万粉神话 → 亿级传说。
                 </li>
                 <li>每拿下一道大关得一枚成就徽章，挂在成员页的徽章墙上。</li>
               </ul>
@@ -74,29 +82,47 @@ function AboutPage() {
               </div>
             </section>
           </Reveal>
-  
+
           <Reveal>
             <section>
               <h2 className="text-2xl font-bold">数据来源</h2>
               <ul className="mt-3 max-w-2xl space-y-3 leading-relaxed text-mist">
                 <li>全部来自成员 X 账号的公开信息（粉丝量等），不含任何私密数据。</li>
                 <li>每日自动更新一次（北京时间上午八点左右），当日重复采集以最新值为准。</li>
-                <li>「加入追踪」弹窗可随时手动刷新——当场去 X 拉取公开数据，与每日采集同一条管线。</li>
-                <li>顶部「近 30 天新增」是社群 30 天滚动窗口的新增粉丝合计，不追溯加入前的历史；「万粉成员」是当前粉丝量已达万粉的成员数。</li>
+                <li>
+                  「加入追踪」弹窗可随时手动刷新——当场去 X 拉取公开数据，与每日采集同一条管线。
+                </li>
+                <li>
+                  顶部「近 30 天新增」是社群 30
+                  天滚动窗口的新增粉丝合计，不追溯加入前的历史；「万粉成员」是当前粉丝量已达万粉的成员数。
+                </li>
                 <li>加入看板时已达到的大关当场补授称号，之后每跨过一道大关记一枚成就。</li>
               </ul>
             </section>
           </Reveal>
-  
+
           <Reveal>
             <section>
               <h2 className="text-2xl font-bold">榜单怎么排</h2>
               <ul className="mt-3 max-w-2xl list-disc space-y-2 pl-6 leading-relaxed text-mist">
-                <li><b className="text-ink">总排行</b>：按最新粉丝量从高到低，用称号大关分割线分赛段，前三名有奖牌荣誉。</li>
-                <li><b className="text-ink">成长榜</b>：按近 30 天增长排序——和自己比，小账号也有机会登顶。</li>
-                <li><b className="text-ink">影响力榜</b>：按影响力指数从高到低（见下节公式）。</li>
-                <li><b className="text-ink">赛道榜</b>：赛道内先按粉丝量排，可切到「本周增长」与「帖子互动」口径——看存量，也看势头。</li>
-                <li><b className="text-ink">登阶记录</b>：按时间展示最近拿下的称号。</li>
+                <li>
+                  <b className="text-ink">总排行</b>
+                  ：按最新粉丝量从高到低，用称号大关分割线分赛段，前三名有奖牌荣誉。
+                </li>
+                <li>
+                  <b className="text-ink">成长榜</b>：按近 30
+                  天增长排序——和自己比，小账号也有机会登顶。
+                </li>
+                <li>
+                  <b className="text-ink">影响力榜</b>：按影响力指数从高到低（见下节公式）。
+                </li>
+                <li>
+                  <b className="text-ink">赛道榜</b>
+                  ：赛道内先按粉丝量排，可切到「本周增长」与「帖子互动」口径——看存量，也看势头。
+                </li>
+                <li>
+                  <b className="text-ink">登阶记录</b>：按时间展示最近拿下的称号。
+                </li>
               </ul>
             </section>
           </Reveal>
@@ -105,28 +131,46 @@ function AboutPage() {
             <section>
               <h2 className="text-2xl font-bold">影响力指数怎么算</h2>
               <ul className="mt-3 max-w-2xl space-y-3 leading-relaxed text-mist">
-                <li><b className="text-ink">综合分 0-1000</b>，四项相加：规模（粉丝量对数映射，满分 400）+ 增长（近 30 天相对增长，满分 200）+ 互动（近 30 天帖子互动率中位数，满分 250）+ 产能（近 30 天发帖数，满分 150）。</li>
-                <li><b className="text-ink">有效粉丝量 = 粉丝量 × 质量系数</b>：认证账号、被列表收录、高互动率都会提升质量系数（1.0–1.4）。这一项量化「粉丝质量」，呈现的是有效粉丝，不是泛泛的总数。</li>
-                <li>互动率 = (赞 + 评 + 转 + 引 + 藏) / 浏览。帖子数据尚未采集完成时，互动与产能两项暂记 0，跑起来后自动补全。</li>
+                <li>
+                  <b className="text-ink">综合分 0-1000</b>，四项相加：规模（粉丝量对数映射，满分
+                  400）+ 增长（近 30 天相对增长，满分 200）+ 互动（近 30 天帖子互动率中位数，满分
+                  250）+ 产能（近 30 天发帖数，满分 150）。
+                </li>
+                <li>
+                  <b className="text-ink">有效粉丝量 = 粉丝量 × 质量系数</b>
+                  ：认证账号、被列表收录、高互动率都会提升质量系数（1.0–1.4）。这一项量化「粉丝质量」，呈现的是有效粉丝，不是泛泛的总数。
+                </li>
+                <li>
+                  互动率 = (赞 + 评 + 转 + 引 + 藏) /
+                  浏览。帖子数据尚未采集完成时，互动与产能两项暂记 0，跑起来后自动补全。
+                </li>
                 <li>公式公开、同一套口径跑所有人：不刷榜、不给任何人开小灶。</li>
               </ul>
             </section>
           </Reveal>
-  
+
           <Reveal>
             <section>
               <h2 className="text-2xl font-bold">如何加入</h2>
               <ol className="mt-3 max-w-2xl list-decimal space-y-3 leading-relaxed text-mist">
-                <li><b className="text-ink">点「加入追踪」</b>：看板首页或本页下方按钮，打开弹窗。</li>
-                <li><b className="text-ink">输入你的 X 主页</b>：主页链接或 @ID 都行，提交即加入——不需要 GitHub，没有审批。</li>
-                <li><b className="text-ink">看板见</b>：站点拉取你的公开数据，立即生成成长曲线，从当天起每天更新。</li>
+                <li>
+                  <b className="text-ink">点「加入追踪」</b>：看板首页或本页下方按钮，打开弹窗。
+                </li>
+                <li>
+                  <b className="text-ink">输入你的 X 主页</b>：主页链接或 @ID
+                  都行，提交即加入——不需要 GitHub，没有审批。
+                </li>
+                <li>
+                  <b className="text-ink">看板见</b>
+                  ：站点拉取你的公开数据，立即生成成长曲线，从当天起每天更新。
+                </li>
               </ol>
               <div className="mt-6">
                 <Button onClick={() => setJoinOpen(true)}>加入追踪</Button>
               </div>
             </section>
           </Reveal>
-  
+
           <Reveal>
             <section>
               <h2 className="text-2xl font-bold">随时退出</h2>
@@ -136,7 +180,7 @@ function AboutPage() {
             </section>
           </Reveal>
         </main>
-  
+
         <SubmitDialog open={joinOpen} onOpenChange={setJoinOpen} />
       </div>
     </>

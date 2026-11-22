@@ -1,8 +1,14 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyFollowerStats, bumpCacheBust, collectWithSource, processOldestPending, shardMembersForHour } from "../src/collector";
-import { SocialDataError } from "../src/sources/socialdata";
+import {
+  applyFollowerStats,
+  bumpCacheBust,
+  collectWithSource,
+  processOldestPending,
+  shardMembersForHour,
+} from "../src/collector";
 import type { RosterFile } from "../src/roster";
+import { SocialDataError } from "../src/sources/socialdata";
 import type { FollowerSource, FollowerStats } from "../src/sources/types";
 
 const testRoster: RosterFile = {
@@ -57,15 +63,17 @@ beforeEach(async () => {
 
 async function seedBaselines() {
   await env.DB.prepare(
-    "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30'), ('bob', 'bob_x', '2026-08-30')"
+    "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30'), ('bob', 'bob_x', '2026-08-30')",
   ).run();
   await env.DB.prepare(
-    "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('alice', 900, '2026-08-30T00:00:00Z'), ('bob', 1200, '2026-08-30T00:00:00Z')"
+    "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES ('alice', 900, '2026-08-30T00:00:00Z'), ('bob', 1200, '2026-08-30T00:00:00Z')",
   ).run();
 }
 
 describe("shardMembersForHour", () => {
-  const members = Array.from({ length: 48 }, (_, i) => ({ id: `member-${String(i).padStart(2, "0")}` }));
+  const members = Array.from({ length: 48 }, (_, i) => ({
+    id: `member-${String(i).padStart(2, "0")}`,
+  }));
 
   it("分片无重叠无遗漏：每个 id 恰好落进一个槽", () => {
     const union = new Set<number>();
@@ -89,25 +97,37 @@ describe("collectWithSource", () => {
   it("滚动采集：各成员在其小时槽被采集并写入当日快照", async () => {
     await seedBaselines();
     // alice 在槽 0，bob 在槽 13
-    const summaryA = await collectWithSource(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: { followers: 1300 },
-    }), testRoster, undefined, 0);
+    const summaryA = await collectWithSource(
+      env,
+      stubSource({
+        alice_x: { followers: 1500 },
+        bob_x: { followers: 1300 },
+      }),
+      testRoster,
+      undefined,
+      0,
+    );
     expect(summaryA.ok).toBe(1);
     expect(summaryA.shard).toEqual({ hourUtc: 0, eligible: 1, sampled: 1 });
 
-    const summaryB = await collectWithSource(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: { followers: 1300 },
-    }), testRoster, undefined, 13);
+    const summaryB = await collectWithSource(
+      env,
+      stubSource({
+        alice_x: { followers: 1500 },
+        bob_x: { followers: 1300 },
+      }),
+      testRoster,
+      undefined,
+      13,
+    );
     expect(summaryB.ok).toBe(1);
 
     const latest = (await env.DB.prepare(
-      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
+      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1",
     ).first()) as { followers: number };
     expect(latest.followers).toBe(1500);
     const latestBob = (await env.DB.prepare(
-      "SELECT followers FROM snapshots WHERE member_id = 'bob' ORDER BY recorded_at DESC LIMIT 1"
+      "SELECT followers FROM snapshots WHERE member_id = 'bob' ORDER BY recorded_at DESC LIMIT 1",
     ).first()) as { followers: number };
     expect(latestBob.followers).toBe(1300);
   });
@@ -116,7 +136,7 @@ describe("collectWithSource", () => {
     // m1 与 m10 的分片槽同为 20（shardMembersForHour 的 id 哈希），
     // 一轮采集会连写两人，正好用来验证「一轮只 +1 而不是每成员 +1」
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at) VALUES ('m1','m1_x','2026-08-30'), ('m10','m10_x','2026-08-30')"
+      "INSERT INTO members (id, handle, joined_at) VALUES ('m1','m1_x','2026-08-30'), ('m10','m10_x','2026-08-30')",
     ).run();
     await env.DB.prepare("DELETE FROM site_meta WHERE key = 'cache_bust'").run();
     const twoMemberRoster: RosterFile = {
@@ -131,14 +151,14 @@ describe("collectWithSource", () => {
       stubSource({ m1_x: { followers: 1500 }, m10_x: { followers: 1400 } }),
       twoMemberRoster,
       undefined,
-      20
+      20,
     );
     expect(summary.ok).toBe(2);
 
     // 关键：两名成员各写一次快照，但数据版本只 +1
     // （旧实现把 +1 放在 writeSnapshot 里，会变成 +2，把重缓存反复打掉重建）
     const bust = (await env.DB.prepare(
-      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
+      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'",
     ).first()) as { bust: number };
     expect(bust.bust).toBe(1);
   });
@@ -152,16 +172,44 @@ describe("collectWithSource", () => {
       },
       async fetchRecentPosts() {
         return [
-          { tweetId: "t1", createdAt: "2026-09-05T00:00:00Z", fullText: "hi", views: 100, likes: 10, replies: 2, retweets: 1, quotes: 0, bookmarks: 3, lang: "zh", media: null, tweetType: "tweet", quoted: null },
-          { tweetId: "t2", createdAt: "2026-09-06T00:00:00Z", fullText: null, views: null, likes: 5, replies: 0, retweets: 0, quotes: 0, bookmarks: 0, lang: null, media: null, tweetType: null, quoted: null },
+          {
+            tweetId: "t1",
+            createdAt: "2026-09-05T00:00:00Z",
+            fullText: "hi",
+            views: 100,
+            likes: 10,
+            replies: 2,
+            retweets: 1,
+            quotes: 0,
+            bookmarks: 3,
+            lang: "zh",
+            media: null,
+            tweetType: "tweet",
+            quoted: null,
+          },
+          {
+            tweetId: "t2",
+            createdAt: "2026-09-06T00:00:00Z",
+            fullText: null,
+            views: null,
+            likes: 5,
+            replies: 0,
+            retweets: 0,
+            quotes: 0,
+            bookmarks: 0,
+            lang: null,
+            media: null,
+            tweetType: null,
+            quoted: null,
+          },
         ];
       },
     };
     await collectWithSource(env, source, testRoster, undefined, 0);
 
-    const { results: posts } = await env.DB.prepare(
-      "SELECT tweet_id AS tweetId, views_count AS views FROM posts WHERE member_id = 'alice' ORDER BY created_at"
-    ).all() as { results: Array<{ tweetId: string; views: number | null }> };
+    const { results: posts } = (await env.DB.prepare(
+      "SELECT tweet_id AS tweetId, views_count AS views FROM posts WHERE member_id = 'alice' ORDER BY created_at",
+    ).all()) as { results: Array<{ tweetId: string; views: number | null }> };
     expect(posts).toEqual([
       { tweetId: "t1", views: 100 },
       { tweetId: "t2", views: null },
@@ -188,7 +236,17 @@ describe("collectWithSource", () => {
             quotes: 0,
             bookmarks: 0,
             lang: "zh",
-            media: [{ kind: "photo", url: "https://pbs.twimg.com/media/x.jpg", tco: "https://t.co/x", videoUrl: null, width: 800, height: 600, durationMs: null }],
+            media: [
+              {
+                kind: "photo",
+                url: "https://pbs.twimg.com/media/x.jpg",
+                tco: "https://t.co/x",
+                videoUrl: null,
+                width: 800,
+                height: 600,
+                durationMs: null,
+              },
+            ],
             tweetType: "tweet",
             quoted: null,
           },
@@ -205,19 +263,43 @@ describe("collectWithSource", () => {
             lang: null,
             media: null,
             tweetType: "quote",
-            quoted: { handle: "bob", name: "Bob", profileImage: null, text: "原文", url: "https://x.com/bob/status/1", media: null },
+            quoted: {
+              handle: "bob",
+              name: "Bob",
+              profileImage: null,
+              text: "原文",
+              url: "https://x.com/bob/status/1",
+              media: null,
+            },
           },
         ];
       },
     };
     await collectWithSource(env, source, testRoster, undefined, 0);
 
-    const { results } = await env.DB.prepare(
-      "SELECT tweet_id AS tweetId, media, tweet_type AS tweetType, quoted FROM posts WHERE member_id = 'alice' ORDER BY created_at"
-    ).all() as { results: Array<{ tweetId: string; media: string | null; tweetType: string | null; quoted: string | null }> };
+    const { results } = (await env.DB.prepare(
+      "SELECT tweet_id AS tweetId, media, tweet_type AS tweetType, quoted FROM posts WHERE member_id = 'alice' ORDER BY created_at",
+    ).all()) as {
+      results: Array<{
+        tweetId: string;
+        media: string | null;
+        tweetType: string | null;
+        quoted: string | null;
+      }>;
+    };
 
     const m1 = results.find((r) => r.tweetId === "m1")!;
-    expect(JSON.parse(m1.media!)).toEqual([{ kind: "photo", url: "https://pbs.twimg.com/media/x.jpg", tco: "https://t.co/x", videoUrl: null, width: 800, height: 600, durationMs: null }]);
+    expect(JSON.parse(m1.media!)).toEqual([
+      {
+        kind: "photo",
+        url: "https://pbs.twimg.com/media/x.jpg",
+        tco: "https://t.co/x",
+        videoUrl: null,
+        width: 800,
+        height: 600,
+        durationMs: null,
+      },
+    ]);
     expect(m1.tweetType).toBe("tweet");
     expect(m1.quoted).toBeNull();
 
@@ -230,52 +312,68 @@ describe("collectWithSource", () => {
   it("跨过阈值时写入登阶事件", async () => {
     await seedBaselines();
     // alice: 900 → 1500 跨过 1000（1500 不在新大关表上）；bob: 1200 → 1300 无跨关
-    await collectWithSource(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: { followers: 1300 },
-    }), testRoster, undefined, 0);
+    await collectWithSource(
+      env,
+      stubSource({
+        alice_x: { followers: 1500 },
+        bob_x: { followers: 1300 },
+      }),
+      testRoster,
+      undefined,
+      0,
+    );
 
     const { results } = await env.DB.prepare(
-      "SELECT member_id, threshold FROM milestones ORDER BY threshold"
+      "SELECT member_id, threshold FROM milestones ORDER BY threshold",
     ).all();
-    expect(results).toEqual([
-      { member_id: "alice", threshold: 1000 },
-    ]);
+    expect(results).toEqual([{ member_id: "alice", threshold: 1000 }]);
   });
 
   it("首个快照补授已达大关：中高粉成员加入即有徽章", async () => {
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at) VALUES ('carol', 'carol_x', '2026-08-30')"
+      "INSERT INTO members (id, handle, joined_at) VALUES ('carol', 'carol_x', '2026-08-30')",
     ).run();
     // 无历史快照：3200 粉加入（注册当场校验走 applyFollowerStats）→ 百里挑一/五好青年/千帆竞发当场补授
     await applyFollowerStats(env, "carol", { followers: 3200 }, "2026-09-05T04:00:00Z");
 
     const { results } = await env.DB.prepare(
-      "SELECT threshold FROM milestones WHERE member_id = 'carol' ORDER BY threshold"
+      "SELECT threshold FROM milestones WHERE member_id = 'carol' ORDER BY threshold",
     ).all();
     expect(results).toEqual([{ threshold: 100 }, { threshold: 500 }, { threshold: 1000 }]);
 
     // 下一次写入走跨线检测，不重复补授
     await applyFollowerStats(env, "carol", { followers: 3300 }, "2026-09-05T05:00:00Z");
     const total = (await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM milestones WHERE member_id = 'carol'"
+      "SELECT COUNT(*) AS n FROM milestones WHERE member_id = 'carol'",
     ).first()) as { n: number };
     expect(total.n).toBe(3);
   });
 
   it("部分成员失败不影响其他成员", async () => {
     await seedBaselines();
-    const summaryA = await collectWithSource(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: { followers: 1300 },
-    }), testRoster, undefined, 0);
+    const summaryA = await collectWithSource(
+      env,
+      stubSource({
+        alice_x: { followers: 1500 },
+        bob_x: { followers: 1300 },
+      }),
+      testRoster,
+      undefined,
+      0,
+    );
     expect(summaryA.ok).toBe(1);
     expect(summaryA.failed).toHaveLength(0);
 
-    const summaryB = await collectWithSource(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: new Error("HTTP 404"),
-    }), testRoster, undefined, 13);
+    const summaryB = await collectWithSource(
+      env,
+      stubSource({
+        alice_x: { followers: 1500 },
+        bob_x: new Error("HTTP 404"),
+      }),
+      testRoster,
+      undefined,
+      13,
+    );
     expect(summaryB.ok).toBe(0);
     expect(summaryB.failed).toHaveLength(1);
     expect(summaryB.failed[0]).toMatchObject({ handle: "bob_x", error: "HTTP 404" });
@@ -283,52 +381,69 @@ describe("collectWithSource", () => {
 
   it("同一天重复采集只保留最新快照，且里程碑不重复", async () => {
     await seedBaselines();
-    await collectWithSource(env, stubSource({
-      alice_x: { followers: 1500 },
-      bob_x: { followers: 1300 },
-    }), testRoster, undefined, 0);
-    await collectWithSource(env, stubSource({
-      alice_x: { followers: 1600 },
-      bob_x: { followers: 1300 },
-    }), testRoster, undefined, 0);
+    await collectWithSource(
+      env,
+      stubSource({
+        alice_x: { followers: 1500 },
+        bob_x: { followers: 1300 },
+      }),
+      testRoster,
+      undefined,
+      0,
+    );
+    await collectWithSource(
+      env,
+      stubSource({
+        alice_x: { followers: 1600 },
+        bob_x: { followers: 1300 },
+      }),
+      testRoster,
+      undefined,
+      0,
+    );
 
     const snapshots = (await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'"
+      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'",
     ).first()) as { n: number };
     expect(snapshots.n).toBe(2); // 基线 + 当日一条
 
     const latest = (await env.DB.prepare(
-      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
+      "SELECT followers FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1",
     ).first()) as { followers: number };
     expect(latest.followers).toBe(1600);
 
     const milestones = (await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM milestones WHERE member_id = 'alice' AND threshold = 1000"
+      "SELECT COUNT(*) AS n FROM milestones WHERE member_id = 'alice' AND threshold = 1000",
     ).first()) as { n: number };
     expect(milestones.n).toBe(1);
   });
 
   it("applyFollowerStats：一次数据完整写管线（快照 + 档案回填，换键交给编排层）", async () => {
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('alice', 'alice_x', '2026-08-30', 1)"
+      "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('alice', 'alice_x', '2026-08-30', 1)",
     ).run();
     await env.DB.prepare("DELETE FROM site_meta WHERE key = 'cache_bust'").run();
 
-    await applyFollowerStats(env, "alice", {
-      followers: 1500,
-      displayName: "爱丽丝",
-      bio: "KOSX 成员",
-      location: "上海",
-      url: "https://alice.example.com",
-      bannerUrl: "https://pbs.twimg.com/profile_banners/1/1500x500",
-      xCreatedAt: "Wed May 12 08:00:00 +0000 2019",
-      verified: true,
-      listedCount: 37,
-      favouritesCount: 4200,
-    }, "2026-09-05T04:00:00Z");
+    await applyFollowerStats(
+      env,
+      "alice",
+      {
+        followers: 1500,
+        displayName: "爱丽丝",
+        bio: "KOSX 成员",
+        location: "上海",
+        url: "https://alice.example.com",
+        bannerUrl: "https://pbs.twimg.com/profile_banners/1/1500x500",
+        xCreatedAt: "Wed May 12 08:00:00 +0000 2019",
+        verified: true,
+        listedCount: 37,
+        favouritesCount: 4200,
+      },
+      "2026-09-05T04:00:00Z",
+    );
 
     const snapshot = (await env.DB.prepare(
-      "SELECT followers, listed_count, favourites_count FROM snapshots WHERE member_id = 'alice'"
+      "SELECT followers, listed_count, favourites_count FROM snapshots WHERE member_id = 'alice'",
     ).first()) as { followers: number; listed_count: number; favourites_count: number };
     expect(snapshot.followers).toBe(1500);
     expect(snapshot.listed_count).toBe(37);
@@ -336,10 +451,15 @@ describe("collectWithSource", () => {
 
     const member = (await env.DB.prepare(
       `SELECT display_name, bio, location, url, banner_url, x_created_at, verified
-       FROM members WHERE id = 'alice'`
+       FROM members WHERE id = 'alice'`,
     ).first()) as {
-      display_name: string; bio: string; location: string; url: string;
-      banner_url: string; x_created_at: string; verified: number;
+      display_name: string;
+      bio: string;
+      location: string;
+      url: string;
+      banner_url: string;
+      x_created_at: string;
+      verified: number;
     };
     expect(member.display_name).toBe("爱丽丝");
     expect(member.bio).toBe("KOSX 成员");
@@ -351,15 +471,15 @@ describe("collectWithSource", () => {
 
     // 数据版本不由单次写库推进：一轮采集内换一次键（bumpCacheBust 由编排层调用），
     // 否则每成员 +1 会把 dashboard/OG 卡等重缓存在一轮 cron 里反复打掉重建
-    const bust = (await env.DB.prepare(
-      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
-    ).first()) as { bust: number } | null;
+    const bust = await env.DB.prepare(
+      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'",
+    ).first<{ bust: number }>();
     expect(bust?.bust ?? 0).toBe(0);
 
     // 再次写库：响应缺档案字段时不清空已有值
     await applyFollowerStats(env, "alice", { followers: 1600 }, "2026-09-05T04:05:00Z");
     const kept = (await env.DB.prepare(
-      "SELECT bio, verified FROM members WHERE id = 'alice'"
+      "SELECT bio, verified FROM members WHERE id = 'alice'",
     ).first()) as { bio: string; verified: number };
     expect(kept.bio).toBe("KOSX 成员");
     expect(kept.verified).toBe(1);
@@ -367,46 +487,71 @@ describe("collectWithSource", () => {
     // 编排层换键：显式调用一次才 +1
     await bumpCacheBust(env);
     const busted = (await env.DB.prepare(
-      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'"
+      "SELECT CAST(value AS INTEGER) AS bust FROM site_meta WHERE key = 'cache_bust'",
     ).first()) as { bust: number };
     expect(busted.bust).toBe(1);
   });
 
   it("残缺响应不清空已有值：头像/次级计数保留旧值", async () => {
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')"
+      "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')",
     ).run();
     // 首次：字段齐全
-    await applyFollowerStats(env, "alice", {
-      followers: 1500,
-      profileImageUrl: "https://pbs.twimg.com/a.jpg",
-      following: 120,
-      posts: 42,
-      listedCount: 37,
-      favouritesCount: 4200,
-    }, "2026-09-05T04:00:00Z");
+    await applyFollowerStats(
+      env,
+      "alice",
+      {
+        followers: 1500,
+        profileImageUrl: "https://pbs.twimg.com/a.jpg",
+        following: 120,
+        posts: 42,
+        listedCount: 37,
+        favouritesCount: 4200,
+      },
+      "2026-09-05T04:00:00Z",
+    );
 
     // 二次：响应缺字段（限流降级/结构变化）——库里旧值必须保留
     await applyFollowerStats(env, "alice", { followers: 1600 }, "2026-09-05T05:00:00Z");
 
     const member = (await env.DB.prepare(
-      "SELECT profile_image FROM members WHERE id = 'alice'"
+      "SELECT profile_image FROM members WHERE id = 'alice'",
     ).first()) as { profile_image: string | null };
     expect(member.profile_image).toBe("https://pbs.twimg.com/a.jpg");
 
     const snap = (await env.DB.prepare(
-      "SELECT following, posts, listed_count, favourites_count FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1"
-    ).first()) as { following: number | null; posts: number | null; listed_count: number | null; favourites_count: number | null };
-    expect(snap).toMatchObject({ following: 120, posts: 42, listed_count: 37, favourites_count: 4200 });
+      "SELECT following, posts, listed_count, favourites_count FROM snapshots WHERE member_id = 'alice' ORDER BY recorded_at DESC LIMIT 1",
+    ).first()) as {
+      following: number | null;
+      posts: number | null;
+      listed_count: number | null;
+      favourites_count: number | null;
+    };
+    expect(snap).toMatchObject({
+      following: 120,
+      posts: 42,
+      listed_count: 37,
+      favourites_count: 4200,
+    });
   });
 
   it("帖子二次采集：views 挪进 views_prev；本次缺 views 时两者都不动", async () => {
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')"
+      "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')",
     ).run();
     const base = {
-      tweetId: "t1", createdAt: "2026-09-05T00:00:00Z", fullText: "hi",
-      likes: 10, replies: 1, retweets: 0, quotes: 0, bookmarks: 0, lang: "zh", media: null, tweetType: "tweet", quoted: null,
+      tweetId: "t1",
+      createdAt: "2026-09-05T00:00:00Z",
+      fullText: "hi",
+      likes: 10,
+      replies: 1,
+      retweets: 0,
+      quotes: 0,
+      bookmarks: 0,
+      lang: "zh",
+      media: null,
+      tweetType: "tweet",
+      quoted: null,
     };
     const source = (views: number | null): FollowerSource => ({
       name: "stub",
@@ -418,23 +563,41 @@ describe("collectWithSource", () => {
       },
     });
 
-    await applyFollowerStats(env, "alice", { followers: 1500, userId: "44196397" }, "2026-09-05T04:00:00Z", source(1000));
+    await applyFollowerStats(
+      env,
+      "alice",
+      { followers: 1500, userId: "44196397" },
+      "2026-09-05T04:00:00Z",
+      source(1000),
+    );
     let row = (await env.DB.prepare(
-      "SELECT views_count AS v, views_prev AS p FROM posts WHERE tweet_id = 't1'"
+      "SELECT views_count AS v, views_prev AS p FROM posts WHERE tweet_id = 't1'",
     ).first()) as { v: number | null; p: number | null };
     expect(row).toMatchObject({ v: 1000, p: null });
 
     // 第二次：1200 → 旧值 1000 挪进 views_prev（今日曝光增量的基线）
-    await applyFollowerStats(env, "alice", { followers: 1500, userId: "44196397" }, "2026-09-05T05:00:00Z", source(1200));
+    await applyFollowerStats(
+      env,
+      "alice",
+      { followers: 1500, userId: "44196397" },
+      "2026-09-05T05:00:00Z",
+      source(1200),
+    );
     row = (await env.DB.prepare(
-      "SELECT views_count AS v, views_prev AS p FROM posts WHERE tweet_id = 't1'"
+      "SELECT views_count AS v, views_prev AS p FROM posts WHERE tweet_id = 't1'",
     ).first()) as { v: number | null; p: number | null };
     expect(row).toMatchObject({ v: 1200, p: 1000 });
 
     // 第三次：本次响应缺 views（null）→ 好值保留，views_prev 不被重复挪动
-    await applyFollowerStats(env, "alice", { followers: 1500, userId: "44196397" }, "2026-09-05T06:00:00Z", source(null));
+    await applyFollowerStats(
+      env,
+      "alice",
+      { followers: 1500, userId: "44196397" },
+      "2026-09-05T06:00:00Z",
+      source(null),
+    );
     row = (await env.DB.prepare(
-      "SELECT views_count AS v, views_prev AS p FROM posts WHERE tweet_id = 't1'"
+      "SELECT views_count AS v, views_prev AS p FROM posts WHERE tweet_id = 't1'",
     ).first()) as { v: number | null; p: number | null };
     expect(row).toMatchObject({ v: 1200, p: 1000 });
   });
@@ -444,9 +607,9 @@ describe("熔断与队列回收", () => {
   it("402 打开熔断；熔断期内 collect 与队列消费都不出站", async () => {
     await seedBaselines();
     // 让熔断处于打开状态（模拟刚吃过 402）
-    await env.DB.prepare(
-      "INSERT INTO site_meta (key, value) VALUES ('sd_circuit_open_until', ?)"
-    ).bind(new Date(Date.now() + 3_600_000).toISOString()).run();
+    await env.DB.prepare("INSERT INTO site_meta (key, value) VALUES ('sd_circuit_open_until', ?)")
+      .bind(new Date(Date.now() + 3_600_000).toISOString())
+      .run();
 
     let calls = 0;
     const source: FollowerSource = {
@@ -467,8 +630,10 @@ describe("熔断与队列回收", () => {
 
     // 即时通道同样不穿透熔断
     await env.DB.prepare(
-      "INSERT INTO refresh_queue (member_id, status, requested_at) VALUES ('alice', 'pending', ?)"
-    ).bind(new Date().toISOString()).run();
+      "INSERT INTO refresh_queue (member_id, status, requested_at) VALUES ('alice', 'pending', ?)",
+    )
+      .bind(new Date().toISOString())
+      .run();
     const processed = await processOldestPending(env, source);
     expect(processed).toBe(false);
     expect(calls).toBe(0);
@@ -478,8 +643,10 @@ describe("熔断与队列回收", () => {
     await seedBaselines();
     await env.DB.prepare("DELETE FROM site_meta WHERE key = 'sd_circuit_open_until'").run();
     await env.DB.prepare(
-      "INSERT INTO refresh_queue (member_id, status, requested_at) VALUES ('alice', 'pending', ?)"
-    ).bind(new Date().toISOString()).run();
+      "INSERT INTO refresh_queue (member_id, status, requested_at) VALUES ('alice', 'pending', ?)",
+    )
+      .bind(new Date().toISOString())
+      .run();
 
     const source: FollowerSource = {
       name: "stub",
@@ -494,14 +661,14 @@ describe("熔断与队列回收", () => {
     expect(ok).toBe(false);
 
     const job = (await env.DB.prepare(
-      "SELECT status, error FROM refresh_queue WHERE member_id = 'alice' ORDER BY id DESC LIMIT 1"
+      "SELECT status, error FROM refresh_queue WHERE member_id = 'alice' ORDER BY id DESC LIMIT 1",
     ).first()) as { status: string; error: string | null };
     expect(job.status).toBe("pending"); // 留队待恢复，不是 failed
     expect(job.error).toContain("额度");
 
     // 合闸生效：后续通道短路
     const breaker = await env.DB.prepare(
-      "SELECT value FROM site_meta WHERE key = 'sd_circuit_open_until'"
+      "SELECT value FROM site_meta WHERE key = 'sd_circuit_open_until'",
     ).first();
     expect(breaker).not.toBeNull();
   });
@@ -511,22 +678,30 @@ describe("熔断与队列回收", () => {
     // 一条 2 小时前领取、至今仍 processing 的 job
     await env.DB.prepare(
       `INSERT INTO refresh_queue (member_id, status, requested_at, processed_at)
-       VALUES ('alice', 'processing', ?, NULL)`
-    ).bind(new Date(Date.now() - 2 * 3600_000).toISOString()).run();
+       VALUES ('alice', 'processing', ?, NULL)`,
+    )
+      .bind(new Date(Date.now() - 2 * 3600_000).toISOString())
+      .run();
 
     // collect 会调用 pruneRefreshQueue（纯本地写，不依赖出站）
-    await collectWithSource(env, stubSource({ alice_x: { followers: 1500 } }), testRoster, undefined, 0);
+    await collectWithSource(
+      env,
+      stubSource({ alice_x: { followers: 1500 } }),
+      testRoster,
+      undefined,
+      0,
+    );
 
-    const job = (await env.DB.prepare(
-      "SELECT status, processed_at FROM refresh_queue WHERE member_id = 'alice' AND status = 'failed'"
-    ).first()) as { status: string; processed_at: string | null } | null;
+    const job = await env.DB.prepare(
+      "SELECT status, processed_at FROM refresh_queue WHERE member_id = 'alice' AND status = 'failed'",
+    ).first<{ status: string; processed_at: string | null }>();
     expect(job).not.toBeNull();
     expect(job!.processed_at).not.toBeNull(); // 写了 processed_at，30 天清理才收得走
   });
 
   it("熔断分片提前收车：中途 402 后剩余成员不再尝试", async () => {
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at) VALUES ('m1','m1_x','2026-08-30'), ('m10','m10_x','2026-08-30')"
+      "INSERT INTO members (id, handle, joined_at) VALUES ('m1','m1_x','2026-08-30'), ('m10','m10_x','2026-08-30')",
     ).run();
     await env.DB.prepare("DELETE FROM site_meta WHERE key = 'sd_circuit_open_until'").run();
     const twoMemberRoster: RosterFile = {
@@ -557,17 +732,21 @@ describe("熔断与队列回收", () => {
 
 describe("账号失效隔离（404 → suspended）", () => {
   // alice 的分片槽是 0（见上方「滚动采集」用例注释）
-  const soloRoster: RosterFile = { members: [{ id: "alice", handle: "alice_x", joinedAt: "2026-08-30" }] };
+  const soloRoster: RosterFile = {
+    members: [{ id: "alice", handle: "alice_x", joinedAt: "2026-08-30" }],
+  };
   const notFound = new SocialDataError("SocialData 请求失败（HTTP 404）：User is suspended", 404);
   it("连续 3 次 404 自动隔离；隔离后不再出站调用", async () => {
-    await env.DB.prepare("INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')").run();
-    const { source, getCalls } = countingSource({ alice_x: notFound });
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')",
+    ).run();
+    const { source } = countingSource({ alice_x: notFound });
     for (let i = 0; i < 3; i++) {
       const summary = await collectWithSource(env, source, soloRoster, undefined, 0);
       expect(summary.ok).toBe(0);
     }
     const quarantined = (await env.DB.prepare(
-      "SELECT status, fail_count FROM members WHERE id = 'alice'"
+      "SELECT status, fail_count FROM members WHERE id = 'alice'",
     ).first()) as { status: string; fail_count: number };
     expect(quarantined).toEqual({ status: "suspended", fail_count: 3 });
 
@@ -576,24 +755,28 @@ describe("账号失效隔离（404 → suspended）", () => {
     const summary = await collectWithSource(env, after.source, soloRoster, undefined, 0);
     expect(summary.ok).toBe(0);
     expect(after.getCalls()).toBe(0);
-    const still = (await env.DB.prepare("SELECT status FROM members WHERE id = 'alice'").first()) as { status: string };
+    const still = (await env.DB.prepare(
+      "SELECT status FROM members WHERE id = 'alice'",
+    ).first()) as { status: string };
     expect(still.status).toBe("suspended");
   });
 
   it("404 后采集成功：fail_count 清零、保持 active", async () => {
-    await env.DB.prepare("INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')").run();
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at) VALUES ('alice', 'alice_x', '2026-08-30')",
+    ).run();
     const failSource = countingSource({ alice_x: notFound });
     await collectWithSource(env, failSource.source, soloRoster, undefined, 0);
     await collectWithSource(env, failSource.source, soloRoster, undefined, 0);
     const counting = (await env.DB.prepare(
-      "SELECT status, fail_count FROM members WHERE id = 'alice'"
+      "SELECT status, fail_count FROM members WHERE id = 'alice'",
     ).first()) as { status: string; fail_count: number };
     expect(counting).toEqual({ status: "active", fail_count: 2 });
 
     const okSource = countingSource({ alice_x: { followers: 1600 } });
     await collectWithSource(env, okSource.source, soloRoster, undefined, 0);
     const recovered = (await env.DB.prepare(
-      "SELECT status, fail_count FROM members WHERE id = 'alice'"
+      "SELECT status, fail_count FROM members WHERE id = 'alice'",
     ).first()) as { status: string; fail_count: number };
     expect(recovered).toEqual({ status: "active", fail_count: 0 });
   });
@@ -601,7 +784,7 @@ describe("账号失效隔离（404 → suspended）", () => {
   it("隔离是终态：不再有任何出站调用，手动恢复前永远停采", async () => {
     await env.DB.prepare(
       `INSERT INTO members (id, handle, joined_at, status, fail_count, last_fail_at)
-       VALUES ('alice', 'alice_x', '2026-08-30', 'suspended', 3, '2026-09-10T00:00:00.000Z')`
+       VALUES ('alice', 'alice_x', '2026-08-30', 'suspended', 3, '2026-09-10T00:00:00.000Z')`,
     ).run();
     // 就算数据源已恢复正常（账号解封），suspended 也不进采集池——
     // 没有自动探针：解封无法预测，定时探测就是白烧计费调用；恢复只能手动置回 active
@@ -610,11 +793,11 @@ describe("账号失效隔离（404 → suspended）", () => {
     expect(getCalls()).toBe(0);
     expect(summary.ok).toBe(0);
     const row = (await env.DB.prepare(
-      "SELECT status, fail_count FROM members WHERE id = 'alice'"
+      "SELECT status, fail_count FROM members WHERE id = 'alice'",
     ).first()) as { status: string; fail_count: number };
     expect(row).toEqual({ status: "suspended", fail_count: 3 });
     const snap = (await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'"
+      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'",
     ).first()) as { n: number };
     expect(snap.n).toBe(0);
   });

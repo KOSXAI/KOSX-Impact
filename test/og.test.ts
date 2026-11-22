@@ -49,7 +49,10 @@ describe("memberOgSvg", () => {
   });
 
   it("超宽昵称截断并追加省略号", () => {
-    const svg = memberOgSvg({ ...base, displayName: "一二三四五六七八九十甲乙丙丁戊己庚辛壬癸" }, { climbs: 0, logo });
+    const svg = memberOgSvg(
+      { ...base, displayName: "一二三四五六七八九十甲乙丙丁戊己庚辛壬癸" },
+      { climbs: 0, logo },
+    );
     expect(svg).toContain("…");
     expect(svg).not.toContain("一二三四五六七八九十甲乙丙丁戊己庚辛壬癸<");
   });
@@ -74,7 +77,10 @@ describe("memberOgSvg", () => {
 
 describe("siteOgSvg", () => {
   it("包含品牌与社群总量", () => {
-    const svg = siteOgSvg({ totalFollowers: 1_200_000, memberCount: 42, tenKMembers: 7, growth30d: 8640 }, logo);
+    const svg = siteOgSvg(
+      { totalFollowers: 1_200_000, memberCount: 42, tenKMembers: 7, growth30d: 8640 },
+      logo,
+    );
     expect(svg).toContain("KOSX 万粉影响力计划");
     expect(svg).toContain("1,200,000");
     expect(svg).toContain("社群总粉丝 · 42 位成员 · 7 位已达万粉");

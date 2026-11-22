@@ -4,9 +4,6 @@
   "private": true,
   "description": "KOSX 万粉影响力计划：公开影响力数据平台",
   "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -17,13 +14,19 @@
     "db:create": "cf d1 create kosx-impact",
     "db:migrate:local": "cf d1 migrations apply kosx-impact --local",
     "db:migrate:remote": "cf d1 migrations apply kosx-impact --remote",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsrs --noEmit --fast",
+    "typecheck:strict": "tsrs --noEmit",
+    "typecheck:tsc": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
     "test": "vitest run",
     "test:watch": "vitest",
     "gen:routes": "node scripts/gen-routes.mjs",
     "validate:members": "node scripts/validate-members.mjs",
     "build:og-fonts": "node scripts/build-og-fonts.mjs",
-    "check": "npm run validate:members && npm run gen:routes && npm run typecheck && npm run test"
+    "check": "npm run validate:members && npm run gen:routes && npm run typecheck && npm run lint && npm run fmt:check && npm run test"
   },
   "dependencies": {
     "@resvg/resvg-wasm": "^2.6.2",
@@ -47,14 +50,20 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.41.0",
+    "oxfmt": "^0.79.0",
+    "oxlint": "^1.94.0",
     "puppeteer-core": "^25.10.0",
     "subset-font": "^2.7.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
+    "tsrs": "7.1.0-beta.tsrs4",
     "tw-animate-css": "^1.4.0",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11",
     "wrangler": "^4.127.1"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -24,7 +24,7 @@ process.on("exit", () => lock.release());
 
 // 已有快照的成员（本地采集过），新成员不在其中
 const collected = new Set(
-  d1Query("SELECT DISTINCT member_id FROM snapshots").map((r) => r.member_id)
+  d1Query("SELECT DISTINCT member_id FROM snapshots").map((r) => r.member_id),
 );
 const pending = roster.filter((m) => !collected.has(m.id));
 console.log(`名册 ${roster.length} 位，已有快照 ${collected.size} 位，待入职 ${pending.length} 位`);
@@ -42,6 +42,8 @@ const now = new Date().toISOString();
 const sql = [];
 let nameBackfilled = 0;
 let failed = 0;
+// 单引号翻倍的 SQL 字面量封装（bio/location/name 来自 X 用户输入，不转义会生成坏 SQL）
+const esc = (v) => `'${String(v).replace(/'/g, "''")}'`;
 
 for (let i = 0; i < pending.length; i++) {
   const m = pending[i];
@@ -49,10 +51,13 @@ for (let i = 0; i < pending.length; i++) {
   // 但仍先过一遍闸门，保证与别的脚本/Worker 撞车时不会插队
   if (i > 0) await new Promise((r) => setTimeout(r, 21_000));
   await reserveSharedSlot();
-  const res = await fetch(`https://api.socialdata.tools/twitter/user/${encodeURIComponent(m.handle)}`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
-    dispatcher,
-  });
+  const res = await fetch(
+    `https://api.socialdata.tools/twitter/user/${encodeURIComponent(m.handle)}`,
+    {
+      headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
+      dispatcher,
+    },
+  );
   if (!res.ok) {
     // 余额耗尽/鉴权失效：继续跑只会把额度烧在注定失败的调用上，当场收车
     if (res.status === 402 || res.status === 401 || res.status === 403) {
@@ -61,7 +66,9 @@ for (let i = 0; i < pending.length; i++) {
       process.exit(1);
     }
     // 404 = handle 写错/账号已注销（必须人工确认，不能静默）；429/5xx = 稍后重跑即可
-    console.error(`✗ @${m.handle} HTTP ${res.status}（本次跳过，不写入库；${res.status === 404 ? "检查名册 handle 是否正确" : "可稍后重跑"}）`);
+    console.error(
+      `✗ @${m.handle} HTTP ${res.status}（本次跳过，不写入库；${res.status === 404 ? "检查名册 handle 是否正确" : "可稍后重跑"}）`,
+    );
     failed++;
     continue;
   }
@@ -73,8 +80,6 @@ for (let i = 0; i < pending.length; i++) {
     m.displayName = data.name;
     nameBackfilled++;
   }
-  // 单引号翻倍的 SQL 字面量封装（bio/location/name 来自 X 用户输入，不转义会生成坏 SQL）
-  const esc = (v) => `'${String(v).replace(/'/g, "''")}'`;
   // 缺字段必须写 SQL NULL 而不是字符串 'null'/'undefined'：否则 COALESCE(excluded.bio, bio)
   // 这层「不覆盖已有值」的保护会失效（值已非 NULL），把好数据换成字面量 'null'
   const text = (v) => (v == null || v === "" ? "NULL" : esc(v));
@@ -87,7 +92,9 @@ for (let i = 0; i < pending.length; i++) {
     xCreatedAt: text(data.created_at),
     verified: data.verified === true ? 1 : data.verified === false ? 0 : "NULL",
   };
-  console.log(`✓ @${m.handle} -> ${followers} 粉${m.displayName ? ` · ${m.displayName}` : "（无显示名，请人工补充 displayName）"}`);
+  console.log(
+    `✓ @${m.handle} -> ${followers} 粉${m.displayName ? ` · ${m.displayName}` : "（无显示名，请人工补充 displayName）"}`,
+  );
   sql.push(
     `INSERT INTO members (id, handle, display_name, status, joined_at, profile_image, bio, location, url, banner_url, x_created_at, verified)
      VALUES (${esc(m.id)}, ${esc(m.handle)}, ${nameSql}, 'active', ${esc(m.joinedAt)}, ${img ? `'${img}'` : "NULL"}, ${profile.bio}, ${profile.location}, ${profile.url}, ${profile.banner}, ${profile.xCreatedAt}, ${profile.verified})
@@ -101,7 +108,7 @@ for (let i = 0; i < pending.length; i++) {
      VALUES (${esc(m.id)}, ${followers}, ${data.friends_count ?? "NULL"}, ${data.statuses_count ?? "NULL"}, ${data.listed_count ?? "NULL"}, ${data.favourites_count ?? "NULL"}, ${esc(now)})
      ON CONFLICT(member_id, date(recorded_at)) DO UPDATE SET
        followers = excluded.followers, following = excluded.following, posts = excluded.posts,
-       listed_count = excluded.listed_count, favourites_count = excluded.favourites_count;`
+       listed_count = excluded.listed_count, favourites_count = excluded.favourites_count;`,
   );
 }
 
@@ -112,9 +119,13 @@ if (nameBackfilled > 0) {
 }
 
 writeFileSync("/tmp/onboard.sql", sql.join("\n\n") + "\n");
-console.log(`\n生成 /tmp/onboard.sql（${sql.length / 2} 位）——执行：wrangler d1 execute kosx-impact --remote --file=/tmp/onboard.sql`);
+console.log(
+  `\n生成 /tmp/onboard.sql（${sql.length / 2} 位）——执行：wrangler d1 execute kosx-impact --remote --file=/tmp/onboard.sql`,
+);
 // 有成员拉取失败即非零退出：`node … && wrangler …` 链不会把半截名册灌进线上库
 if (failed > 0) {
-  console.error(`\n${failed} 位成员未取到数据，已生成的部分不含他们——确认后重跑本脚本补齐再执行 SQL`);
+  console.error(
+    `\n${failed} 位成员未取到数据，已生成的部分不含他们——确认后重跑本脚本补齐再执行 SQL`,
+  );
   process.exitCode = 1;
 }

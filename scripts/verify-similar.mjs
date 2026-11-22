@@ -49,21 +49,34 @@ for (let i = 0; i < unique.length; i++) {
       followers: body.followers_count ?? null,
       bio: body.description ?? null,
     });
-    process.stdout.write(`✓ ${(body.name ?? "").slice(0, 16)} (${body.followers_count ?? "?"}粉)\n`);
+    process.stdout.write(
+      `✓ ${(body.name ?? "").slice(0, 16)} (${body.followers_count ?? "?"}粉)\n`,
+    );
   } else if (status === 404) {
     verified.set(handle, { exists: false, name: null, followers: null, bio: null });
     process.stdout.write(`✗ 不存在（HTTP 404）\n`);
   } else {
     // 429 / 5xx / 网络抖动：不定生死，人工重跑这一批
-    verified.set(handle, { exists: null, error: `HTTP ${status}`, name: null, followers: null, bio: null });
+    verified.set(handle, {
+      exists: null,
+      error: `HTTP ${status}`,
+      name: null,
+      followers: null,
+      bio: null,
+    });
     process.stdout.write(`⚠ 瞬时错误（HTTP ${status}），重跑确认\n`);
   }
 }
 
-writeFileSync(OUT, JSON.stringify({ similar: data.similar, verified: Object.fromEntries(verified) }, null, 2));
+writeFileSync(
+  OUT,
+  JSON.stringify({ similar: data.similar, verified: Object.fromEntries(verified) }, null, 2),
+);
 const missing = unique.filter((h) => verified.get(h).exists === false);
 const errored = unique.filter((h) => verified.get(h).exists === null);
-console.log(`\n验证完成：存在 ${unique.length - missing.length - errored.length}，不存在 ${missing.length} 个，瞬时错误 ${errored.length} 个`);
+console.log(
+  `\n验证完成：存在 ${unique.length - missing.length - errored.length}，不存在 ${missing.length} 个，瞬时错误 ${errored.length} 个`,
+);
 if (missing.length) console.log("不存在清单:", missing.join(", "));
 if (errored.length) console.log("瞬时错误清单（重跑确认）:", errored.join(", "));
 console.log(`产物: ${OUT}`);

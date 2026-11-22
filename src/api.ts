@@ -1,19 +1,48 @@
 import { Hono } from "hono";
-import { applyFollowerStats, bumpCacheBust, collect, drainRefreshQueue, processOldestPending, sdBreakerOpen, tripBreaker } from "./collector";
 import { CACHE_KEYS, assertSafeCacheKey, cachedResponse, readCacheBust } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
-import { renderMemberOgPng, renderSiteOgPng, renderReportOgPng, renderTrackOgPng, renderLeaderboardOgPng, ogNotFound } from "./og-render";
-import { computeMemberStats } from "./stats";
-import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
-import { syncMemberMentions, syncCommunitySignals } from "./sync-signals";
-import { enqueueRefresh, findSuspendedMember, isHandleExcluded, lookupRefreshMember, normalizeHandle, registerCapReached, registerMember, tryGrabRefreshSlot } from "./refresh-queue";
-import { getSource } from "./sources";
-import { SocialDataError } from "./sources/socialdata";
-import { TRACKS } from "./tracks";
-import { LATEST_FOLLOWERS_SQL, parseStrArray, rankInTrack, type SnapshotRow } from "./queries/shared";
-import { titleOf } from "./milestones";
+import {
+  applyFollowerStats,
+  bumpCacheBust,
+  collect,
+  drainRefreshQueue,
+  processOldestPending,
+  sdBreakerOpen,
+  tripBreaker,
+} from "./collector";
 import { badge } from "./lib/format";
 import { SITE_URL } from "./lib/site";
+import { titleOf } from "./milestones";
+import {
+  renderMemberOgPng,
+  renderSiteOgPng,
+  renderReportOgPng,
+  renderTrackOgPng,
+  renderLeaderboardOgPng,
+  ogNotFound,
+} from "./og-render";
+import { getDashboardStats, getMemberDetail, getTopPosts } from "./queries";
+import {
+  LATEST_FOLLOWERS_SQL,
+  parseStrArray,
+  rankInTrack,
+  type SnapshotRow,
+} from "./queries/shared";
+import {
+  enqueueRefresh,
+  findSuspendedMember,
+  isHandleExcluded,
+  lookupRefreshMember,
+  normalizeHandle,
+  registerCapReached,
+  registerMember,
+  tryGrabRefreshSlot,
+} from "./refresh-queue";
+import { getSource } from "./sources";
+import { SocialDataError } from "./sources/socialdata";
+import { computeMemberStats } from "./stats";
+import { syncMemberMentions, syncCommunitySignals } from "./sync-signals";
+import { TRACKS } from "./tracks";
 
 export const api = new Hono<{ Bindings: Env }>();
 
@@ -51,16 +80,29 @@ api.post("/api/invite", async (c) => {
   if (!rateLimit(`invite:${clientKey(c)}`, 10, 60_000)) {
     return c.json({ error: "too_many_requests", message: "提交过于频繁，请稍后再试。" }, 429);
   }
-  const body = (await c.req.json().catch(() => null)) as { inviterId?: string; invitedMemberId?: string } | null;
+  const body = (await c.req.json().catch(() => null)) as {
+    inviterId?: string;
+    invitedMemberId?: string;
+  } | null;
   if (!body?.inviterId || !body?.invitedMemberId) return c.json({ error: "invalid" }, 400);
   // 自己邀请自己不算（否则空手刷榜）
   if (body.inviterId === body.invitedMemberId) return c.json({ error: "invalid" }, 400);
-  const inviter = await c.env.DB.prepare("SELECT id FROM members WHERE id = ? AND status = 'active'").bind(body.inviterId).first();
-  const invited = await c.env.DB.prepare("SELECT id FROM members WHERE id = ? AND status = 'active'").bind(body.invitedMemberId).first();
+  const inviter = await c.env.DB.prepare(
+    "SELECT id FROM members WHERE id = ? AND status = 'active'",
+  )
+    .bind(body.inviterId)
+    .first();
+  const invited = await c.env.DB.prepare(
+    "SELECT id FROM members WHERE id = ? AND status = 'active'",
+  )
+    .bind(body.invitedMemberId)
+    .first();
   if (!inviter || !invited) return c.json({ error: "unknown_member" }, 422);
   await c.env.DB.prepare(
-    "INSERT OR IGNORE INTO invite_events (inviter_id, invited_member_id, created_at) VALUES (?, ?, ?)"
-  ).bind(body.inviterId, body.invitedMemberId, new Date().toISOString()).run();
+    "INSERT OR IGNORE INTO invite_events (inviter_id, invited_member_id, created_at) VALUES (?, ?, ?)",
+  )
+    .bind(body.inviterId, body.invitedMemberId, new Date().toISOString())
+    .run();
   return c.json({ ok: true });
 });
 
@@ -79,9 +121,12 @@ api.get("/api/top-posts", async (c) => {
 // 成员列表，附带每人最新一次快照的粉丝量
 api.get("/api/members", async (c) => {
   const bust = await readCacheBust(c.env);
-  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.memberList}&cb=${bust}`), 3600, async () => {
-    const { results } = await c.env.DB.prepare(
-      `SELECT
+  return cachedResponse(
+    new Request(`${SITE_URL}${CACHE_KEYS.memberList}&cb=${bust}`),
+    3600,
+    async () => {
+      const { results } = await c.env.DB.prepare(
+        `SELECT
          m.id, m.handle, m.display_name, m.joined_at,
          s.followers  AS latest_followers,
          s.recorded_at AS latest_recorded_at
@@ -90,10 +135,11 @@ api.get("/api/members", async (c) => {
          SELECT id FROM snapshots WHERE member_id = m.id ORDER BY recorded_at DESC LIMIT 1
        )
        WHERE m.status = 'active'
-       ORDER BY m.joined_at`
-    ).all();
-    return c.json({ members: results });
-  });
+       ORDER BY m.joined_at`,
+      ).all();
+      return c.json({ members: results });
+    },
+  );
 });
 
 // 单个成员的成长曲线与登阶记录（API 与成员页 SSR 共用 queries.ts 的缓存）
@@ -113,8 +159,11 @@ api.get("/api/refresh/lookup", async (c) => {
     // 隔离中的成员不是「未加入」：明确告知原因（410 让前端不再引导自助加入）
     if (await findSuspendedMember(c.env, handle)) {
       return c.json(
-        { error: "account_suspended", message: "该账号在 X 上已无法访问（可能已被冻结或注销），已暂停追踪更新。" },
-        410
+        {
+          error: "account_suspended",
+          message: "该账号在 X 上已无法访问（可能已被冻结或注销），已暂停追踪更新。",
+        },
+        410,
       );
     }
     return c.json({ error: "not_member" }, 404);
@@ -138,9 +187,10 @@ api.post("/api/refresh", async (c) => {
   if (!rateLimit(`refresh:${clientKey(c)}`, 10, 60_000)) {
     return c.json({ error: "too_many_requests", message: "提交过于频繁，请稍后再试。" }, 429);
   }
-  const body = (await c.req.json().catch(() => null)) as
-    | { input?: string; register?: boolean }
-    | null;
+  const body = (await c.req.json().catch(() => null)) as {
+    input?: string;
+    register?: boolean;
+  } | null;
   const handle = normalizeHandle(body?.input ?? "");
   if (!handle) return c.json({ error: "invalid_handle" }, 400);
 
@@ -152,8 +202,11 @@ api.post("/api/refresh", async (c) => {
   // 绕开隔离继续烧 SocialData 额度，正是本守卫要堵的洞）
   if (isNewRegistration && (await findSuspendedMember(c.env, handle))) {
     return c.json(
-      { error: "account_suspended", message: "该账号在 X 上已无法访问（可能已被冻结或注销），已暂停追踪更新。" },
-      410
+      {
+        error: "account_suspended",
+        message: "该账号在 X 上已无法访问（可能已被冻结或注销），已暂停追踪更新。",
+      },
+      410,
     );
   }
   // 自助加入准入：名单内 handle 不受理，也不触发出站采集（提示不解释具体原因）
@@ -163,7 +216,10 @@ api.post("/api/refresh", async (c) => {
   // 自助注册名额闸门：新注册/复活每条都要烧 SocialData 额度并永久扩大分片成本，
   // 全站每日新增有上限（正常加入远够用），触顶一律拒绝，防脚本刷额度
   if (isNewRegistration && (await registerCapReached(c.env, nowIso))) {
-    return c.json({ error: "register_cap_reached", message: "今日自助加入名额已满，请明天再试。" }, 429);
+    return c.json(
+      { error: "register_cap_reached", message: "今日自助加入名额已满，请明天再试。" },
+      429,
+    );
   }
 
   const source = getSource(c.env);
@@ -183,8 +239,11 @@ api.post("/api/refresh", async (c) => {
       if (!registered.ok) {
         if (registered.reason === "excluded") return c.json(REGISTRATION_UNAVAILABLE, 422);
         return c.json(
-          { error: "account_locked", message: "该账号已被移出追踪名单，如需重新加入请联系社群管理员。" },
-          403
+          {
+            error: "account_locked",
+            message: "该账号已被移出追踪名单，如需重新加入请联系社群管理员。",
+          },
+          403,
         );
       }
       member = await lookupRefreshMember(c.env, handle);
@@ -198,7 +257,7 @@ api.post("/api/refresh", async (c) => {
         // 账号确实不存在：拒绝注册，不建任何行（脏 handle 进不了名单）
         return c.json(
           { error: "account_not_found", message: "在 X 上查无此账号，请检查 @ID 是否拼写正确。" },
-          422
+          422,
         );
       }
       // 额度/限流：合闸并明确失败，不降级建行（降级建行 = 脏 handle 永久入库）
@@ -206,7 +265,10 @@ api.post("/api/refresh", async (c) => {
         await tripBreaker(c.env);
         return c.json({ error: "upstream_limited", message: "数据源额度受限，请稍后再试。" }, 503);
       }
-      console.error("[refresh] 注册校验失败（未建行）：", error instanceof Error ? error.message : error);
+      console.error(
+        "[refresh] 注册校验失败（未建行）：",
+        error instanceof Error ? error.message : error,
+      );
       return c.json({ error: "upstream_error", message: "数据源暂时不可用，请稍后再试。" }, 503);
     }
   }
@@ -234,9 +296,11 @@ api.post("/api/refresh", async (c) => {
   // 读回口径必须锚定本条请求刚提交的 job（requested_at = 本次时间戳）：
   // 即时通道可能处理的是队列里更旧的一条 pending，且历史上同类 job 的
   // done/failed 行还在，按「最新一行」读回会把别人的结果或旧值当成自己的
-  const job = (await c.env.DB.prepare(
-    "SELECT status, followers_after AS followersAfter, error FROM refresh_queue INDEXED BY idx_refresh_queue_member WHERE member_id = ?1 AND requested_at = ?2 ORDER BY id DESC LIMIT 1"
-  ).bind(target.id, nowIso).first()) as { status: string; followersAfter: number | null; error: string | null } | null;
+  const job = await c.env.DB.prepare(
+    "SELECT status, followers_after AS followersAfter, error FROM refresh_queue INDEXED BY idx_refresh_queue_member WHERE member_id = ?1 AND requested_at = ?2 ORDER BY id DESC LIMIT 1",
+  )
+    .bind(target.id, nowIso)
+    .first<{ status: string; followersAfter: number | null; error: string | null }>();
 
   // 写库时 cache_bust 已 +1：读端点缓存键自动换新，新请求回源即见新数据，
   // 无需手动清缓存（跨数据中心 purge 本就只能清触发方所在区域）
@@ -263,65 +327,89 @@ api.post("/api/refresh", async (c) => {
 export async function renderMemberCardSvg(
   id: string,
   env: Env,
-  variant: "default" | "countdown" | "track" = "default"
+  variant: "default" | "countdown" | "track" = "default",
 ): Promise<Response> {
   // 键必须带 cache_bust 数据版本：数据一变键必换（嵌入到个人主页的外链图，
   // 若不跟数据版本，采集后升级的数据最长要等 1 小时边缘缓存过期才可见）
   const bust = await readCacheBust(env);
   // id 来自 URL 路径：编码后再入键（防止 `/`、`..`、`#` 借 URL 规范化逃逸到别的缓存槽）
   const key = assertSafeCacheKey(`/card/${encodeURIComponent(id)}?v=${variant}&cb=${bust}`);
-  return cachedResponse(new Request(`${SITE_URL}${key}`), 3600, async () => {
-    const member = await env.DB.prepare(
-      `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt, tracks
-       FROM members WHERE id = ? AND status IN ('active', 'suspended')`
-    ).bind(id).first<{ id: string; handle: string; displayName: string | null; joinedAt: string; tracks: string | null }>();
-    if (!member) {
-      return new Response(renderNotFoundCard(id), {
-        status: 404,
-        headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },
+  return cachedResponse(
+    new Request(`${SITE_URL}${key}`),
+    3600,
+    async () => {
+      const member = await env.DB.prepare(
+        `SELECT id, handle, display_name AS displayName, joined_at AS joinedAt, tracks
+       FROM members WHERE id = ? AND status IN ('active', 'suspended')`,
+      )
+        .bind(id)
+        .first<{
+          id: string;
+          handle: string;
+          displayName: string | null;
+          joinedAt: string;
+          tracks: string | null;
+        }>();
+      if (!member) {
+        return new Response(renderNotFoundCard(id), {
+          status: 404,
+          headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },
+        });
+      }
+      const { results: snapshots } = await env.DB.prepare(
+        "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ? ORDER BY recorded_at",
+      )
+        .bind(id)
+        .all<SnapshotRow>();
+      // 名册基线只在名册回填首快照时用（members 表无该列，基线快照已由 syncRoster 写入 snapshots）
+      const stats = computeMemberStats(member, snapshots, new Date().toISOString());
+      // 赛道/标签：members 表 JSON 文本 → 数组（赛道变体展示）
+      stats.tracks = parseStrArray(member.tracks);
+      let trackRanks: Array<{ track: string; rank: number; total: number }> | undefined;
+      if (variant === "track" && stats.tracks.length > 0) {
+        // 赛道内名次：全量成员 + 最新快照（低频卡片图，缓存 1h 可接受）；排名口径走全站共享 rankInTrack
+        const { results: allRows } = await env.DB.prepare(
+          `SELECT m.id, m.tracks, ${LATEST_FOLLOWERS_SQL} AS followers
+         FROM members m WHERE m.status = 'active'`,
+        ).all<{ id: string; tracks: string | null; followers: number | null }>();
+        const parsed = allRows.map((r) => ({
+          id: r.id,
+          followers: r.followers,
+          tracks: parseStrArray(r.tracks),
+        }));
+        trackRanks = stats.tracks.map((track) => ({ track, ...rankInTrack(parsed, id, track) }));
+      }
+      return new Response(renderMemberCard(stats, { variant, trackRanks }), {
+        headers: { "Content-Type": "image/svg+xml" },
       });
-    }
-    const { results: snapshots } = await env.DB.prepare(
-      "SELECT followers, recorded_at AS recordedAt FROM snapshots WHERE member_id = ? ORDER BY recorded_at"
-    ).bind(id).all<SnapshotRow>();
-    // 名册基线只在名册回填首快照时用（members 表无该列，基线快照已由 syncRoster 写入 snapshots）
-    const stats = computeMemberStats(member, snapshots, new Date().toISOString());
-    // 赛道/标签：members 表 JSON 文本 → 数组（赛道变体展示）
-    stats.tracks = parseStrArray(member.tracks);
-    let trackRanks: Array<{ track: string; rank: number; total: number }> | undefined;
-    if (variant === "track" && stats.tracks.length > 0) {
-      // 赛道内名次：全量成员 + 最新快照（低频卡片图，缓存 1h 可接受）；排名口径走全站共享 rankInTrack
-      const { results: allRows } = await env.DB.prepare(
-        `SELECT m.id, m.tracks, ${LATEST_FOLLOWERS_SQL} AS followers
-         FROM members m WHERE m.status = 'active'`
-      ).all<{ id: string; tracks: string | null; followers: number | null }>();
-      const parsed = allRows.map((r) => ({ id: r.id, followers: r.followers, tracks: parseStrArray(r.tracks) }));
-      trackRanks = stats.tracks.map((track) => ({ track, ...rankInTrack(parsed, id, track) }));
-    }
-    return new Response(renderMemberCard(stats, { variant, trackRanks }), {
-      headers: { "Content-Type": "image/svg+xml" },
-    });
-  }, { browserTtl: 3600 });
+    },
+    { browserTtl: 3600 },
+  );
 }
 
 // 站点 OG 图：分享到社媒时的动态预览（社群总量）
 // 只需每成员最新一条快照（窗口 LIMIT 1），缓存 6 小时挡爬虫高频预览
 // 高频图：浏览器也按 ttl 长缓存（browserTtl）
 export async function renderOgSvg(env: Env): Promise<Response> {
-  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.og}`), 21600, async () => {
-    // 只要两个数（累计粉丝 / 成员数），不必把全量成员+快照拉进内存再算：
-    // 单条聚合，每成员一次 (member_id, recorded_at) 索引 seek
-    const row = await env.DB.prepare(
-      `SELECT COUNT(*) AS memberCount, COALESCE(SUM(latest), 0) AS totalFollowers FROM (
+  return cachedResponse(
+    new Request(`${SITE_URL}${CACHE_KEYS.og}`),
+    21600,
+    async () => {
+      // 只要两个数（累计粉丝 / 成员数），不必把全量成员+快照拉进内存再算：
+      // 单条聚合，每成员一次 (member_id, recorded_at) 索引 seek
+      const row = await env.DB.prepare(
+        `SELECT COUNT(*) AS memberCount, COALESCE(SUM(latest), 0) AS totalFollowers FROM (
          SELECT (SELECT s.followers FROM snapshots s
                  WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS latest
          FROM members m WHERE m.status = 'active'
-       )`
-    ).first<{ memberCount: number; totalFollowers: number }>();
-    return new Response(renderSiteOgCard(row?.totalFollowers ?? 0, row?.memberCount ?? 0), {
-      headers: { "Content-Type": "image/svg+xml" },
-    });
-  }, { browserTtl: 21600 });
+       )`,
+      ).first<{ memberCount: number; totalFollowers: number }>();
+      return new Response(renderSiteOgCard(row?.totalFollowers ?? 0, row?.memberCount ?? 0), {
+        headers: { "Content-Type": "image/svg+xml" },
+      });
+    },
+    { browserTtl: 21600 },
+  );
 }
 
 export const honoApp = new Hono<{ Bindings: Env }>().route("/", api);
@@ -329,7 +417,10 @@ export const honoApp = new Hono<{ Bindings: Env }>().route("/", api);
 // robots.txt / sitemap.xml：SEO 基础设施，由 server.ts 显式分发
 function renderRobots(): Response {
   return new Response(`User-agent: *\nAllow: /\nSitemap: ${SITE_URL}/sitemap.xml\n`, {
-    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=86400" },
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=86400",
+    },
   });
 }
 
@@ -370,7 +461,10 @@ function renderLlmsTxt(): Response {
 - 粉丝样本重叠为采样方向性参考，非精确重叠。
 `;
   return new Response(text, {
-    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
+    },
   });
 }
 
@@ -378,48 +472,71 @@ function renderLlmsTxt(): Response {
  *  lastmod 用各成员最新快照时间（恒为「今天」的 lastmod 会被 Google 判定不可信而忽略） */
 async function renderSitemap(env: Env): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${CACHE_KEYS.sitemap}&cb=${bust}`), 3600, async () => {
-    const { results: memberRows } = await env.DB.prepare(
-      `SELECT id,
+  return cachedResponse(
+    new Request(`${SITE_URL}${CACHE_KEYS.sitemap}&cb=${bust}`),
+    3600,
+    async () => {
+      const { results: memberRows } = await env.DB.prepare(
+        `SELECT id,
               (SELECT MAX(s.recorded_at) FROM snapshots s WHERE s.member_id = m.id) AS lastmod
-       FROM members m WHERE m.status = 'active' ORDER BY joined_at`
-    ).all<{ id: string; lastmod: string | null }>();
-    const members = memberRows;
-    // 静态页与赛道页的最后变动时间 = 全站最新一次快照（数据一天一更，跟着数据走）
-    const dataDay = members.reduce<string | null>((max, m) => (m.lastmod && (!max || m.lastmod > max) ? m.lastmod : max), null)?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
-    const urls = [
-      { loc: `${SITE_URL}/`, lastmod: dataDay, changefreq: "daily", priority: "1.0" },
-      { loc: `${SITE_URL}/members`, lastmod: dataDay, changefreq: "daily", priority: "0.9" },
-      { loc: `${SITE_URL}/posts`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
-      { loc: `${SITE_URL}/reports`, lastmod: dataDay, changefreq: "daily", priority: "0.5" },
-      { loc: `${SITE_URL}/daily`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
-      // 近 14 天日报归档：归档页内容定格不再变化（lastmod 即当天）
-      ...Array.from({ length: 14 }, (_, i) => {
-        const d = new Date(`${dataDay}T00:00:00Z`);
-        d.setUTCDate(d.getUTCDate() - (i + 1));
-        const day = d.toISOString().slice(0, 10);
-        return { loc: `${SITE_URL}/daily?date=${day}`, lastmod: day, changefreq: "never", priority: "0.4" };
-      }),
-      { loc: `${SITE_URL}/report`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },
-      { loc: `${SITE_URL}/annual`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },
-      { loc: `${SITE_URL}/about`, lastmod: dataDay, changefreq: "monthly", priority: "0.3" },
-      // 赛道页（5 正式赛道；综合过渡桶不出独立页）
-      ...TRACKS.map((t) => ({ loc: `${SITE_URL}/tracks/${t.slug}`, lastmod: dataDay, changefreq: "daily", priority: "0.8" })),
-      ...members.map((m) => ({
-        loc: `${SITE_URL}/members/${m.id}`,
-        lastmod: m.lastmod?.slice(0, 10) ?? dataDay,
-        changefreq: "daily",
-        priority: "0.8",
-      })),
-    ];
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+       FROM members m WHERE m.status = 'active' ORDER BY joined_at`,
+      ).all<{ id: string; lastmod: string | null }>();
+      const members = memberRows;
+      // 静态页与赛道页的最后变动时间 = 全站最新一次快照（数据一天一更，跟着数据走）
+      const dataDay =
+        members
+          .reduce<string | null>(
+            (max, m) => (m.lastmod && (!max || m.lastmod > max) ? m.lastmod : max),
+            null,
+          )
+          ?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
+      const urls = [
+        { loc: `${SITE_URL}/`, lastmod: dataDay, changefreq: "daily", priority: "1.0" },
+        { loc: `${SITE_URL}/members`, lastmod: dataDay, changefreq: "daily", priority: "0.9" },
+        { loc: `${SITE_URL}/posts`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
+        { loc: `${SITE_URL}/reports`, lastmod: dataDay, changefreq: "daily", priority: "0.5" },
+        { loc: `${SITE_URL}/daily`, lastmod: dataDay, changefreq: "daily", priority: "0.7" },
+        // 近 14 天日报归档：归档页内容定格不再变化（lastmod 即当天）
+        ...Array.from({ length: 14 }, (_, i) => {
+          const d = new Date(`${dataDay}T00:00:00Z`);
+          d.setUTCDate(d.getUTCDate() - (i + 1));
+          const day = d.toISOString().slice(0, 10);
+          return {
+            loc: `${SITE_URL}/daily?date=${day}`,
+            lastmod: day,
+            changefreq: "never",
+            priority: "0.4",
+          };
+        }),
+        { loc: `${SITE_URL}/report`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },
+        { loc: `${SITE_URL}/annual`, lastmod: dataDay, changefreq: "weekly", priority: "0.6" },
+        { loc: `${SITE_URL}/about`, lastmod: dataDay, changefreq: "monthly", priority: "0.3" },
+        // 赛道页（5 正式赛道；综合过渡桶不出独立页）
+        ...TRACKS.map((t) => ({
+          loc: `${SITE_URL}/tracks/${t.slug}`,
+          lastmod: dataDay,
+          changefreq: "daily",
+          priority: "0.8",
+        })),
+        ...members.map((m) => ({
+          loc: `${SITE_URL}/members/${m.id}`,
+          lastmod: m.lastmod?.slice(0, 10) ?? dataDay,
+          changefreq: "daily",
+          priority: "0.8",
+        })),
+      ];
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`).join("\n")}
 </urlset>`;
-    return new Response(xml, {
-      headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
-    });
-  });
+      return new Response(xml, {
+        headers: {
+          "Content-Type": "application/xml; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
+    },
+  );
 }
 
 /** RSS 源：登阶事件 + 爆款内容（订阅/更新提醒的零基础设施落法，供 RSS 阅读器抓取）。
@@ -428,12 +545,20 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
  *  还会连带重建整份 dashboard）。键带 cb 版本：数据一变键换新、订阅者下次轮询即见新条目。 */
 async function renderFeed(env: Env): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}/feed.xml?v=1&cb=${bust}`), 3600, () => buildFeed(env));
+  return cachedResponse(new Request(`${SITE_URL}/feed.xml?v=1&cb=${bust}`), 3600, () =>
+    buildFeed(env),
+  );
 }
 
 async function buildFeed(env: Env): Promise<Response> {
   const stats = await getDashboardStats(env);
-  const items: Array<{ title: string; link: string; guid: string; pubDate: string; description: string }> = [];
+  const items: Array<{
+    title: string;
+    link: string;
+    guid: string;
+    pubDate: string;
+    description: string;
+  }> = [];
   // 回填历史登阶会产出同一成员同一时间戳的多条大关——合并成一条，避免订阅器刷屏
   const climbs = new Map<string, typeof stats.recentMilestones>();
   for (const m of stats.recentMilestones) {
@@ -471,12 +596,16 @@ async function buildFeed(env: Env): Promise<Response> {
 <atom:link href="${SITE_URL}/feed.xml" rel="self" type="application/rss+xml"/>
 ${items
   .map(
-    (i) => `<item><title>${escapeXml(i.title)}</title><link>${i.link}</link><guid isPermaLink="false">${escapeXml(i.guid)}</guid><pubDate>${i.pubDate}</pubDate><description>${escapeXml(i.description)}</description></item>`
+    (i) =>
+      `<item><title>${escapeXml(i.title)}</title><link>${i.link}</link><guid isPermaLink="false">${escapeXml(i.guid)}</guid><pubDate>${i.pubDate}</pubDate><description>${escapeXml(i.description)}</description></item>`,
   )
   .join("\n")}
 </channel></rss>`;
   return new Response(xml, {
-    headers: { "Content-Type": "application/rss+xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+    headers: {
+      "Content-Type": "application/rss+xml; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
+    },
   });
 }
 
@@ -498,27 +627,44 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
   if (pathname === "/og/site.png") return renderSiteOgPng(env, url.origin);
   if (pathname === "/og/leaderboard.png") return renderLeaderboardOgPng(env, url.origin);
   if (pathname.startsWith("/og/members/")) {
-    const id = pathname.slice("/og/members/".length).replace(/\.png$/, "").split("/")[0];
+    const id = pathname
+      .slice("/og/members/".length)
+      .replace(/\.png$/, "")
+      .split("/")[0];
     // id 白名单：非白名单串会进缓存键（URL 规范化可让其逃逸到别的缓存槽）
     return MEMBER_ID_RE.test(id) ? renderMemberOgPng(env, id, url.origin) : ogNotFound();
   }
   if (pathname.startsWith("/og/reports/")) {
-    const id = pathname.slice("/og/reports/".length).replace(/\.png$/, "").split("/")[0];
+    const id = pathname
+      .slice("/og/reports/".length)
+      .replace(/\.png$/, "")
+      .split("/")[0];
     return MEMBER_ID_RE.test(id) ? renderReportOgPng(env, id, url.origin) : ogNotFound();
   }
   if (pathname.startsWith("/og/tracks/")) {
-    const slug = pathname.slice("/og/tracks/".length).replace(/\.png$/, "").split("/")[0];
+    const slug = pathname
+      .slice("/og/tracks/".length)
+      .replace(/\.png$/, "")
+      .split("/")[0];
     // slug 必须落在真实赛道表内（缓存键 + 渲染都只认已知赛道）
-    return TRACKS.some((t) => t.slug === slug) ? renderTrackOgPng(env, slug, url.origin) : ogNotFound();
+    return TRACKS.some((t) => t.slug === slug)
+      ? renderTrackOgPng(env, slug, url.origin)
+      : ogNotFound();
   }
   if (pathname === "/robots.txt") return renderRobots();
   if (pathname === "/sitemap.xml") return renderSitemap(env);
   if (pathname === "/llms.txt") return renderLlmsTxt();
   if (pathname === "/feed.xml") return renderFeed(env);
   if (pathname.startsWith("/card/")) {
-    const id = pathname.slice("/card/".length).replace(/\.svg$/, "").split("/")[0];
+    const id = pathname
+      .slice("/card/".length)
+      .replace(/\.svg$/, "")
+      .split("/")[0];
     if (!MEMBER_ID_RE.test(id)) {
-      return new Response(renderNotFoundCard(id || "unknown"), { status: 404, headers: { "Content-Type": "image/svg+xml" } });
+      return new Response(renderNotFoundCard(id || "unknown"), {
+        status: 404,
+        headers: { "Content-Type": "image/svg+xml" },
+      });
     }
     // variant 白名单：任意串会让每个新值都成为一个新缓存键（无上限写缓存 + 每次 miss 重查库）
     const rawVariant = url.searchParams.get("variant") ?? "default";
@@ -539,8 +685,8 @@ export async function runScheduled(env: Env, ctx: ExecutionContext, cron: string
   if (cron === "0 * * * *") {
     ctx.waitUntil(
       collect(env, ctx).then((summary) =>
-        console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`)
-      )
+        console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`),
+      ),
     );
     return;
   }
@@ -552,9 +698,9 @@ export async function runScheduled(env: Env, ctx: ExecutionContext, cron: string
         const mentions = await syncMemberMentions(env);
         const signals = await syncCommunitySignals(env);
         console.log(
-          `[daily-signals] 被提及 ${mentions.total} 条（成员 ${mentions.ok}），共同关注 ${signals.following} 条，品味 ${signals.taste} 条`
+          `[daily-signals] 被提及 ${mentions.total} 条（成员 ${mentions.ok}），共同关注 ${signals.following} 条，品味 ${signals.taste} 条`,
         );
-      })()
+      })(),
     );
     return;
   }
@@ -563,6 +709,6 @@ export async function runScheduled(env: Env, ctx: ExecutionContext, cron: string
       // 本 cron 只跑队列（不走 collect 的收尾换键），排空成功时在这里换一次
       if (s.ok > 0) await bumpCacheBust(env);
       console.log(`[refresh-queue] 兜底清空：成功 ${s.ok}，失败 ${s.failed}`);
-    })
+    }),
   );
 }

@@ -1,7 +1,7 @@
-import type { FanProfile } from "@/stats";
-import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, Users } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { fmt } from "@/lib/format";
+import type { FanProfile } from "@/stats";
 
 /**
  * 粉丝圈画像卡：SocialData 粉丝样本聚合（约 200 人/账号，月度刷新）。

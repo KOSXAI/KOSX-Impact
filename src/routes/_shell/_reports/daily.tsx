@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchDashboard, fetchDailyArchive } from "@/data.functions";
 import { Avatar } from "@/components/member/Avatar";
 import { Reveal } from "@/components/motion";
 import { StatCard } from "@/components/ui/StatCard";
-import { groupClimbs, titleOf } from "@/milestones";
+import { fetchDashboard, fetchDailyArchive } from "@/data.functions";
 import { fmt, fmtDate, postExcerpt, signed } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
+import { groupClimbs, titleOf } from "@/milestones";
 
 /**
  * 社群日报：社群的「历史总览」——把今天的登阶、涨粉冠军、最爆内容、赛道表现
@@ -69,18 +69,27 @@ export const Route = createFileRoute("/_shell/_reports/daily")({
   loaderDeps: ({ search }) => ({ date: archiveDate(search.date) }),
   loader: async ({ deps }) => {
     const date = deps.date;
-    if (date) return { archive: await fetchDailyArchive({ data: date }), stats: null as Awaited<ReturnType<typeof fetchDashboard>> | null };
+    if (date)
+      return {
+        archive: await fetchDailyArchive({ data: date }),
+        stats: null as Awaited<ReturnType<typeof fetchDashboard>> | null,
+      };
     return { archive: null, stats: await fetchDashboard() };
   },
   head: ({ loaderData }) => {
     const title = loaderData?.archive
       ? `社群日报 ${loaderData.archive.date} · ${SITE_NAME}`
       : `社群日报 · ${SITE_NAME}`;
-    const url = loaderData?.archive ? `${SITE_URL}/daily?date=${loaderData.archive.date}` : `${SITE_URL}/daily`;
+    const url = loaderData?.archive
+      ? `${SITE_URL}/daily?date=${loaderData.archive.date}`
+      : `${SITE_URL}/daily`;
     return {
       meta: [
         { title },
-        { name: "description", content: `${SITE_NAME} 社群日报：今日登阶、涨粉冠军、最爆内容与赛道表现。` },
+        {
+          name: "description",
+          content: `${SITE_NAME} 社群日报：今日登阶、涨粉冠军、最爆内容与赛道表现。`,
+        },
         { property: "og:title", content: title },
         { property: "og:description", content: SLOGAN },
         { property: "og:type", content: "website" },
@@ -104,9 +113,13 @@ function DailyPage() {
 
   const today = new Date().toISOString().slice(0, 10);
   const todayClimbs = stats.recentMilestones.filter((m) => m.achievedAt.slice(0, 10) === today);
-  const growthChamp = [...stats.members].sort((a, b) => b.growth30d - a.growth30d)[0];
-  const hotPosts = (stats.insights.viralPosts.length ? stats.insights.viralPosts : stats.topPosts).slice(0, 5);
-  const bestTrack = [...stats.trackStats].sort((a, b) => b.growth30dTotal - a.growth30dTotal)[0];
+  const growthChamp = [...stats.members].toSorted((a, b) => b.growth30d - a.growth30d)[0];
+  const hotPosts = (
+    stats.insights.viralPosts.length ? stats.insights.viralPosts : stats.topPosts
+  ).slice(0, 5);
+  const bestTrack = [...stats.trackStats].toSorted(
+    (a, b) => b.growth30dTotal - a.growth30dTotal,
+  )[0];
   const byId = new Map(stats.members.map((m) => [m.id, m]));
 
   return (
@@ -116,7 +129,9 @@ function DailyPage() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">社群日报</h1>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-mist tabular-nums">{fmtDate(today)} · 每日更新</span>
+              <span className="text-sm font-semibold text-mist tabular-nums">
+                {fmtDate(today)} · 每日更新
+              </span>
               <DayNav date={today} today={today} />
               <Link to="/annual" className={DAY_NAV_CLS}>
                 年度报告 →
@@ -144,18 +159,33 @@ function DailyPage() {
                   const name = g.items[0].displayName ?? g.items[0].handle;
                   return (
                     <li key={g.key}>
-                      <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:bg-wash-strong">
-                        <Avatar url={byId.get(g.memberId)?.profileImage} name={name} className="size-9 shrink-0" />
+                      <Link
+                        to="/members/$id"
+                        params={{ id: g.memberId }}
+                        className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:bg-wash-strong"
+                      >
+                        <Avatar
+                          url={byId.get(g.memberId)?.profileImage}
+                          name={name}
+                          className="size-9 shrink-0"
+                        />
                         <span className="min-w-0 truncate font-semibold">{name}</span>
                         <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
-                          {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (
-                            <span key={c.threshold} className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text">
-                              「{titleOf(c.threshold)}」
-                            </span>
-                          ))}
+                          {[...g.items]
+                            .toSorted((a, b) => a.threshold - b.threshold)
+                            .map((c) => (
+                              <span
+                                key={c.threshold}
+                                className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text"
+                              >
+                                「{titleOf(c.threshold)}」
+                              </span>
+                            ))}
                         </span>
                         {g.items.length > 1 && (
-                          <span className="shrink-0 text-xs font-semibold text-signal-ink tabular-nums">{g.items.length} 枚</span>
+                          <span className="shrink-0 text-xs font-semibold text-signal-ink tabular-nums">
+                            {g.items.length} 枚
+                          </span>
                         )}
                       </Link>
                     </li>
@@ -174,15 +204,29 @@ function DailyPage() {
             {growthChamp && (
               <section className="panel-card p-6">
                 <h2 className="text-xl font-bold">近 30 天涨粉冠军</h2>
-                <Link to="/members/$id" params={{ id: growthChamp.id }} className="mt-4 flex items-center gap-3 rounded-xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong">
-                  <Avatar url={growthChamp.profileImage} name={growthChamp.displayName ?? growthChamp.handle} className="size-9 shrink-0" />
+                <Link
+                  to="/members/$id"
+                  params={{ id: growthChamp.id }}
+                  className="mt-4 flex items-center gap-3 rounded-xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong"
+                >
+                  <Avatar
+                    url={growthChamp.profileImage}
+                    name={growthChamp.displayName ?? growthChamp.handle}
+                    className="size-9 shrink-0"
+                  />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{growthChamp.displayName ?? growthChamp.handle}</div>
+                    <div className="truncate font-semibold">
+                      {growthChamp.displayName ?? growthChamp.handle}
+                    </div>
                     <div className="truncate text-xs text-mist">@{growthChamp.handle}</div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="text-xl font-bold text-signal-ink tabular-nums">{signed(growthChamp.growth30d)}</div>
-                    <div className="text-xs text-mist tabular-nums">近 7 天 {signed(growthChamp.growth7d)}</div>
+                    <div className="text-xl font-bold text-signal-ink tabular-nums">
+                      {signed(growthChamp.growth30d)}
+                    </div>
+                    <div className="text-xs text-mist tabular-nums">
+                      近 7 天 {signed(growthChamp.growth7d)}
+                    </div>
                   </div>
                 </Link>
               </section>
@@ -193,14 +237,22 @@ function DailyPage() {
                 <ul className="mt-4 space-y-2.5">
                   {[...stats.trackStats]
                     .filter((t) => t.memberCount > 0)
-                    .sort((a, b) => b.growth30dTotal - a.growth30dTotal)
+                    .toSorted((a, b) => b.growth30dTotal - a.growth30dTotal)
                     .slice(0, 5)
                     .map((t) => (
                       <li key={t.slug} className="flex items-center gap-2 text-sm">
-                        <Link to="/tracks/$slug" params={{ slug: t.slug }} className="w-14 shrink-0 font-semibold hover:text-signal-ink">{t.name}</Link>
+                        <Link
+                          to="/tracks/$slug"
+                          params={{ slug: t.slug }}
+                          className="w-14 shrink-0 font-semibold hover:text-signal-ink"
+                        >
+                          {t.name}
+                        </Link>
                         <span className="text-xs text-mist tabular-nums">{t.memberCount} 人</span>
                         <span className="ml-auto text-xs text-mist tabular-nums">30 天</span>
-                        <b className="shrink-0 text-signal-ink tabular-nums">+{fmt(t.growth30dTotal)}</b>
+                        <b className="shrink-0 text-signal-ink tabular-nums">
+                          +{fmt(t.growth30dTotal)}
+                        </b>
                       </li>
                     ))}
                 </ul>
@@ -216,16 +268,32 @@ function DailyPage() {
             <ul className="mt-4 space-y-3">
               {hotPosts.map((p) => (
                 <li key={p.tweetId}>
-                  <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong">
-                    {p.member && <Avatar url={p.member.profileImage} name={p.member.displayName ?? p.member.handle} className="size-9 shrink-0" />}
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 rounded-xl bg-soft-surface px-4 py-3 transition-colors hover:bg-wash-strong"
+                  >
+                    {p.member && (
+                      <Avatar
+                        url={p.member.profileImage}
+                        name={p.member.displayName ?? p.member.handle}
+                        className="size-9 shrink-0"
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
-                      <div className="line-clamp-1 text-sm">{postExcerpt(p.text, 60) ?? "链接帖"}</div>
+                      <div className="line-clamp-1 text-sm">
+                        {postExcerpt(p.text, 60) ?? "链接帖"}
+                      </div>
                       <div className="mt-0.5 text-xs text-mist">
-                        {p.member ? (p.member.displayName ?? p.member.handle) : ""} · {fmtDate(p.createdAt)}
+                        {p.member ? (p.member.displayName ?? p.member.handle) : ""} ·{" "}
+                        {fmtDate(p.createdAt)}
                       </div>
                     </div>
                     <div className="shrink-0 text-right text-sm">
-                      <div className="font-bold tabular-nums">{p.views != null ? fmt(p.views) : "—"}</div>
+                      <div className="font-bold tabular-nums">
+                        {p.views != null ? fmt(p.views) : "—"}
+                      </div>
                       <div className="text-xs text-mist">浏览</div>
                     </div>
                   </a>
@@ -234,15 +302,19 @@ function DailyPage() {
             </ul>
           </section>
         </Reveal>
-
-
       </div>
     </>
   );
 }
 
 /** 历史归档视图：某一天的社群快照（当日总粉丝 / 当日登阶 / 当日提及） */
-function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnType<typeof fetchDailyArchive>>>; onBack: () => void }) {
+function ArchiveView({
+  archive,
+  onBack,
+}: {
+  archive: NonNullable<Awaited<ReturnType<typeof fetchDailyArchive>>>;
+  onBack: () => void;
+}) {
   return (
     <>
       <div className="mx-auto max-w-5xl px-[clamp(18px,2.2vw,34px)] py-12 sm:py-16">
@@ -250,7 +322,9 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">社群日报</h1>
-              <p className="mt-2 text-sm font-semibold text-mist tabular-nums">{archive.date} · 历史归档</p>
+              <p className="mt-2 text-sm font-semibold text-mist tabular-nums">
+                {archive.date} · 历史归档
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <DayNav date={archive.date} today={new Date().toISOString().slice(0, 10)} />
@@ -278,17 +352,30 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
               <ul className="mt-4 space-y-3">
                 {groupClimbs(archive.climbs).map((g) => (
                   <li key={g.key}>
-                    <Link to="/members/$id" params={{ id: g.memberId }} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:bg-wash-strong">
-                      <span className="min-w-0 truncate font-semibold">{g.items[0].displayName ?? g.items[0].handle}</span>
+                    <Link
+                      to="/members/$id"
+                      params={{ id: g.memberId }}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-signal/20 bg-signal/8 px-4 py-3 transition-colors hover:bg-wash-strong"
+                    >
+                      <span className="min-w-0 truncate font-semibold">
+                        {g.items[0].displayName ?? g.items[0].handle}
+                      </span>
                       <span className="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-1">
-                        {[...g.items].sort((a, b) => a.threshold - b.threshold).map((c) => (
-                          <span key={c.threshold} className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text">
-                            「{titleOf(c.threshold)}」
-                          </span>
-                        ))}
+                        {[...g.items]
+                          .toSorted((a, b) => a.threshold - b.threshold)
+                          .map((c) => (
+                            <span
+                              key={c.threshold}
+                              className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text"
+                            >
+                              「{titleOf(c.threshold)}」
+                            </span>
+                          ))}
                       </span>
                       {g.items.length > 1 && (
-                        <span className="shrink-0 text-xs font-semibold text-signal-ink tabular-nums">{g.items.length} 枚</span>
+                        <span className="shrink-0 text-xs font-semibold text-signal-ink tabular-nums">
+                          {g.items.length} 枚
+                        </span>
                       )}
                     </Link>
                   </li>
@@ -300,11 +387,4 @@ function ArchiveView({ archive, onBack }: { archive: NonNullable<Awaited<ReturnT
       </div>
     </>
   );
-}
-
-
-function sentimentText(s: string): string {
-  if (s === "positive") return "正面";
-  if (s === "negative") return "负面";
-  return "中性";
 }

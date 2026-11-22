@@ -5,7 +5,16 @@
 // 默认只翻 1 页（够新鲜数据）；--deep 翻到覆盖 30 天窗口，给高产作者补全（一次可重复跑，幂等）。
 // 用法：node scripts/backfill-media.mjs [--deep] && wrangler d1 execute kosx-impact --remote --file=/tmp/media.sql
 import { writeFileSync } from "node:fs";
-import { readSocialDataKey, createThrottledGet, lit, jsonOrNull, extractMedia, extractQuoted, d1Query, BUMP_CACHE_BUST_SQL } from "./_lib.mjs";
+import {
+  readSocialDataKey,
+  createThrottledGet,
+  lit,
+  jsonOrNull,
+  extractMedia,
+  extractQuoted,
+  d1Query,
+  BUMP_CACHE_BUST_SQL,
+} from "./_lib.mjs";
 
 const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
@@ -22,12 +31,15 @@ const MAX_PAGES = deep ? 10 : 1;
 const members = d1Query(
   deep
     ? `SELECT m.id, m.user_id AS userId FROM members m WHERE m.status = 'active' AND m.user_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.member_id = m.id AND p.created_at >= '${new Date(windowStart).toISOString()}' AND p.tweet_type IS NULL)`
-    : `SELECT m.id, m.user_id AS userId FROM members m WHERE m.status = 'active' AND m.user_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.member_id = m.id AND p.tweet_type IS NULL)`
+    : `SELECT m.id, m.user_id AS userId FROM members m WHERE m.status = 'active' AND m.user_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.member_id = m.id AND p.tweet_type IS NULL)`,
 );
 console.log(`待回填成员：${members.length} 位${deep ? "（深度模式：翻页覆盖近 30 天）" : ""}`);
 
 const sql = [];
-let mediaPosts = 0, quotedPosts = 0, scanned = 0, failed = 0;
+let mediaPosts = 0,
+  quotedPosts = 0,
+  scanned = 0,
+  failed = 0;
 let pages = 0;
 
 for (const m of members) {
@@ -54,7 +66,7 @@ for (const m of members) {
           `UPDATE posts SET media = COALESCE(${jsonOrNull(media)}, media),
                             tweet_type = COALESCE(${lit(t.type)}, tweet_type),
                             quoted = COALESCE(${jsonOrNull(quoted)}, quoted)
-           WHERE tweet_id = ${lit(t.id_str)};`
+           WHERE tweet_id = ${lit(t.id_str)};`,
         );
         // 置顶帖排在首页最前但日期很旧，不能计入「本页最老」——否则翻页会提前中止
         if (t.is_pinned) continue;
@@ -75,7 +87,9 @@ for (const m of members) {
 // 回填也是数据变更：cache_bust +1，读端点缓存键换新
 sql.push(BUMP_CACHE_BUST_SQL);
 writeFileSync("/tmp/media.sql", sql.join("\n") + "\n");
-console.log(`\n请求 ${pages} 页，扫描 ${scanned} 帖：带媒体 ${mediaPosts}、引用帖 ${quotedPosts}，失败成员 ${failed}`);
+console.log(
+  `\n请求 ${pages} 页，扫描 ${scanned} 帖：带媒体 ${mediaPosts}、引用帖 ${quotedPosts}，失败成员 ${failed}`,
+);
 console.log(`执行：wrangler d1 execute kosx-impact --remote --file=/tmp/media.sql`);
 // 有失败成员即非零退出：README 承诺「失败项非零码退出，&& 链不会灌半截数据」
 if (failed > 0) {

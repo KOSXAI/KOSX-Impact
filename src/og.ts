@@ -1,3 +1,6 @@
+import { esc } from "./card";
+import { fmt } from "./lib/format";
+import { TIER_STYLE, titleOf } from "./milestones";
 /**
  * OG 分享卡模板（1200×630 PNG）：成员页 / 首页 / 关于页分享到 X、微信等平台时的预览图。
  * 本文件是纯模板层（无 IO，可单测）；光栅化与路由在 og-render.ts。
@@ -6,9 +9,6 @@
  * 配色沿用官网令牌：纸底 #0a0a0a、墨色 #f7f7f5、信号橙 #ff6a00；段位色取 TIER_STYLE.fill。
  */
 import type { MemberStats } from "./stats";
-import { esc } from "./card";
-import { badge, fmt } from "./lib/format";
-import { TIER_STYLE, titleOf } from "./milestones";
 
 export const OG_W = 1200;
 export const OG_H = 630;
@@ -57,7 +57,7 @@ function textW(s: string, size: number): number {
 /** 超宽截断：留出一个省略号的宽度 */
 function truncate(s: string, maxW: number, size: number): string {
   if (textW(s, size) <= maxW) return s;
-  const chars = [...s];
+  const chars = Array.from(s);
   while (chars.length > 1 && textW(chars.join(""), size) > maxW - size) chars.pop();
   return chars.join("") + "…";
 }
@@ -95,7 +95,7 @@ function footer(left: string): string {
  */
 export function memberOgSvg(
   stats: MemberStats,
-  opts: { climbs: number; logo: OgLogo | null }
+  opts: { climbs: number; logo: OgLogo | null },
 ): string {
   const tierFill = (TIER_STYLE[stats.tierKey] ?? TIER_STYLE.seed).fill;
   const hasSnapshot = stats.latestFollowers != null;
@@ -106,7 +106,11 @@ export function memberOgSvg(
   const numW = textW(followerStr, numSize);
 
   const nameSize = 62;
-  const name = truncate(stats.displayName ?? stats.handle, Math.max(320, CONTENT_W - numW - 48), nameSize);
+  const name = truncate(
+    stats.displayName ?? stats.handle,
+    Math.max(320, CONTENT_W - numW - 48),
+    nameSize,
+  );
   const handle = `@${stats.handle}`;
 
   const tierName = stats.tierName;
@@ -134,7 +138,7 @@ ${frame(tierFill, opts.logo)}
 <text x="${PAD}" y="476" font-size="26" fill="${MIST}">称号 ${esc(stats.prevMilestone > 0 ? titleOf(stats.prevMilestone) : "新人村")} → ${esc(titleOf(stats.nextMilestone))}</text>
 <text x="${OG_W - PAD}" y="476" font-size="26" fill="${MIST}" text-anchor="end">已获 ${fmt(opts.climbs)} 枚称号</text>
 <rect x="${PAD}" y="496" width="${CONTENT_W}" height="12" rx="6" fill="${LINE}"/>
-<rect x="${PAD}" y="496" width="${(progressFillW(stats.progressToNext)).toFixed(1)}" height="12" rx="6" fill="url(#ogacc)"/>
+<rect x="${PAD}" y="496" width="${progressFillW(stats.progressToNext).toFixed(1)}" height="12" rx="6" fill="url(#ogacc)"/>
 <text x="${PAD}" y="556" font-size="26" fill="${MIST}">距「${esc(titleOf(stats.nextMilestone))}」还差 <tspan font-weight="700" fill="${SIGNAL}">${esc(fmt(nextGap))}</tspan></text>
 ${footer("迈向万粉，看见成长")}
 </g>
@@ -215,7 +219,6 @@ export function reportOgSvg(report: ReportOgStats, logo: OgLogo | null): string 
   const name = truncate(report.displayName ?? `@${report.handle}`, 520, 62);
   const growthStr = growthText(report.growth);
   const growthSize = growthStr.length >= 9 ? 96 : 128;
-  const growthW = textW(growthStr, growthSize);
 
   const engagement =
     report.engagementMedian != null ? `${Math.round(report.engagementMedian * 10000) / 100}%` : "—";

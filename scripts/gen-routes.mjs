@@ -1,3 +1,6 @@
+import { readFile, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 // 生成 src/routeTree.gen.ts。
 //
 // 为什么需要它：routeTree.gen.ts 是构建期生成物（.gitignore 里），本地由
@@ -13,9 +16,6 @@
 // 生成结果后追加，纯 generator 不带）：它给 `createFileRoute("/path")` 提供
 // 路由路径的静态类型。缺了它 tsc 会报一片 "implicitly has an 'any' type"。
 import { Generator, getConfig } from "@tanstack/router-generator";
-import { readFile, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const generatedPath = path.join(ROOT, "src", "routeTree.gen.ts");

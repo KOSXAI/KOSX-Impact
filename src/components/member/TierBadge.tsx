@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import { TIER_STYLE } from "@/milestones";
 import { cn } from "@/lib/utils";
+import { TIER_STYLE } from "@/milestones";
 
 /** 段位徽章：量级身份（新芽 → 千粉新秀 → 万粉达人 → …），只升不降 */
 export function TierBadge({

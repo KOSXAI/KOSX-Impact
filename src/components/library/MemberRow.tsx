@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import type { MemberStats } from "@/stats";
 import { MemberRankRow } from "@/components/leaderboard/MemberRankRow";
 import { PODIUM } from "@/components/leaderboard/podium";
 import { TitleBadge } from "@/components/member/TitleBadge";
@@ -7,6 +6,7 @@ import { TrackChip } from "@/components/member/TrackChip";
 import { GrowProgress } from "@/components/motion";
 import { xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import type { MemberStats } from "@/stats";
 import type { MetricValue } from "./presets";
 
 /**
@@ -73,11 +73,7 @@ export function MemberRow({
               {metric.value}
             </div>
             <div className="text-xs text-mist">{metric.label}</div>
-            {metric.sub && (
-              <div className="text-[11px] text-mist tabular-nums">
-                {metric.sub}
-              </div>
-            )}
+            {metric.sub && <div className="text-[11px] text-mist tabular-nums">{metric.sub}</div>}
             {metric.progress != null && (
               <div className="mt-1 flex justify-end">
                 <GrowProgress

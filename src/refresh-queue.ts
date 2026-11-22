@@ -52,9 +52,11 @@ function registerCountKey(nowIso: string): string {
 
 /** 今日自助注册名额是否已满 */
 export async function registerCapReached(env: Env, nowIso: string): Promise<boolean> {
-  const row = (await env.DB.prepare(
-    "SELECT CAST(value AS INTEGER) AS n FROM site_meta WHERE key = ?1"
-  ).bind(registerCountKey(nowIso)).first()) as { n: number } | null;
+  const row = await env.DB.prepare(
+    "SELECT CAST(value AS INTEGER) AS n FROM site_meta WHERE key = ?1",
+  )
+    .bind(registerCountKey(nowIso))
+    .first<{ n: number }>();
   return (row?.n ?? 0) >= REGISTER_DAILY_CAP;
 }
 
@@ -62,8 +64,10 @@ export async function registerCapReached(env: Env, nowIso: string): Promise<bool
 export async function recordRegistration(env: Env, nowIso: string): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO site_meta (key, value) VALUES (?1, '1')
-     ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`
-  ).bind(registerCountKey(nowIso)).run();
+     ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`,
+  )
+    .bind(registerCountKey(nowIso))
+    .run();
 }
 
 /**
@@ -87,38 +91,45 @@ export function normalizeHandle(input: string): string | null {
 
 /** 按 handle 查询成员的看板预览（读本地库，不触发采集、不耗 SocialData 额度）。
  *  入参接受原始用户输入，内部先归一化（大小写、主页链接、@ 前缀统一处理）。 */
-export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<RefreshPreview | null> {
+export async function lookupRefreshMember(
+  env: Env,
+  rawHandle: string,
+): Promise<RefreshPreview | null> {
   const handle = normalizeHandle(rawHandle);
   if (!handle) return null;
-  const member = (await env.DB.prepare(
+  const member = await env.DB.prepare(
     `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage,
             s.followers AS latestFollowers, s.recorded_at AS latestRecordedAt
      FROM members m
      LEFT JOIN snapshots s ON s.id = (
        SELECT id FROM snapshots WHERE member_id = m.id ORDER BY recorded_at DESC LIMIT 1
      )
-     WHERE lower(m.handle) = ?1 AND m.status = 'active'`
-  ).bind(handle).first()) as Record<string, unknown> | null;
+     WHERE lower(m.handle) = ?1 AND m.status = 'active'`,
+  )
+    .bind(handle)
+    .first();
   if (!member) return null;
   const memberId = member.id as string;
   const followers = (member.latestFollowers as number | null) ?? null;
   const tier = tierOf(followers ?? 0);
 
   const [pendingRow, doneRow, failedRow] = await Promise.all([
-    env.DB.prepare("SELECT 1 AS x FROM refresh_queue WHERE member_id = ?1 AND status = 'pending' LIMIT 1")
+    env.DB.prepare(
+      "SELECT 1 AS x FROM refresh_queue WHERE member_id = ?1 AND status = 'pending' LIMIT 1",
+    )
       .bind(memberId)
       .first(),
     env.DB.prepare(
-      "SELECT MAX(processed_at) AS lastAt FROM refresh_queue INDEXED BY idx_refresh_queue_member_status WHERE member_id = ?1 AND status = 'done'"
+      "SELECT MAX(processed_at) AS lastAt FROM refresh_queue INDEXED BY idx_refresh_queue_member_status WHERE member_id = ?1 AND status = 'done'",
     )
       .bind(memberId)
-      .first() as Promise<{ lastAt: string | null } | null>,
+      .first<{ lastAt: string | null }>(),
     env.DB.prepare(
       `SELECT error, processed_at AS at FROM refresh_queue INDEXED BY idx_refresh_queue_member_status
-       WHERE member_id = ?1 AND status = 'failed' AND processed_at >= ?2 ORDER BY id DESC LIMIT 1`
+       WHERE member_id = ?1 AND status = 'failed' AND processed_at >= ?2 ORDER BY id DESC LIMIT 1`,
     )
       .bind(memberId, new Date(Date.now() - 86_400_000).toISOString())
-      .first() as Promise<{ error: string | null; at: string | null } | null>,
+      .first<{ error: string | null; at: string | null }>(),
   ]);
 
   return {
@@ -140,26 +151,33 @@ export async function lookupRefreshMember(env: Env, rawHandle: string): Promise<
 /** 隔离中的成员（suspended）：X 账号已不可达（冻结/注销/改名），已永久停采，
  *  恢复只能由维护者手动置回 active。
  *  自助刷新入口用它在返回「未加入」之前给出明确原因，避免把失效账号重新拉回追踪（会白烧调用）。 */
-export async function findSuspendedMember(env: Env, handle: string): Promise<{ id: string } | null> {
-  return (await env.DB.prepare(
-    "SELECT id FROM members WHERE lower(handle) = ?1 AND status = 'suspended'"
-  ).bind(handle).first()) as { id: string } | null;
+export async function findSuspendedMember(
+  env: Env,
+  handle: string,
+): Promise<{ id: string } | null> {
+  return env.DB.prepare("SELECT id FROM members WHERE lower(handle) = ?1 AND status = 'suspended'")
+    .bind(handle)
+    .first<{ id: string }>();
 }
 
 /**
  * 入队（去重）：同一成员同时至多一条 pending（部分唯一索引兜底）；
  * 防抖窗口内重复点击返回 throttled，不新增行、不耗采集额度。
  */
-export async function enqueueRefresh(env: Env, memberId: string, nowIso: string): Promise<EnqueueResult> {
+export async function enqueueRefresh(
+  env: Env,
+  memberId: string,
+  nowIso: string,
+): Promise<EnqueueResult> {
   const recent = await env.DB.prepare(
-    "SELECT 1 AS x FROM refresh_queue INDEXED BY idx_refresh_queue_member WHERE member_id = ?1 AND requested_at >= ?2 LIMIT 1"
+    "SELECT 1 AS x FROM refresh_queue INDEXED BY idx_refresh_queue_member WHERE member_id = ?1 AND requested_at >= ?2 LIMIT 1",
   )
     .bind(memberId, new Date(new Date(nowIso).getTime() - RESUBMIT_WINDOW_MS).toISOString())
     .first();
   if (recent) return "throttled";
 
   const result = await env.DB.prepare(
-    "INSERT OR IGNORE INTO refresh_queue (member_id, status, requested_at) VALUES (?1, 'pending', ?2)"
+    "INSERT OR IGNORE INTO refresh_queue (member_id, status, requested_at) VALUES (?1, 'pending', ?2)",
   )
     .bind(memberId, nowIso)
     .run();
@@ -174,7 +192,7 @@ export async function tryGrabRefreshSlot(env: Env, nowIso: string): Promise<bool
   const result = await env.DB.prepare(
     `INSERT INTO site_meta (key, value) VALUES (?1, ?2)
      ON CONFLICT(key) DO UPDATE SET value = ?2
-     WHERE (julianday(?2) - julianday(site_meta.value)) * 86400000 >= ?3`
+     WHERE (julianday(?2) - julianday(site_meta.value)) * 86400000 >= ?3`,
   )
     .bind(SLOT_KEY, nowIso, SLOT_INTERVAL_MS)
     .run();
@@ -184,8 +202,10 @@ export async function tryGrabRefreshSlot(env: Env, nowIso: string): Promise<bool
 /** 是否登记为不参与自助加入（名单仅内部维护，不对外提供读取接口） */
 export async function isHandleExcluded(env: Env, handle: string): Promise<boolean> {
   const row = await env.DB.prepare(
-    "SELECT 1 AS x FROM excluded_handles WHERE lower(handle) = lower(?1) LIMIT 1"
-  ).bind(handle).first();
+    "SELECT 1 AS x FROM excluded_handles WHERE lower(handle) = lower(?1) LIMIT 1",
+  )
+    .bind(handle)
+    .first();
   return row !== null;
 }
 
@@ -203,26 +223,32 @@ export async function isHandleExcluded(env: Env, handle: string): Promise<boolea
 export async function registerMember(
   env: Env,
   handle: string,
-  nowIso: string
+  nowIso: string,
 ): Promise<{ ok: true } | { ok: false; reason: "locked" | "excluded" }> {
   if (await isHandleExcluded(env, handle)) return { ok: false, reason: "excluded" };
 
-  const existing = (await env.DB.prepare(
-    "SELECT id, status_locked FROM members WHERE lower(handle) = ?1"
-  ).bind(handle).first()) as { id: string; status_locked: number } | null;
+  const existing = await env.DB.prepare(
+    "SELECT id, status_locked FROM members WHERE lower(handle) = ?1",
+  )
+    .bind(handle)
+    .first<{ id: string; status_locked: number }>();
 
   if (existing) {
     if (existing.status_locked === 1) return { ok: false, reason: "locked" };
     await env.DB.prepare(
-      "UPDATE members SET status = 'active', self_registered = 1, updated_at = datetime('now') WHERE id = ?1"
-    ).bind(existing.id).run();
+      "UPDATE members SET status = 'active', self_registered = 1, updated_at = datetime('now') WHERE id = ?1",
+    )
+      .bind(existing.id)
+      .run();
     await recordRegistration(env, nowIso);
     return { ok: true };
   }
 
   await env.DB.prepare(
-    "INSERT INTO members (id, handle, joined_at, self_registered, status) VALUES (?1, ?1, ?2, 1, 'active')"
-  ).bind(handle, nowIso.slice(0, 10)).run();
+    "INSERT INTO members (id, handle, joined_at, self_registered, status) VALUES (?1, ?1, ?2, 1, 'active')",
+  )
+    .bind(handle, nowIso.slice(0, 10))
+    .run();
   await recordRegistration(env, nowIso);
   return { ok: true };
 }

@@ -1,15 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { fetchDashboard } from "@/data.functions";
 import { CreatorLibrary } from "@/components/library/CreatorLibrary";
 import {
   GROWTH_METRICS,
   VIEW_KEYS,
   type GrowthMetricKey,
-  type GrowthRange,
   type LibrarySearch,
   type ViewKey,
 } from "@/components/library/presets";
+import { fetchDashboard } from "@/data.functions";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+
+function paramStr(v: unknown): string {
+  return typeof v === "string" ? v : typeof v === "number" ? String(v) : "";
+}
 
 /**
  * 博主库：多维表格式的一页——同一份成员数据集，多种视图（口径）× 筛选 × 布局密度。
@@ -19,22 +22,22 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
 export const Route = createFileRoute("/_shell/_creators/members/")({
   validateSearch: (search: Record<string, unknown>): LibrarySearch => {
     const out: LibrarySearch = {};
-    const view = String(search.view ?? "");
+    const view = paramStr(search.view);
     if ((VIEW_KEYS as readonly string[]).includes(view)) out.view = view as ViewKey;
-    const metric = String(search.metric ?? "");
+    const metric = paramStr(search.metric);
     if (GROWTH_METRICS.some((x) => x.key === metric)) out.metric = metric as GrowthMetricKey;
-    const range = String(search.range ?? "");
+    const range = paramStr(search.range);
     if (range === "1") out.range = 1;
     else if (range === "7") out.range = 7;
     else if (range === "30") out.range = 30;
-    if (String(search.gsort ?? "") === "growth") out.gsort = "growth";
-    const track = String(search.track ?? "");
+    if (paramStr(search.gsort) === "growth") out.gsort = "growth";
+    const track = paramStr(search.track);
     if (track) out.track = track;
-    const tag = String(search.tag ?? "");
+    const tag = paramStr(search.tag);
     if (tag) out.tag = tag;
-    const bucket = String(search.bucket ?? "");
+    const bucket = paramStr(search.bucket);
     if (bucket === "lt10k" || bucket === "10k-50k" || bucket === "gt50k") out.bucket = bucket;
-    if (String(search.fav ?? "") === "1") out.fav = 1;
+    if (paramStr(search.fav) === "1") out.fav = 1;
     return out;
   },
   loader: () => fetchDashboard(),

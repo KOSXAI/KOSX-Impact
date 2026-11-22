@@ -10,20 +10,18 @@
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "kosx-impact",
       "database_id": "9ff1f928-b3dc-4033-b9fb-e82b6a62ed5b",
-      "migrations_dir": "migrations"
-    }
+      "migrations_dir": "migrations",
+    },
   ],
   "triggers": {
-    "crons": ["0 * * * *"]
+    "crons": ["0 * * * *"],
   },
-  "routes": [
-    { "pattern": "impact.kosx.ai", "custom_domain": true }
-  ]
+  "routes": [{ "pattern": "impact.kosx.ai", "custom_domain": true }],
 }

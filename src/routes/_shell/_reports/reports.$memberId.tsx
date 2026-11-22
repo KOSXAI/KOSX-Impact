@@ -1,16 +1,16 @@
-import { useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { fetchMemberDetail } from "@/data.functions";
-import { computeWeeklyReport, weeklyShareText } from "@/weekly";
-import { NotFound } from "@/components/NotFound";
+import { Check, Copy, Flag, Heart, MessageCircle, PauseCircle, Trophy, Eye } from "lucide-react";
+import { useState } from "react";
 import { Avatar } from "@/components/member/Avatar";
 import { GrowProgress } from "@/components/motion";
+import { NotFound } from "@/components/NotFound";
 import { StatCard } from "@/components/ui/StatCard";
-import { Check, Copy, Flag, Heart, MessageCircle, PauseCircle, Trophy, Eye } from "lucide-react";
+import { fetchMemberDetail } from "@/data.functions";
 import { fmt, fmtDate, postExcerpt, signed } from "@/lib/format";
-import { titleOf } from "@/milestones";
-import { cn } from "@/lib/utils";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { cn } from "@/lib/utils";
+import { titleOf } from "@/milestones";
+import { computeWeeklyReport, weeklyShareText } from "@/weekly";
 
 export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
   loader: async ({ params }) => {
@@ -37,10 +37,18 @@ export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
       meta: [
         { title },
         ...(r
-          ? [{ name: "description", content: `${name} 近 7 天的涨粉、登阶与最热内容周报，每周自动生成。` }]
+          ? [
+              {
+                name: "description",
+                content: `${name} 近 7 天的涨粉、登阶与最热内容周报，每周自动生成。`,
+              },
+            ]
           : [{ name: "robots", content: "noindex, follow" }]),
         { property: "og:title", content: title },
-        { property: "og:description", content: r ? `${name} 近 7 天的涨粉、登阶与最热内容。` : "成员周报" },
+        {
+          property: "og:description",
+          content: r ? `${name} 近 7 天的涨粉、登阶与最热内容。` : "成员周报",
+        },
         { property: "og:type", content: "website" },
         ...(r
           ? [
@@ -56,7 +64,9 @@ export const Route = createFileRoute("/_shell/_reports/reports/$memberId")({
     };
   },
   component: ReportPage,
-  notFoundComponent: () => <NotFound title="这位成员不在追踪名单里" description="去成员广场看看其他成员的周报。" />,
+  notFoundComponent: () => (
+    <NotFound title="这位成员不在追踪名单里" description="去成员广场看看其他成员的周报。" />
+  ),
 });
 
 function ReportPage() {
@@ -120,14 +130,22 @@ function ReportPage() {
           <StatCard
             label="本周增长"
             value={signed(report.growth)}
-            hint={report.growthPct != null ? `${report.growthPct > 0 ? "+" : ""}${Math.round(report.growthPct * 100)}%` : undefined}
+            hint={
+              report.growthPct != null
+                ? `${report.growthPct > 0 ? "+" : ""}${Math.round(report.growthPct * 100)}%`
+                : undefined
+            }
             highlight={report.growth > 0}
           />
           <StatCard label="当前粉丝" value={fmt(report.followersEnd)} />
           <StatCard label="本周发帖" value={`${report.postCount} 条`} />
           <StatCard
             label="互动率中位数"
-            value={report.engagementMedian != null ? `${Math.round(report.engagementMedian * 10000) / 100}%` : "—"}
+            value={
+              report.engagementMedian != null
+                ? `${Math.round(report.engagementMedian * 10000) / 100}%`
+                : "—"
+            }
           />
         </div>
 
@@ -141,13 +159,21 @@ function ReportPage() {
               下一关「{nextTitle}」
             </span>
           </div>
-          <GrowProgress value={report.progressToNext} className="mt-2.5 h-2" ariaLabel={`距「${nextTitle}」进度 ${report.progressToNext}%`} />
+          <GrowProgress
+            value={report.progressToNext}
+            className="mt-2.5 h-2"
+            ariaLabel={`距「${nextTitle}」进度 ${report.progressToNext}%`}
+          />
           <div className="mt-2 flex justify-between text-xs text-mist tabular-nums">
             <span>{fmt(report.prevMilestone)}</span>
             <span>{fmt(report.nextMilestone)}</span>
           </div>
           <p className="mt-3 text-sm text-mist tabular-nums">
-            还差 <b className="text-ink">{fmt(Math.max(0, report.nextMilestone - report.followersEnd))}</b> 粉
+            还差{" "}
+            <b className="text-ink">
+              {fmt(Math.max(0, report.nextMilestone - report.followersEnd))}
+            </b>{" "}
+            粉
           </p>
         </section>
 
@@ -155,15 +181,17 @@ function ReportPage() {
         {report.milestoneAchieved && (
           <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-signal/20 bg-signal/8 px-5 py-4">
             <span>🎉 本周拿下称号「{titleOf(report.milestoneAchieved.threshold)}」</span>
-            <span className="text-sm text-mist tabular-nums">（{fmtDate(report.milestoneAchieved.achievedAt)}）</span>
+            <span className="text-sm text-mist tabular-nums">
+              （{fmtDate(report.milestoneAchieved.achievedAt)}）
+            </span>
           </div>
         )}
 
         {/* 停更警告 */}
         {report.inactive && (
           <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-soft-surface px-5 py-4 text-sm text-mist">
-            <PauseCircle className="size-4 text-signal-ink" aria-hidden="true" />
-            已 <b className="text-ink tabular-nums">{report.inactiveDays}</b> 天没有新内容
+            <PauseCircle className="size-4 text-signal-ink" aria-hidden="true" />已{" "}
+            <b className="text-ink tabular-nums">{report.inactiveDays}</b> 天没有新内容
           </div>
         )}
 
@@ -179,7 +207,9 @@ function ReportPage() {
                 return (
                   <li key={p.tweetId} className="rounded-2xl bg-soft-surface px-4 py-3">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="inline-flex size-5 items-center justify-center rounded-full bg-surface text-xs font-bold text-mist tabular-nums">{i + 1}</span>
+                      <span className="inline-flex size-5 items-center justify-center rounded-full bg-surface text-xs font-bold text-mist tabular-nums">
+                        {i + 1}
+                      </span>
                       <span className="text-xs text-mist tabular-nums">{fmtDate(p.createdAt)}</span>
                       {viral && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-signal/30 bg-signal/10 px-2 py-0.5 text-xs font-semibold text-signal-ink">
@@ -196,9 +226,14 @@ function ReportPage() {
                         查看原文
                       </a>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{postExcerpt(p.text, 120) ?? "分享了一条链接"}</p>
+                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">
+                      {postExcerpt(p.text, 120) ?? "分享了一条链接"}
+                    </p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-mist">
-                      <span className="inline-flex items-center gap-1 font-semibold text-signal-ink" title="浏览">
+                      <span
+                        className="inline-flex items-center gap-1 font-semibold text-signal-ink"
+                        title="浏览"
+                      >
                         <Eye className="size-3.5" aria-hidden="true" />
                         <span className="tabular-nums">{p.views ?? "—"}</span>
                         <span className="sr-only">浏览</span>
@@ -220,7 +255,13 @@ function ReportPage() {
             </ol>
           )}
           <div className="mt-5 border-t border-line pt-4">
-            <Link to="/members/$id" params={{ id: report.memberId }} className={cn("inline-flex items-center gap-1 text-sm font-semibold text-signal-ink underline-offset-4 hover:underline")}>
+            <Link
+              to="/members/$id"
+              params={{ id: report.memberId }}
+              className={cn(
+                "inline-flex items-center gap-1 text-sm font-semibold text-signal-ink underline-offset-4 hover:underline",
+              )}
+            >
               查看完整档案与成长曲线 →
             </Link>
           </div>
@@ -229,4 +270,3 @@ function ReportPage() {
     </>
   );
 }
-

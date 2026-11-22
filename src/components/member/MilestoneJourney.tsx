@@ -1,14 +1,14 @@
-import type { MemberStats } from "@/stats";
-import { GrowProgress, Reveal } from "@/components/motion";
+import { Share2 } from "lucide-react";
+import { GrowthChart } from "@/components/member/GrowthChart";
 import { TierBadge } from "@/components/member/TierBadge";
 import { TitleBadge, titleBadgeClass } from "@/components/member/TitleBadge";
-import { GrowthChart } from "@/components/member/GrowthChart";
+import { GrowProgress, Reveal } from "@/components/motion";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Share2 } from "lucide-react";
-import { TEN_K, titleOf } from "@/milestones";
 import { fmt, fmtDate, badge } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { TEN_K, titleOf } from "@/milestones";
+import type { MemberStats } from "@/stats";
 
 /** 成长档案摘要块（回顾卡的单个数据点） */
 function Recap({ label, value }: { label: string; value: string }) {
@@ -55,11 +55,11 @@ export function MilestoneJourney({
               </span>
             )}
           </div>
-          <Card className="card-lift relative overflow-hidden mt-6">
+          <Card className="relative mt-6 card-lift overflow-hidden">
             {member.progressToNext >= 80 && (
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full bg-signal/15 blur-2xl"
+                className="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-signal/15 blur-2xl"
               />
             )}
             <CardContent className="p-6 sm:p-8">
@@ -70,7 +70,9 @@ export function MilestoneJourney({
                 </div>
                 <div className="text-left sm:text-right">
                   <div className="text-sm text-mist">当前粉丝</div>
-                  <div className="mt-1 text-3xl font-bold tabular-nums">{fmt(member.latestFollowers ?? 0)}</div>
+                  <div className="mt-1 text-3xl font-bold tabular-nums">
+                    {fmt(member.latestFollowers ?? 0)}
+                  </div>
                 </div>
               </div>
               <GrowProgress
@@ -79,8 +81,15 @@ export function MilestoneJourney({
                 ariaLabel={`距下一称号「${titleOf(member.nextMilestone)}」进度 ${member.progressToNext}%`}
               />
               <div className="mt-2 flex items-center justify-between text-sm">
-                <span className="text-mist">{member.prevMilestone > 0 ? titleOf(member.prevMilestone) : "新人村"}</span>
-                <span className={cn("font-semibold", member.nextMilestone === TEN_K ? "text-signal-ink" : "text-gold-text")}>
+                <span className="text-mist">
+                  {member.prevMilestone > 0 ? titleOf(member.prevMilestone) : "新人村"}
+                </span>
+                <span
+                  className={cn(
+                    "font-semibold",
+                    member.nextMilestone === TEN_K ? "text-signal-ink" : "text-gold-text",
+                  )}
+                >
                   {titleOf(member.nextMilestone)}
                 </span>
               </div>
@@ -113,9 +122,15 @@ export function MilestoneJourney({
               <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5">
                 <span className="text-sm text-mist">接下来的称号</span>
                 {upcoming.map((threshold) => (
-                  <Badge key={threshold} variant="outline" className="gap-1.5 text-mist transition-colors hover:bg-wash-strong hover:text-ink select-none cursor-default">
+                  <Badge
+                    key={threshold}
+                    variant="outline"
+                    className="cursor-default gap-1.5 text-mist transition-colors select-none hover:bg-wash-strong hover:text-ink"
+                  >
                     {titleOf(threshold)}
-                    <span className="text-xs font-normal text-mist/60 tabular-nums">{badge(threshold)}</span>
+                    <span className="text-xs font-normal text-mist/60 tabular-nums">
+                      {badge(threshold)}
+                    </span>
                   </Badge>
                 ))}
               </div>
@@ -127,7 +142,11 @@ export function MilestoneJourney({
       <Reveal>
         <section>
           <h2 className="text-2xl font-bold">成长曲线</h2>
-          <GrowthChart snapshots={snapshots} nextMilestone={member.nextMilestone} className="mt-6" />
+          <GrowthChart
+            snapshots={snapshots}
+            nextMilestone={member.nextMilestone}
+            className="mt-6"
+          />
         </section>
       </Reveal>
 
@@ -141,13 +160,13 @@ export function MilestoneJourney({
             <p className="mt-4 text-mist">还没有成就，第一枚徽章正在路上。</p>
           ) : (
             <div className="mt-4 flex flex-wrap gap-2.5">
-              {[...milestones].reverse().map((m) => (
+              {[...milestones].toReversed().map((m) => (
                 <div
                   key={m.threshold}
                   title={`${fmtDate(m.achievedAt)} 达成 · ${badge(m.threshold)}`}
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold",
-                    titleBadgeClass(m.threshold)
+                    titleBadgeClass(m.threshold),
                   )}
                 >
                   <span aria-hidden="true">🏅</span>
@@ -176,7 +195,10 @@ export function MilestoneJourney({
             <Recap label="加入天数" value={daysJoined > 0 ? `${daysJoined} 天` : "刚加入"} />
             <Recap label="已领称号" value={`${milestones.length} 枚`} />
             <Recap label="当前段位" value={member.tierName} />
-            <Recap label="首次登阶" value={milestones.length > 0 ? fmtDate(milestones[0].achievedAt) : "—"} />
+            <Recap
+              label="首次登阶"
+              value={milestones.length > 0 ? fmtDate(milestones[0].achievedAt) : "—"}
+            />
           </div>
         </section>
       </Reveal>

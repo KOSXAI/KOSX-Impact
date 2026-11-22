@@ -1,9 +1,14 @@
-import type { Influence } from "@/influence";
 import { Card, CardContent } from "@/components/ui/card";
+import type { Influence } from "@/influence";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const PARTS: Array<{ key: "scale" | "growth" | "engagement" | "output"; label: string; max: number; hint: string }> = [
+const PARTS: Array<{
+  key: "scale" | "growth" | "engagement" | "output";
+  label: string;
+  max: number;
+  hint: string;
+}> = [
   { key: "scale", label: "规模", max: 400, hint: "粉丝量对数映射" },
   { key: "growth", label: "增长", max: 200, hint: "近 30 天相对增长" },
   { key: "engagement", label: "互动", max: 250, hint: "近 30 天互动率中位数" },
@@ -20,12 +25,15 @@ export function InfluenceCard({ influence }: { influence: Influence | null }) {
           <div>
             <div className="text-sm text-mist">影响力指数</div>
             <div className="mt-1 flex items-baseline gap-1.5">
-              <span className="bg-gradient-to-br from-gold-text to-gold-deep bg-clip-text text-4xl font-extrabold tabular-nums text-transparent">
+              <span className="bg-gradient-to-br from-gold-text to-gold-deep bg-clip-text text-4xl font-extrabold text-transparent tabular-nums">
                 {influence.score}
               </span>
               <span className="text-sm text-mist">/ 1000</span>
             </div>
-            <div className="mt-1 text-sm text-mist tabular-nums" title={`质量系数 ×${influence.qualityMultiplier.toFixed(2)}`}>
+            <div
+              className="mt-1 text-sm text-mist tabular-nums"
+              title={`质量系数 ×${influence.qualityMultiplier.toFixed(2)}`}
+            >
               有效粉丝 <b className="text-ink">{fmt(influence.effectiveFollowers)}</b>
             </div>
           </div>
@@ -49,7 +57,10 @@ export function InfluenceCard({ influence }: { influence: Influence | null }) {
                 </div>
                 <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line/70">
                   <div
-                    className={cn("h-full rounded-full", label === "互动" ? "bg-signal" : "bg-gold/80")}
+                    className={cn(
+                      "h-full rounded-full",
+                      label === "互动" ? "bg-signal" : "bg-gold/80",
+                    )}
                     style={{ width: `${Math.min(100, (v / max) * 100)}%` }}
                   />
                 </div>

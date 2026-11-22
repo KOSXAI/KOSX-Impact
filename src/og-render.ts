@@ -6,13 +6,22 @@
  */
 import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import wasmModule from "@resvg/resvg-wasm/index_bg.wasm?module";
-import { memberOgSvg, siteOgSvg, reportOgSvg, trackOgSvg, boardOgSvg, type OgLogo, type SiteOgStats, type BoardOgStats } from "./og";
-import { getDashboardStats, getMemberDetail } from "./queries";
-import { computeWeeklyReport } from "./weekly";
 import { CACHE_KEYS, assertSafeCacheKey, cachedResponse, readCacheBust } from "./cache";
 import { SITE_URL } from "./lib/site";
 import { TIER_STYLE, titleOf } from "./milestones";
+import {
+  memberOgSvg,
+  siteOgSvg,
+  reportOgSvg,
+  trackOgSvg,
+  boardOgSvg,
+  type OgLogo,
+  type SiteOgStats,
+  type BoardOgStats,
+} from "./og";
+import { getDashboardStats, getMemberDetail } from "./queries";
 import { TRACKS } from "./tracks";
+import { computeWeeklyReport } from "./weekly";
 
 // ASSETS 绑定按站点自身 origin 取内部资产（dev 为 localhost，生产为 SITE_URL 的 host）
 const FONT_PATHS = ["/fonts/og-noto-sc-400.ttf", "/fonts/og-noto-sc-700.ttf"] as const;
@@ -31,7 +40,7 @@ function loadFonts(env: Env, origin: string): Promise<Uint8Array[]> {
       const res = await fetchAsset(env, path, origin);
       if (!res.ok) throw new Error(`OG 字体缺失：${path}（res ${res.status}）`);
       return new Uint8Array(await res.arrayBuffer());
-    })
+    }),
   ));
 }
 
@@ -65,7 +74,11 @@ function loadLogoMemo(env: Env, origin: string): Promise<OgLogo | null> {
 }
 
 /** SVG → PNG。仅用自带子集字体（Workers 无系统字体，同时保证各端渲染一致） */
-export async function renderOgPng(env: Env, svg: string, origin: string): Promise<Uint8Array<ArrayBuffer>> {
+export async function renderOgPng(
+  env: Env,
+  svg: string,
+  origin: string,
+): Promise<Uint8Array<ArrayBuffer>> {
   wasmReady ??= initWasm(wasmModule).catch((err: unknown) => {
     // dev HMR 会重载业务模块但缓存 node_modules：胶水的 initialized 标志仍在，视为就绪
     if (String((err as Error | undefined)?.message ?? err).includes("Already initialized")) {
@@ -89,116 +102,160 @@ export async function renderOgPng(env: Env, svg: string, origin: string): Promis
 export function ogNotFound(): Response {
   return new Response("member not found", {
     status: 404,
-    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=300" },
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=300",
+    },
   });
 }
 
 /** 成员 OG 卡（/og/members/:id.png）：与成员页 SSR 共用 getMemberDetail 的缓存 */
 export async function renderMemberOgPng(env: Env, id: string, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogMember(id))}&cb=${bust}`), 21600, async () => {
-    const detail = await getMemberDetail(env, id);
-    if (!detail) return ogNotFound();
-    const logo = await loadLogoMemo(env, origin);
-    const svg = memberOgSvg(detail.member, { climbs: detail.milestones.length, logo });
-    return new Response(await renderOgPng(env, svg, origin), { headers: { "Content-Type": "image/png" } });
-  }, { browserTtl: 21600 });
+  return cachedResponse(
+    new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogMember(id))}&cb=${bust}`),
+    21600,
+    async () => {
+      const detail = await getMemberDetail(env, id);
+      if (!detail) return ogNotFound();
+      const logo = await loadLogoMemo(env, origin);
+      const svg = memberOgSvg(detail.member, { climbs: detail.milestones.length, logo });
+      return new Response(await renderOgPng(env, svg, origin), {
+        headers: { "Content-Type": "image/png" },
+      });
+    },
+    { browserTtl: 21600 },
+  );
 }
 
 /** 站点 OG 卡（/og/site.png）：与首页 SSR 共用 getDashboardStats 的缓存 */
 export async function renderSiteOgPng(env: Env, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogSite)}&cb=${bust}`), 21600, async () => {
-    const stats = await getDashboardStats(env);
-    const pick: SiteOgStats = {
-      totalFollowers: stats.totalFollowers,
-      memberCount: stats.members.length,
-      tenKMembers: stats.tenKMembers,
-      growth30d: stats.totalGrowth30d,
-    };
-    const logo = await loadLogoMemo(env, origin);
-    return new Response(await renderOgPng(env, siteOgSvg(pick, logo), origin), {
-      headers: { "Content-Type": "image/png" },
-    });
-  }, { browserTtl: 21600 });
+  return cachedResponse(
+    new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogSite)}&cb=${bust}`),
+    21600,
+    async () => {
+      const stats = await getDashboardStats(env);
+      const pick: SiteOgStats = {
+        totalFollowers: stats.totalFollowers,
+        memberCount: stats.members.length,
+        tenKMembers: stats.tenKMembers,
+        growth30d: stats.totalGrowth30d,
+      };
+      const logo = await loadLogoMemo(env, origin);
+      return new Response(await renderOgPng(env, siteOgSvg(pick, logo), origin), {
+        headers: { "Content-Type": "image/png" },
+      });
+    },
+    { browserTtl: 21600 },
+  );
 }
 
 /** 榜单 OG 卡（/og/leaderboard.png）：总排行 Top5，榜单页分享预览 */
 export async function renderLeaderboardOgPng(env: Env, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogLeaderboard)}&cb=${bust}`), 21600, async () => {
-    const stats = await getDashboardStats(env);
-    const logo = await loadLogoMemo(env, origin);
-    const pick: BoardOgStats = {
-      memberCount: stats.members.length,
-      members: stats.members.slice(0, 5).map((m, i) => ({ rank: i + 1, name: m.displayName ?? m.handle, followers: m.latestFollowers })),
-    };
-    return new Response(await renderOgPng(env, boardOgSvg(pick, logo), origin), {
-      headers: { "Content-Type": "image/png" },
-    });
-  }, { browserTtl: 21600 });
+  return cachedResponse(
+    new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogLeaderboard)}&cb=${bust}`),
+    21600,
+    async () => {
+      const stats = await getDashboardStats(env);
+      const logo = await loadLogoMemo(env, origin);
+      const pick: BoardOgStats = {
+        memberCount: stats.members.length,
+        members: stats.members.slice(0, 5).map((m, i) => ({
+          rank: i + 1,
+          name: m.displayName ?? m.handle,
+          followers: m.latestFollowers,
+        })),
+      };
+      return new Response(await renderOgPng(env, boardOgSvg(pick, logo), origin), {
+        headers: { "Content-Type": "image/png" },
+      });
+    },
+    { browserTtl: 21600 },
+  );
 }
 
 /** 周报 OG 分享卡（/og/reports/:memberId.png）：周报页分享预览，数据与周报页同源 */
-export async function renderReportOgPng(env: Env, memberId: string, origin: string): Promise<Response> {
+export async function renderReportOgPng(
+  env: Env,
+  memberId: string,
+  origin: string,
+): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogReport(memberId))}&cb=${bust}`), 21600, async () => {
-    const detail = await getMemberDetail(env, memberId);
-    if (!detail) return ogNotFound();
-    const report = computeWeeklyReport({
-      member: detail.member,
-      snapshots: detail.snapshots,
-      milestones: detail.milestones,
-      posts30d: detail.posts30d,
-      handle: detail.member.handle,
-      tracks: detail.member.tracks,
-      tags: detail.member.tags,
-      now: new Date().toISOString(),
-    });
-    const tierFill = (TIER_STYLE[detail.member.tierKey] ?? TIER_STYLE.seed).fill;
-    const logo = await loadLogoMemo(env, origin);
-    const svg = reportOgSvg(
-      {
-        displayName: report.displayName,
-        handle: report.handle,
-        tierFill,
-        followersStart: report.followersStart,
-        followersEnd: report.followersEnd,
-        growth: report.growth,
-        postCount: report.postCount,
-        engagementMedian: report.engagementMedian,
-        prevMilestone: report.prevMilestone,
-        nextMilestone: report.nextMilestone,
-        progressToNext: report.progressToNext,
-        milestoneTitle: report.milestoneAchieved ? titleOf(report.milestoneAchieved.threshold) : null,
-        inactiveDays: report.inactive ? report.inactiveDays : null,
-      },
-      logo
-    );
-    return new Response(await renderOgPng(env, svg, origin), { headers: { "Content-Type": "image/png" } });
-  }, { browserTtl: 21600 });
+  return cachedResponse(
+    new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogReport(memberId))}&cb=${bust}`),
+    21600,
+    async () => {
+      const detail = await getMemberDetail(env, memberId);
+      if (!detail) return ogNotFound();
+      const report = computeWeeklyReport({
+        member: detail.member,
+        snapshots: detail.snapshots,
+        milestones: detail.milestones,
+        posts30d: detail.posts30d,
+        handle: detail.member.handle,
+        tracks: detail.member.tracks,
+        tags: detail.member.tags,
+        now: new Date().toISOString(),
+      });
+      const tierFill = (TIER_STYLE[detail.member.tierKey] ?? TIER_STYLE.seed).fill;
+      const logo = await loadLogoMemo(env, origin);
+      const svg = reportOgSvg(
+        {
+          displayName: report.displayName,
+          handle: report.handle,
+          tierFill,
+          followersStart: report.followersStart,
+          followersEnd: report.followersEnd,
+          growth: report.growth,
+          postCount: report.postCount,
+          engagementMedian: report.engagementMedian,
+          prevMilestone: report.prevMilestone,
+          nextMilestone: report.nextMilestone,
+          progressToNext: report.progressToNext,
+          milestoneTitle: report.milestoneAchieved
+            ? titleOf(report.milestoneAchieved.threshold)
+            : null,
+          inactiveDays: report.inactive ? report.inactiveDays : null,
+        },
+        logo,
+      );
+      return new Response(await renderOgPng(env, svg, origin), {
+        headers: { "Content-Type": "image/png" },
+      });
+    },
+    { browserTtl: 21600 },
+  );
 }
 
 /** 赛道 OG 分享卡（/og/tracks/:slug.png）：赛道页分享预览，数据与赛道页同源 */
 export async function renderTrackOgPng(env: Env, slug: string, origin: string): Promise<Response> {
   const bust = await readCacheBust(env);
-  return cachedResponse(new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogTrack(slug))}&cb=${bust}`), 21600, async () => {
-    const track = [...TRACKS].find((t) => t.slug === slug);
-    if (!track) return ogNotFound();
-    const stats = await getDashboardStats(env);
-    const trackStat = stats.trackStats.find((t) => t.slug === slug);
-    if (!trackStat) return ogNotFound();
-    const logo = await loadLogoMemo(env, origin);
-    const svg = trackOgSvg(
-      {
-        name: track.name,
-        description: track.description,
-        memberCount: trackStat.memberCount,
-        totalFollowers: trackStat.totalFollowers,
-        growth30dTotal: trackStat.growth30dTotal,
-      },
-      logo
-    );
-    return new Response(await renderOgPng(env, svg, origin), { headers: { "Content-Type": "image/png" } });
-  }, { browserTtl: 21600 });
+  return cachedResponse(
+    new Request(`${SITE_URL}${assertSafeCacheKey(CACHE_KEYS.ogTrack(slug))}&cb=${bust}`),
+    21600,
+    async () => {
+      const track = [...TRACKS].find((t) => t.slug === slug);
+      if (!track) return ogNotFound();
+      const stats = await getDashboardStats(env);
+      const trackStat = stats.trackStats.find((t) => t.slug === slug);
+      if (!trackStat) return ogNotFound();
+      const logo = await loadLogoMemo(env, origin);
+      const svg = trackOgSvg(
+        {
+          name: track.name,
+          description: track.description,
+          memberCount: trackStat.memberCount,
+          totalFollowers: trackStat.totalFollowers,
+          growth30dTotal: trackStat.growth30dTotal,
+        },
+        logo,
+      );
+      return new Response(await renderOgPng(env, svg, origin), {
+        headers: { "Content-Type": "image/png" },
+      });
+    },
+    { browserTtl: 21600 },
+  );
 }

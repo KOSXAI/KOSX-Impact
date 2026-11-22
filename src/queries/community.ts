@@ -12,7 +12,7 @@ export async function getCommunitySignals(env: Env): Promise<CommunitySignalRow[
   return cachedQuery(env, CACHE_KEYS.communitySignals, 3600, async () => {
     const { results } = await env.DB.prepare(
       `SELECT kind, handle, name, count FROM community_signal_counts
-       ORDER BY kind, count DESC`
+       ORDER BY kind, count DESC`,
     ).all<CommunitySignalRow>();
     return results;
   });
@@ -48,7 +48,9 @@ function formOf(p: PostFormRow): string {
 
 /** 单帖互动合计（赞+评+转+引+藏；缺失项按 0 计） */
 function engagementOf(p: PostFormRow): number {
-  return (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0) + (p.quotes ?? 0) + (p.bookmarks ?? 0);
+  return (
+    (p.likes ?? 0) + (p.replies ?? 0) + (p.retweets ?? 0) + (p.quotes ?? 0) + (p.bookmarks ?? 0)
+  );
 }
 
 /**
@@ -72,8 +74,10 @@ export async function getContentRecipe(env: Env): Promise<{
               quote_count AS quotes, bookmark_count AS bookmarks
        FROM posts
        WHERE created_at >= ?1 AND views_count IS NOT NULL
-         AND (tweet_type IS NULL OR tweet_type IN ('tweet', 'quote'))`
-    ).bind(cutoff).all<PostFormRow>();
+         AND (tweet_type IS NULL OR tweet_type IN ('tweet', 'quote'))`,
+    )
+      .bind(cutoff)
+      .all<PostFormRow>();
 
     const formMap = new Map<string, { count: number; views: number; engagement: number }>();
     const hourMap = new Map<number, { count: number; views: number }>();
@@ -101,17 +105,26 @@ export async function getContentRecipe(env: Env): Promise<{
           avgViews: Math.round(d.views / d.count),
           engagementRate: d.views > 0 ? d.engagement / d.views : null,
         }))
-        .sort((a, b) => b.avgViews - a.avgViews),
+        .toSorted((a, b) => b.avgViews - a.avgViews),
       hours: [...hourMap.entries()]
-        .map(([hour, d]) => ({ hour, count: d.count, avgViews: d.count ? Math.round(d.views / d.count) : 0 }))
+        .map(([hour, d]) => ({
+          hour,
+          count: d.count,
+          avgViews: d.count ? Math.round(d.views / d.count) : 0,
+        }))
         .filter((x) => x.count >= 2)
-        .sort((a, b) => b.avgViews - a.avgViews)
+        .toSorted((a, b) => b.avgViews - a.avgViews)
         .slice(0, 5),
     };
   });
 }
 
-type FanOverviewRow = { memberId: string; sampleSize: number; pctFollowers10k: number; verifiedPct: number };
+type FanOverviewRow = {
+  memberId: string;
+  sampleSize: number;
+  pctFollowers10k: number;
+  verifiedPct: number;
+};
 
 /** 粉丝质量聚合（社群能量报告 /report 用）：fan_profiles 全量样本指标 */
 export async function getFanOverview(env: Env): Promise<FanOverviewRow[]> {
@@ -119,7 +132,7 @@ export async function getFanOverview(env: Env): Promise<FanOverviewRow[]> {
     const { results } = await env.DB.prepare(
       `SELECT member_id AS memberId, sample_size AS sampleSize,
               pct_followers_10k AS pctFollowers10k, verified_pct AS verifiedPct
-       FROM fan_profiles`
+       FROM fan_profiles`,
     ).all<FanOverviewRow>();
     return results;
   });
@@ -137,13 +150,21 @@ export async function getTopEngagementMembers(env: Env): Promise<TopEngagementRo
     // 覆盖索引反而 9861 行（范围只削掉 2%，却多背一次 GROUP BY 排序）。
     const { results } = await env.DB.prepare(
       `SELECT member_id AS memberId, COUNT(*) AS n FROM posts
-       WHERE created_at >= ?1 AND views_count >= 1000 GROUP BY member_id ORDER BY n DESC LIMIT 8`
-    ).bind(cutoff).all<TopEngagementRow>();
+       WHERE created_at >= ?1 AND views_count >= 1000 GROUP BY member_id ORDER BY n DESC LIMIT 8`,
+    )
+      .bind(cutoff)
+      .all<TopEngagementRow>();
     return results;
   });
 }
 
-type InviteLeaderRow = { inviterId: string; n: number; handle: string; displayName: string | null; profileImage: string | null };
+type InviteLeaderRow = {
+  inviterId: string;
+  n: number;
+  handle: string;
+  displayName: string | null;
+  profileImage: string | null;
+};
 
 /** 邀请裂变荣誉榜：谁带来了最多新成员（invite_events 聚合，queries 层；/report 展示） */
 export async function getInviteLeaders(env: Env): Promise<InviteLeaderRow[]> {
@@ -152,7 +173,7 @@ export async function getInviteLeaders(env: Env): Promise<InviteLeaderRow[]> {
       `SELECT ie.inviter_id AS inviterId, COUNT(*) AS n, m.handle, m.display_name AS displayName, m.profile_image AS profileImage
        FROM invite_events ie JOIN members m ON m.id = ie.inviter_id
        WHERE m.status = 'active'
-       GROUP BY ie.inviter_id ORDER BY n DESC LIMIT 8`
+       GROUP BY ie.inviter_id ORDER BY n DESC LIMIT 8`,
     ).all<InviteLeaderRow>();
     return results;
   });

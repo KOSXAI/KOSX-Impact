@@ -43,7 +43,7 @@ export interface Influence {
 
 function median(nums: number[]): number | null {
   if (nums.length === 0) return null;
-  const sorted = [...nums].sort((a, b) => a - b);
+  const sorted = [...nums].toSorted((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
@@ -61,9 +61,7 @@ export function computeInfluence(input: InfluenceInput): Influence {
   // 互动：互动率中位数（浏览缺失的帖子不参与），≥10% 满分
   const rates = posts30d.map(engagementRate).filter((r): r is number => r !== null);
   const engagementMedian = median(rates);
-  const engagement = engagementMedian === null
-    ? 0
-    : Math.min(250, (engagementMedian / 0.1) * 250);
+  const engagement = engagementMedian === null ? 0 : Math.min(250, (engagementMedian / 0.1) * 250);
 
   // 产能：近 30 天发帖数，≥30 帖满分
   const output = Math.min(150, (posts30d.length / 30) * 150);

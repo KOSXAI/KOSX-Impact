@@ -5,11 +5,14 @@
 // 成本估算：84 人 × 平均 N 页（每页 ~20 关注）——每两周一轮，月成本约 $1-3。
 // 用法：node scripts/sync-follows.mjs [--pages=60] && wrangler d1 execute kosx-impact --remote --file=/tmp/follows.sql
 import { writeFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { readSocialDataKey, createThrottledGet, lit, d1Query, BUMP_CACHE_BUST_SQL } from "./_lib.mjs";
+import {
+  readSocialDataKey,
+  createThrottledGet,
+  lit,
+  d1Query,
+  BUMP_CACHE_BUST_SQL,
+} from "./_lib.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
 
@@ -31,7 +34,7 @@ let edgesTotal = 0;
 // user_id 落在 members 表（0015）：一次查全量 active 成员的 handle ↔ 数字 ID 映射，
 // 名册不在表里等于还没建档，跳过。目标关注对象同样按这套数字 ID 判定。
 const results = d1Query(
-  "SELECT id, handle, user_id FROM members WHERE status = 'active' AND user_id IS NOT NULL"
+  "SELECT id, handle, user_id FROM members WHERE status = 'active' AND user_id IS NOT NULL",
 );
 const byId = new Map(results.map((r) => [String(r.user_id), r.id]));
 console.log(`active 成员（含 user_id）：${results.length} 位`);
@@ -44,7 +47,7 @@ for (const r of results) {
     let edges = 0;
     for (;;) {
       const page = await throttledFetch(
-        `/twitter/user/${r.user_id}/following${cursor ? `?cursor=${cursor}` : ""}`
+        `/twitter/user/${r.user_id}/following${cursor ? `?cursor=${cursor}` : ""}`,
       );
       const users = Array.isArray(page.users) ? page.users : [];
       for (const u of users) {
@@ -55,7 +58,7 @@ for (const r of results) {
         sql.push(
           `INSERT INTO follows (follower_user_id, followed_user_id, synced_at)
            VALUES (${lit(String(r.user_id))}, ${lit(String(followedId))}, ${lit(now)})
-           ON CONFLICT(follower_user_id, followed_user_id) DO UPDATE SET synced_at = excluded.synced_at;`
+           ON CONFLICT(follower_user_id, followed_user_id) DO UPDATE SET synced_at = excluded.synced_at;`,
         );
         edges++;
         edgesTotal++;
@@ -74,7 +77,7 @@ for (const r of results) {
 sql.push(BUMP_CACHE_BUST_SQL);
 writeFileSync("/tmp/follows.sql", sql.join("\n\n") + "\n");
 console.log(
-  `\n完成：${results.length - failures.length}/${results.length} 人成功，共 ${edgesTotal} 条成员内关注边 → /tmp/follows.sql`
+  `\n完成：${results.length - failures.length}/${results.length} 人成功，共 ${edgesTotal} 条成员内关注边 → /tmp/follows.sql`,
 );
 if (failures.length > 0) {
   console.error("失败清单：\n" + failures.join("\n"));

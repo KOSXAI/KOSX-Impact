@@ -33,13 +33,14 @@ if (!apiKey) {
 // 增量游标：site_meta.last_mention_since（epoch 秒，由 agent 入库成功后推进）；
 // 无游标 / 异常旧游标回退窗口上限
 const prevSinceRow = d1Query(`SELECT value FROM site_meta WHERE key = '${META_KEY}'`)[0]?.value;
-const prevSince = prevSinceRow && /^\d+$/.test(String(prevSinceRow)) ? parseInt(prevSinceRow, 10) : null;
+const prevSince =
+  prevSinceRow && /^\d+$/.test(String(prevSinceRow)) ? parseInt(prevSinceRow, 10) : null;
 
 const MAX_WINDOW = Math.floor((Date.now() - DAYS * 86_400_000) / 1000);
 const since = prevSince != null ? Math.max(prevSince, MAX_WINDOW) : MAX_WINDOW;
 const collectedAt = new Date().toISOString();
 console.log(
-  `搜索 ${keywords.length} 个关键词${prevSince != null ? `，增量起点 ${new Date(since * 1000).toISOString()}` : `，首次运行回退 ${DAYS} 天窗口`}`
+  `搜索 ${keywords.length} 个关键词${prevSince != null ? `，增量起点 ${new Date(since * 1000).toISOString()}` : `，首次运行回退 ${DAYS} 天窗口`}`,
 );
 
 const get = createThrottledGet(apiKey);
@@ -58,7 +59,7 @@ for (let i = 0; i < keywords.length; i++) {
     let cursor = null;
     for (let page = 0; page < MAX_PAGES; page++) {
       const res = await get(
-        `/twitter/search?query=${query}&type=Latest${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`
+        `/twitter/search?query=${query}&type=Latest${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
       );
       rawTweets.push(...(res.tweets ?? []));
       cursor = res.cursor ?? res.next_cursor ?? null;
@@ -66,15 +67,17 @@ for (let i = 0; i < keywords.length; i++) {
     }
     const tweets = rawTweets
       .map((t) => ({
-      tweet_id: t.id_str ?? null,
-      handle: t.user?.screen_name ?? null,
-      name: t.user?.name ?? null,
-      text: t.full_text ?? null,
-      created_at: t.tweet_created_at ?? null,
-      views: t.views_count ?? null,
-      likes: t.favorite_count ?? null,
-      url: t.id_str ? `https://x.com/${encodeURIComponent(t.user?.screen_name ?? "i")}/status/${t.id_str}` : null,
-    }))
+        tweet_id: t.id_str ?? null,
+        handle: t.user?.screen_name ?? null,
+        name: t.user?.name ?? null,
+        text: t.full_text ?? null,
+        created_at: t.tweet_created_at ?? null,
+        views: t.views_count ?? null,
+        likes: t.favorite_count ?? null,
+        url: t.id_str
+          ? `https://x.com/${encodeURIComponent(t.user?.screen_name ?? "i")}/status/${t.id_str}`
+          : null,
+      }))
       .filter((t) => t.tweet_id && t.text);
     out.push({ keyword, tweets });
     process.stdout.write(`✓ ${tweets.length} 条\n`);
@@ -87,7 +90,11 @@ for (let i = 0; i < keywords.length; i++) {
 // 产物元数据：agent 入库成功后应把 collected_at（epoch 秒）写入 site_meta.last_mention_since 推进游标
 writeFileSync(
   OUT,
-  JSON.stringify({ meta: { since, collected_at: collectedAt, since_key: META_KEY }, keywords: out }, null, 2)
+  JSON.stringify(
+    { meta: { since, collected_at: collectedAt, since_key: META_KEY }, keywords: out },
+    null,
+    2,
+  ),
 );
 const total = out.reduce((s, g) => s + g.tweets.length, 0);
 console.log(`\n共 ${total} 条增量提及，失败 ${failed.length} 个关键词；产物: ${OUT}`);
@@ -101,7 +108,7 @@ if (ADVANCE && failed.length === 0) {
   const cursor = Math.floor(Date.parse(collectedAt) / 1000).toString();
   // d1Execute：statement 里带游标与 meta 键，走 execFileSync 不经 shell
   d1Execute(
-    `INSERT INTO site_meta (key, value) VALUES (${lit(META_KEY)}, ${lit(cursor)}) ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+    `INSERT INTO site_meta (key, value) VALUES (${lit(META_KEY)}, ${lit(cursor)}) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
   );
   console.log(`已推进增量游标 → ${new Date(parseInt(cursor) * 1000).toISOString()}`);
 } else if (ADVANCE && failed.length > 0) {

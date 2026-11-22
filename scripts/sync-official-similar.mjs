@@ -10,7 +10,8 @@ import { readSocialDataKey, createThrottledGet, lit, BUMP_CACHE_BUST_SQL } from 
 
 const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
-if (!existsSync("/tmp/member-handles.json")) throw new Error("先导出成员表到 /tmp/member-handles.json");
+if (!existsSync("/tmp/member-handles.json"))
+  throw new Error("先导出成员表到 /tmp/member-handles.json");
 const raw = JSON.parse(readFileSync("/tmp/member-handles.json", "utf-8"));
 let members = [];
 for (const layer of Array.isArray(raw) ? raw : [raw]) {
@@ -39,7 +40,7 @@ for (const m of members) {
       if (!h) continue;
       sql.push(
         `INSERT OR REPLACE INTO similar_accounts (member_id, handle, name, avatar, reason, difference, created_at)
-         VALUES (${lit(m.id)}, ${lit(h)}, ${lit(u.name)}, ${lit(u.profile_image_url_https || u.avatar || null)}, ${lit("官方相似推荐")}, NULL, ${lit(now)});`
+         VALUES (${lit(m.id)}, ${lit(h)}, ${lit(u.name)}, ${lit(u.profile_image_url_https || u.avatar || null)}, ${lit("官方相似推荐")}, NULL, ${lit(now)});`,
       );
       total++;
     }
@@ -52,7 +53,9 @@ for (const m of members) {
 }
 sql.push(BUMP_CACHE_BUST_SQL);
 writeFileSync("/tmp/official-similar.sql", sql.join("\n\n") + "\n");
-console.log(`\n完成：成员 ${ok}/${members.length}，官方相似 ${total} 条，写入 /tmp/official-similar.sql`);
+console.log(
+  `\n完成：成员 ${ok}/${members.length}，官方相似 ${total} 条，写入 /tmp/official-similar.sql`,
+);
 if (failures.length) {
   console.log("失败：");
   for (const f of failures) console.log("  " + f);

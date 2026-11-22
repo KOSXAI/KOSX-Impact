@@ -39,7 +39,7 @@ const allMembers = memberRows
 // 否则采样之外成员之间的内部互提会被当成「外部品味」（Worker 侧同款修正）
 const members = allMembers
   .slice()
-  .sort((a, b) => b.followers - a.followers)
+  .toSorted((a, b) => b.followers - a.followers)
   .slice(0, TOP_SAMPLE);
 
 const followingCount = new Map(); // handle -> {name, members:Set}
@@ -65,10 +65,12 @@ for (const [handle, rec] of followingCount) {
   if (rec.members.size < 2) continue; // 至少 2 位成员共同关注才有信号
   sql.push(
     `INSERT OR REPLACE INTO community_signal_counts (kind, handle, name, count, updated_at)
-     VALUES ('following', ${lit(handle)}, ${lit(rec.name)}, ${rec.members.size}, ${lit(now)});`
+     VALUES ('following', ${lit(handle)}, ${lit(rec.name)}, ${rec.members.size}, ${lit(now)});`,
   );
 }
-console.log(`following 完成：${followingOk}/${members.length} 位成员，共同关注信号 ${[...followingCount.values()].filter((r) => r.members.size >= 2).length} 条`);
+console.log(
+  `following 完成：${followingOk}/${members.length} 位成员，共同关注信号 ${[...followingCount.values()].filter((r) => r.members.size >= 2).length} 条`,
+);
 
 // ---- taste：社群帖子中的外部提及（纯库读） ----
 if (existsSync("/tmp/posts-text.json")) {
@@ -90,11 +92,11 @@ if (existsSync("/tmp/posts-text.json")) {
       tasteCount.set(h, (tasteCount.get(h) ?? 0) + 1);
     }
   }
-  const tasteTop = [...tasteCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30);
+  const tasteTop = [...tasteCount.entries()].toSorted((a, b) => b[1] - a[1]).slice(0, 30);
   for (const [handle, count] of tasteTop) {
     sql.push(
       `INSERT OR REPLACE INTO community_signal_counts (kind, handle, name, count, updated_at)
-       VALUES ('taste', ${lit(handle)}, NULL, ${count}, ${lit(now)});`
+       VALUES ('taste', ${lit(handle)}, NULL, ${count}, ${lit(now)});`,
     );
   }
   console.log(`taste 完成：${tasteTop.length} 条外部热议账号`);
@@ -106,6 +108,8 @@ writeFileSync("/tmp/community-signals.sql", sql.join("\n\n") + "\n");
 console.log(`写入 /tmp/community-signals.sql（${sql.length} 条）`);
 console.log(`执行：wrangler d1 execute kosx-impact --remote --file=/tmp/community-signals.sql`);
 if (followingOk < members.length) {
-  console.log(`有 ${members.length - followingOk} 位成员拉取失败，产物不完整：检查失败清单后决定是否继续灌库`);
+  console.log(
+    `有 ${members.length - followingOk} 位成员拉取失败，产物不完整：检查失败清单后决定是否继续灌库`,
+  );
   process.exitCode = 1;
 }

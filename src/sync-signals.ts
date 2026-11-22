@@ -15,7 +15,10 @@ const API_BASE = "https://api.socialdata.tools";
 
 /** 致命出站错误（余额/鉴权）：立刻中止整轮，别再逐个成员打注定失败的请求 */
 function isFatal(error: unknown): boolean {
-  return error instanceof SocialDataError && (error.status === 401 || error.status === 402 || error.status === 403);
+  return (
+    error instanceof SocialDataError &&
+    (error.status === 401 || error.status === 402 || error.status === 403)
+  );
 }
 
 interface SocialTweet {
@@ -50,7 +53,8 @@ async function throttledGet<T>(env: Env, path: string): Promise<T> {
       signal: controller.signal,
     });
   } catch (error) {
-    if (controller.signal.aborted) throw new SocialDataError(`请求超时（${FETCH_TIMEOUT_MS / 1000}s）`, 0);
+    if (controller.signal.aborted)
+      throw new SocialDataError(`请求超时（${FETCH_TIMEOUT_MS / 1000}s）`, 0);
     throw error;
   } finally {
     clearTimeout(timer);
@@ -68,8 +72,8 @@ async function throttledGet<T>(env: Env, path: string): Promise<T> {
 /** 数据版本 +1（本模块三轮同步各自收尾时调用一次，不逐条换键） */
 async function bumpCacheBust(env: Env): Promise<void> {
   await env.DB.prepare(
-    "INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1') ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1"
-  ).run();  // 本 isolate 立即读到新版本号（不等 5 秒记忆过期）
+    "INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1') ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1",
+  ).run(); // 本 isolate 立即读到新版本号（不等 5 秒记忆过期）
   resetCacheBustMemo();
 }
 
@@ -81,14 +85,14 @@ export async function syncMemberMentions(env: Env): Promise<{ ok: number; total:
     return { ok: 0, total: 0 };
   }
   const { results: members } = await env.DB.prepare(
-    "SELECT id, handle FROM members WHERE status = 'active'"
+    "SELECT id, handle FROM members WHERE status = 'active'",
   ).all<{ id: string; handle: string }>();
   const stmt = env.DB.prepare(
     // DO NOTHING 而非 REPLACE：REPLACE 会把已入库行的 collected_at 刷成本次时间，
     // 丢掉「首次看到该提及」的语义（本地脚本 scripts/sync-member-mentions.mjs 同口径）
     `INSERT INTO member_mentions (member_id, tweet_id, author_handle, author_name, text, mentioned_at, collected_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(member_id, tweet_id) DO NOTHING`
+     ON CONFLICT(member_id, tweet_id) DO NOTHING`,
   );
   const now = new Date().toISOString();
   let total = 0;
@@ -96,20 +100,33 @@ export async function syncMemberMentions(env: Env): Promise<{ ok: number; total:
   for (const m of members) {
     try {
       const query = encodeURIComponent(`@${m.handle} -filter:replies`);
-      const page = await throttledGet<{ tweets?: SocialTweet[] }>(env, `/twitter/search?query=${query}&type=Latest`);
+      const page = await throttledGet<{ tweets?: SocialTweet[] }>(
+        env,
+        `/twitter/search?query=${query}&type=Latest`,
+      );
       const tweets = Array.isArray(page.tweets) ? page.tweets : [];
       const batch = [];
       for (const t of tweets) {
         if (!t.id_str) continue;
         // mentioned_at 是 NOT NULL 列：缺 created_at 的脏行跳过，否则整个 batch 抛错、该成员本轮全丢
         if (!t.tweet_created_at) {
-          console.error(`[sync-signals] ${m.handle} 提及 tweet ${t.id_str} 缺 tweet_created_at，跳过`);
+          console.error(
+            `[sync-signals] ${m.handle} 提及 tweet ${t.id_str} 缺 tweet_created_at，跳过`,
+          );
           continue;
         }
         const author = (t.user?.screen_name || t.author_handle || "").toLowerCase();
         if (author === m.handle.toLowerCase()) continue; // 本人自提不算「被提及」
         batch.push(
-          stmt.bind(m.id, t.id_str, t.user?.screen_name || t.author_handle || null, t.user?.name || t.author_name || null, t.full_text ?? null, t.tweet_created_at, now)
+          stmt.bind(
+            m.id,
+            t.id_str,
+            t.user?.screen_name || t.author_handle || null,
+            t.user?.name || t.author_name || null,
+            t.full_text ?? null,
+            t.tweet_created_at,
+            now,
+          ),
         );
         total++;
       }
@@ -120,11 +137,17 @@ export async function syncMemberMentions(env: Env): Promise<{ ok: number; total:
         // 余额/鉴权问题：剩余成员注定同样失败，立即合闸 + 中止本轮，
         // 不再对每个成员各打一次（旧实现会把 402 当普通错误跑完整份名册）
         await tripBreaker(env);
-        console.error("[sync-signals] 余额/鉴权错误，中止本轮被提及同步：", error instanceof Error ? error.message : error);
+        console.error(
+          "[sync-signals] 余额/鉴权错误，中止本轮被提及同步：",
+          error instanceof Error ? error.message : error,
+        );
         break;
       }
       /* 单成员失败跳过，不阻塞整轮；留一行日志避免静默丢数据 */
-      console.error(`[sync-signals] 成员 ${m.handle} 提及同步失败:`, error instanceof Error ? error.message : error);
+      console.error(
+        `[sync-signals] 成员 ${m.handle} 提及同步失败:`,
+        error instanceof Error ? error.message : error,
+      );
     }
   }
   await bumpCacheBust(env);
@@ -132,15 +155,17 @@ export async function syncMemberMentions(env: Env): Promise<{ ok: number; total:
 }
 
 /** 社群信号：共同关注（following 采样头部 8 位）+ 社群品味（帖子正文外部提及计数） */
-export async function syncCommunitySignals(env: Env): Promise<{ following: number; taste: number }> {
+export async function syncCommunitySignals(
+  env: Env,
+): Promise<{ following: number; taste: number }> {
   const { results: members } = await env.DB.prepare(
     `SELECT m.id, m.handle, m.user_id,
             (SELECT s.followers FROM snapshots s WHERE s.member_id = m.id ORDER BY s.recorded_at DESC LIMIT 1) AS f
-     FROM members m WHERE m.status = 'active'`
+     FROM members m WHERE m.status = 'active'`,
   ).all<{ id: string; handle: string; user_id: string | null; f: number | null }>();
   const top = members
     .filter((m) => m.user_id)
-    .sort((a, b) => (b.f ?? 0) - (a.f ?? 0))
+    .toSorted((a, b) => (b.f ?? 0) - (a.f ?? 0))
     .slice(0, 8);
 
   // 共同关注：有多少位成员共同关注同一个外部大V
@@ -152,7 +177,10 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
       break;
     }
     try {
-      const page = await throttledGet<{ users?: SocialUser[] }>(env, `/twitter/user/${m.user_id}/following`);
+      const page = await throttledGet<{ users?: SocialUser[] }>(
+        env,
+        `/twitter/user/${m.user_id}/following`,
+      );
       const users = Array.isArray(page.users) ? page.users : [];
       for (const u of users) {
         const h = (u.screen_name || "").toLowerCase();
@@ -165,11 +193,17 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
       if (isFatal(error)) {
         await tripBreaker(env);
         breakerTripped = true;
-        console.error("[sync-signals] 余额/鉴权错误，中止共同关注采样：", error instanceof Error ? error.message : error);
+        console.error(
+          "[sync-signals] 余额/鉴权错误，中止共同关注采样：",
+          error instanceof Error ? error.message : error,
+        );
         break;
       }
       /* 单成员跳过，不阻塞整轮；留一行定位失败样本 */
-      console.error(`[sync-signals] 成员 ${m.handle} 共同关注采样失败:`, error instanceof Error ? error.message : error);
+      console.error(
+        `[sync-signals] 成员 ${m.handle} 共同关注采样失败:`,
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 
@@ -177,9 +211,7 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
   // 只读近 30 天窗口：D1 按扫描行计费，无 WHERE 全表 SELECT text 随帖子量线性变贵。
   // 排除集必须用**全部**活跃成员，而不是上面那个 8 人采样——否则其余成员之间的
   // 内部互提会被当成「外部品味」信号
-  const { results: posts } = await env.DB.prepare(
-    "SELECT text FROM posts WHERE created_at >= ?1"
-  )
+  const { results: posts } = await env.DB.prepare("SELECT text FROM posts WHERE created_at >= ?1")
     .bind(new Date(Date.now() - 30 * 86_400_000).toISOString())
     .all<{ text: string | null }>();
   const memberHandles = new Set(members.map((m) => m.handle.toLowerCase()));
@@ -193,10 +225,10 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
       tasteCount.set(h, (tasteCount.get(h) ?? 0) + 1);
     }
   }
-  const tasteTop = [...tasteCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30);
+  const tasteTop = [...tasteCount.entries()].toSorted((a, b) => b[1] - a[1]).slice(0, 30);
 
   const stmt = env.DB.prepare(
-    "INSERT OR REPLACE INTO community_signal_counts (kind, handle, name, count, updated_at) VALUES (?, ?, ?, ?, ?)"
+    "INSERT OR REPLACE INTO community_signal_counts (kind, handle, name, count, updated_at) VALUES (?, ?, ?, ?, ?)",
   );
   const now = new Date().toISOString();
   const batch = [];
@@ -214,5 +246,8 @@ export async function syncCommunitySignals(env: Env): Promise<{ following: numbe
     ]);
   }
   await bumpCacheBust(env);
-  return { following: [...followingCount.values()].filter((r) => r.set.size >= 2).length, taste: tasteTop.length };
+  return {
+    following: [...followingCount.values()].filter((r) => r.set.size >= 2).length,
+    taste: tasteTop.length,
+  };
 }

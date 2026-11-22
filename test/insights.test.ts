@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { computeMemberInsights, detectInactive, detectViral, engagementRate, medianEngagement, type PostMetric } from "../src/insights";
+import {
+  computeMemberInsights,
+  detectInactive,
+  detectViral,
+  engagementRate,
+  medianEngagement,
+  type PostMetric,
+} from "../src/insights";
 
 const post = (over: Partial<PostMetric> = {}): PostMetric => ({
   createdAt: "2026-09-01T00:00:00Z",
@@ -14,7 +21,11 @@ const post = (over: Partial<PostMetric> = {}): PostMetric => ({
 
 describe("engagementRate", () => {
   it("(赞+评+转+引+藏)/浏览；引与藏计入", () => {
-    expect(engagementRate(post({ views: 1000, likes: 30, replies: 10, retweets: 10, quotes: 5, bookmarks: 5 }))).toBe(0.06);
+    expect(
+      engagementRate(
+        post({ views: 1000, likes: 30, replies: 10, retweets: 10, quotes: 5, bookmarks: 5 }),
+      ),
+    ).toBe(0.06);
   });
 
   it("浏览缺失 / 0 / 负数 → null（缺失值不进比率）", () => {
@@ -31,7 +42,9 @@ describe("engagementRate", () => {
 describe("medianEngagement", () => {
   it("无有效数据 → null；偶数个取中间均值", () => {
     expect(medianEngagement([post({ views: null })])).toBeNull();
-    expect(medianEngagement([post({ views: 100, likes: 5 }), post({ views: 100, likes: 15 })])).toBe(0.1);
+    expect(
+      medianEngagement([post({ views: 100, likes: 5 }), post({ views: 100, likes: 15 })]),
+    ).toBe(0.1);
   });
 });
 
@@ -59,19 +72,26 @@ describe("detectInactive", () => {
     const r = detectInactive([post({ createdAt: "2026-08-20T00:00:00Z" })], "2026-09-04T00:00:00Z");
     expect(r.inactive).toBe(true);
     expect(r.days).toBe(15);
-    const ok = detectInactive([post({ createdAt: "2026-08-21T00:00:00Z" })], "2026-09-04T00:00:00Z");
+    const ok = detectInactive(
+      [post({ createdAt: "2026-08-21T00:00:00Z" })],
+      "2026-09-04T00:00:00Z",
+    );
     expect(ok.inactive).toBe(false);
     expect(ok.days).toBe(14);
   });
 
   it("无帖子 → 未停更 + days=null", () => {
-    expect(detectInactive([], "2026-09-04T00:00:00Z")).toEqual({ inactive: false, days: null, lastPostAt: null });
+    expect(detectInactive([], "2026-09-04T00:00:00Z")).toEqual({
+      inactive: false,
+      days: null,
+      lastPostAt: null,
+    });
   });
 
   it("多帖取最近一条判定", () => {
     const r = detectInactive(
       [post({ createdAt: "2026-08-01T00:00:00Z" }), post({ createdAt: "2026-09-03T00:00:00Z" })],
-      "2026-09-04T00:00:00Z"
+      "2026-09-04T00:00:00Z",
     );
     expect(r.inactive).toBe(false);
     expect(r.lastPostAt).toBe("2026-09-03T00:00:00Z");
@@ -87,7 +107,7 @@ describe("computeMemberInsights", () => {
         post({ views: 5000, likes: 10 }),
         post({ views: 5000, likes: 10 }),
       ],
-      now
+      now,
     );
     expect(ins.postCount30d).toBe(3);
     expect(ins.virals).toHaveLength(1);

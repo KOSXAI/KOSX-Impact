@@ -10,12 +10,14 @@ const take = (flag, def) => {
   return i >= 0 ? argv[i + 1] : def;
 };
 const OUT = take("--out", "/tmp/analyze-input.json");
-const wantHandles = argv.filter((a) => !a.startsWith("--") && a !== "--out" && argv[argv.indexOf(a) - 1] !== "--out");
+const wantHandles = argv.filter(
+  (a) => !a.startsWith("--") && a !== "--out" && argv[argv.indexOf(a) - 1] !== "--out",
+);
 
 let members = [];
 if (wantHandles.length) {
   members = d1Query(
-    `SELECT id, handle FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => `'${h.replaceAll("'", "''")}'`).join(",")})`
+    `SELECT id, handle FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => `'${h.replaceAll("'", "''")}'`).join(",")})`,
   );
 } else {
   members = d1Query(`SELECT id, handle FROM members WHERE status='active' ORDER BY handle`);
@@ -27,12 +29,12 @@ for (const m of members) {
   // 档案（members 表最新值，每日采集已入库）
   const rec =
     d1Query(
-      `SELECT m.display_name AS displayName, m.bio, m.location, m.url, m.verified, (SELECT followers FROM snapshots WHERE member_id = m.id ORDER BY recorded_at DESC LIMIT 1) AS followers FROM members m WHERE m.id = '${m.id.replaceAll("'", "''")}'`
+      `SELECT m.display_name AS displayName, m.bio, m.location, m.url, m.verified, (SELECT followers FROM snapshots WHERE member_id = m.id ORDER BY recorded_at DESC LIMIT 1) AS followers FROM members m WHERE m.id = '${m.id.replaceAll("'", "''")}'`,
     )[0] ?? {};
 
   // 最近帖子（posts 表 90 天全文，每日采集已入库）
   const postsRes = d1Query(
-    `SELECT created_at AS createdAt, text FROM posts WHERE member_id = '${m.id.replaceAll("'", "''")}' ORDER BY created_at DESC LIMIT 20`
+    `SELECT created_at AS createdAt, text FROM posts WHERE member_id = '${m.id.replaceAll("'", "''")}' ORDER BY created_at DESC LIMIT 20`,
   );
 
   out.push({

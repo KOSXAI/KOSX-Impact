@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { Monitor, Moon, Search, Sun } from "lucide-react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useTheme } from "@/components/ThemeProvider";
 import { cycleTheme, type ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * 打开时才挂载 + 按需拉取，首屏只留一个搜索图标按钮。
  */
 const SearchDialog = lazy(() =>
-  import("@/components/SearchDialog").then((m) => ({ default: m.SearchDialog }))
+  import("@/components/SearchDialog").then((m) => ({ default: m.SearchDialog })),
 );
 
 /**
@@ -36,7 +36,8 @@ const NAV = [
   {
     label: "报告",
     to: "/reports",
-    match: (p: string) => p.startsWith("/report") || p.startsWith("/daily") || p.startsWith("/annual"),
+    match: (p: string) =>
+      p.startsWith("/report") || p.startsWith("/daily") || p.startsWith("/annual"),
   },
 ] as const;
 
@@ -87,15 +88,24 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
             // ≥sm 恢复三列，让导航严格居中
             "mx-auto grid h-14 grid-cols-[auto_auto] items-center justify-between gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:justify-normal sm:gap-3",
             "px-[clamp(18px,2.2vw,34px)]",
-            containerClassName
+            containerClassName,
           )}
         >
           {/* 左格：≥sm 留白让导航严格居中，≥md 放 logo；<sm 不渲染以免占列宽 */}
           <div className="hidden items-center sm:flex">
             <Link to="/" aria-label="KOSX 万粉影响力计划" className="hidden items-center md:flex">
               {/* 品牌双套：白标配深色模式，黑标（同款橙点）配浅色模式 */}
-              <img src="/kosx-logo-white.png" alt="KOSX.ai" className="hidden h-6 w-auto dark:block" />
-              <img src="/kosx-logo-dark.png" alt="" aria-hidden="true" className="h-6 w-auto dark:hidden" />
+              <img
+                src="/kosx-logo-white.png"
+                alt="KOSX.ai"
+                className="hidden h-6 w-auto dark:block"
+              />
+              <img
+                src="/kosx-logo-dark.png"
+                alt=""
+                aria-hidden="true"
+                className="h-6 w-auto dark:hidden"
+              />
             </Link>
           </div>
 
@@ -123,7 +133,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
               onClick={() => setMode(cycleTheme(mode))}
               aria-label={`主题：${THEME_META[mode].label}，点击切换为${THEME_META[mode].next}`}
               title={`主题：${THEME_META[mode].label}（点击切换为${THEME_META[mode].next}）`}
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-surface shadow-[var(--panel-elev)] text-mist transition-colors hover:bg-wash-strong hover:text-ink cursor-pointer select-none active:scale-95 duration-150"
+              className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-surface text-mist shadow-[var(--panel-elev)] transition-colors duration-150 select-none hover:bg-wash-strong hover:text-ink active:scale-95"
             >
               {/* 图标由 html[data-theme-mode] 纯 CSS 切换，水合前后零闪烁 */}
               <Sun className="theme-icon theme-icon-light size-4" aria-hidden="true" />
@@ -135,7 +145,7 @@ export function SiteHeader({ containerClassName = "max-w-5xl" }: { containerClas
               onClick={() => setSearchOpen(true)}
               aria-label="快速搜索成员与赛道"
               title="搜索（⌘K）"
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-surface shadow-[var(--panel-elev)] text-mist transition-colors hover:bg-wash-strong hover:text-ink cursor-pointer select-none active:scale-95 duration-150"
+              className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-surface text-mist shadow-[var(--panel-elev)] transition-colors duration-150 select-none hover:bg-wash-strong hover:text-ink active:scale-95"
             >
               <Search className="size-4" aria-hidden="true" />
             </button>

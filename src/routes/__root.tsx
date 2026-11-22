@@ -1,14 +1,14 @@
-import type { ReactNode } from "react";
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
-import { SiteHeader } from "@/components/SiteHeader";
-import { SiteFooter } from "@/components/SiteFooter";
-import { TopLoadingBar } from "@/components/TopLoadingBar";
-import { NotFound } from "@/components/NotFound";
-import { Toaster } from "@/components/ui/toast";
-import { ThemeProvider } from "@/components/ThemeProvider";
+import type { ReactNode } from "react";
 import { MotionEnvironmentProvider } from "@/components/motion-env";
-import { THEME_BOOT_SCRIPT } from "@/lib/theme";
+import { NotFound } from "@/components/NotFound";
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { TopLoadingBar } from "@/components/TopLoadingBar";
+import { Toaster } from "@/components/ui/toast";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import "@/styles.css";
 
 export const Route = createRootRoute({
@@ -25,7 +25,12 @@ export const Route = createRootRoute({
       // 官网 kosx.ai 同款 KOSX logo（白色 X 标，assets 与官网主题同一文件）
       { rel: "icon", href: "/kosx-icon.png", type: "image/png" },
       // RSS 源声明：让浏览器/阅读器能自动发现订阅入口
-      { rel: "alternate", type: "application/rss+xml", title: `${SITE_NAME} · 更新`, href: `${SITE_URL}/feed.xml` },
+      {
+        rel: "alternate",
+        type: "application/rss+xml",
+        title: `${SITE_NAME} · 更新`,
+        href: `${SITE_URL}/feed.xml`,
+      },
     ],
     scripts: [
       // 站点级 JSON-LD：告诉搜索引擎这是什么站点

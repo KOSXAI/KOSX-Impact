@@ -17,7 +17,13 @@ const chartConfig = {
   delta: { label: "社群日增", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
-export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[]; mode: TrendMode }) {
+export default function RechartsTrendChart({
+  data,
+  mode,
+}: {
+  data: TrendPoint[];
+  mode: TrendMode;
+}) {
   // 移动端压缩 Y 轴：宽度收窄 + 紧凑刻度（badge 的「1.5万」缩写），把绘图区让给曲线
   const isDesktop = useMediaQuery("(min-width: 640px)");
   const daily = useMemo(() => {
@@ -39,22 +45,27 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
   if (mode === "daily") {
     return (
       <ChartContainer config={chartConfig} className="h-full w-full">
-          <BarChart data={daily.points} margin={{ top: 12, right: 16, bottom: 4, left: 8 }}>
-            <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" strokeOpacity={0.4} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
-            <YAxis
-              domain={daily.domain}
-              tickLine={false}
-              axisLine={false}
-              width={isDesktop ? 56 : 40}
-              tickFormatter={(v: number) => (isDesktop ? fmt(Math.round(v)) : badge(Math.round(v)))}
-            />
-            <Tooltip
-              content={<ChartTooltipContent hideLabel />}
-              formatter={(v) => (Number(v) > 0 ? `+${fmt(Number(v))}` : fmt(Number(v)))}
-            />
-            <Bar dataKey="delta" fill="var(--color-delta)" radius={[4, 4, 0, 0]} maxBarSize={28} />
-          </BarChart>
+        <BarChart data={daily.points} margin={{ top: 12, right: 16, bottom: 4, left: 8 }}>
+          <CartesianGrid
+            vertical={false}
+            strokeDasharray="4 4"
+            stroke="var(--line)"
+            strokeOpacity={0.4}
+          />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
+          <YAxis
+            domain={daily.domain}
+            tickLine={false}
+            axisLine={false}
+            width={isDesktop ? 56 : 40}
+            tickFormatter={(v: number) => (isDesktop ? fmt(Math.round(v)) : badge(Math.round(v)))}
+          />
+          <Tooltip
+            content={<ChartTooltipContent hideLabel />}
+            formatter={(v) => (Number(v) > 0 ? `+${fmt(Number(v))}` : fmt(Number(v)))}
+          />
+          <Bar dataKey="delta" fill="var(--color-delta)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+        </BarChart>
       </ChartContainer>
     );
   }
@@ -62,34 +73,41 @@ export default function RechartsTrendChart({ data, mode }: { data: TrendPoint[];
   const points = data.map((d) => ({ ...d, label: d.date.slice(5) }));
   return (
     <ChartContainer config={chartConfig} className="h-full w-full">
-        <AreaChart data={points} margin={{ top: 12, right: 16, bottom: 4, left: 8 }}>
-          <defs>
-            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-total)" stopOpacity={0.32} />
-              <stop offset="100%" stopColor="var(--color-total)" stopOpacity={0.01} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--line)" strokeOpacity={0.4} />
-          <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
-          <YAxis
-            domain={["dataMin - 10%", "dataMax + 12%"]}
-            tickLine={false}
-            axisLine={false}
-            width={isDesktop ? 56 : 40}
-            tickFormatter={(v: number) => (isDesktop ? fmt(Math.round(v)) : badge(Math.round(v)))}
-          />
-          <Tooltip content={<ChartTooltipContent hideLabel />} formatter={(v) => fmt(Number(v))} />
-          <Area
-            dataKey="total"
-            type="monotone"
-            stroke="var(--color-total)"
-            strokeWidth={2.5}
-            fill="url(#trendFill)"
-            dot={{ r: 2.5, fill: "var(--color-total)", strokeWidth: 0 }}
-            activeDot={{ r: 5, fill: "var(--paper)", stroke: "var(--color-total)", strokeWidth: 2 }}
-            style={{ filter: "drop-shadow(0 2px 6px color-mix(in oklab, var(--signal) 45%, transparent))" }}
-          />
-        </AreaChart>
+      <AreaChart data={points} margin={{ top: 12, right: 16, bottom: 4, left: 8 }}>
+        <defs>
+          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-total)" stopOpacity={0.32} />
+            <stop offset="100%" stopColor="var(--color-total)" stopOpacity={0.01} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid
+          vertical={false}
+          strokeDasharray="4 4"
+          stroke="var(--line)"
+          strokeOpacity={0.4}
+        />
+        <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
+        <YAxis
+          domain={["dataMin - 10%", "dataMax + 12%"]}
+          tickLine={false}
+          axisLine={false}
+          width={isDesktop ? 56 : 40}
+          tickFormatter={(v: number) => (isDesktop ? fmt(Math.round(v)) : badge(Math.round(v)))}
+        />
+        <Tooltip content={<ChartTooltipContent hideLabel />} formatter={(v) => fmt(Number(v))} />
+        <Area
+          dataKey="total"
+          type="monotone"
+          stroke="var(--color-total)"
+          strokeWidth={2.5}
+          fill="url(#trendFill)"
+          dot={{ r: 2.5, fill: "var(--color-total)", strokeWidth: 0 }}
+          activeDot={{ r: 5, fill: "var(--paper)", stroke: "var(--color-total)", strokeWidth: 2 }}
+          style={{
+            filter: "drop-shadow(0 2px 6px color-mix(in oklab, var(--signal) 45%, transparent))",
+          }}
+        />
+      </AreaChart>
     </ChartContainer>
   );
 }

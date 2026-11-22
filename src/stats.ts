@@ -1,9 +1,16 @@
+import {
+  nextThreshold,
+  prevThreshold,
+  progressToNext,
+  tierOf,
+  TEN_K,
+  MILESTONE_THRESHOLDS,
+} from "./milestones";
 /**
  * 统计计算层：快照 → 成员统计 / 看板统计。类型定义在 stats.types.ts（此处再导出，
  * 全站引用保持 `import type { ... } from "@/stats"` 不变）。
  */
 import type { RosterFile } from "./roster";
-import { nextThreshold, prevThreshold, progressToNext, tierOf, TEN_K, MILESTONE_THRESHOLDS } from "./milestones";
 import type { MemberStats, TrendPoint, DashboardStats } from "./stats.types";
 
 export * from "./stats.types";
@@ -17,7 +24,7 @@ export function daysBetween(a: string, b: string): number {
 /** 计算最近 n 天（含最新一天）的粉丝增长；快照不足时按已有数据计算 */
 export function computeGrowthNDays(
   snapshots: Array<{ followers: number; recordedAt: string }>,
-  n: number
+  n: number,
 ): number {
   if (snapshots.length === 0) return 0;
   const latest = snapshots[snapshots.length - 1];
@@ -46,13 +53,15 @@ export function computeGrowthNDays(
 export function computeCountDelta(
   snapshots: Array<{ recordedAt: string } & { [key: string]: string | number | null | undefined }>,
   n: number,
-  field: string
+  field: string,
 ): number | null {
   if (snapshots.length === 0) return null;
   const last = snapshots.length - 1;
   const latestVal = snapshots[last][field];
   if (typeof latestVal !== "number") return null;
-  const cutoff = new Date(Date.parse(snapshots[last].recordedAt) - (n - 1) * 86_400_000).toISOString();
+  const cutoff = new Date(
+    Date.parse(snapshots[last].recordedAt) - (n - 1) * 86_400_000,
+  ).toISOString();
   let baseIdx = -1;
   for (let i = 0; i <= last; i++) {
     if (snapshots[i].recordedAt >= cutoff) {
@@ -87,7 +96,7 @@ export function computeMemberStats(
   },
   snapshots: Array<{ followers: number; recordedAt: string }>,
   now: string,
-  baselineFollowers?: number | null
+  baselineFollowers?: number | null,
 ): MemberStats {
   const latest = snapshots[snapshots.length - 1] ?? null;
   const baseline = baselineFollowers ?? snapshots[0]?.followers ?? null;
@@ -145,7 +154,7 @@ export function computeDashboardStats(
     threshold: number;
     achievedAt: string;
   }>,
-  now: string
+  now: string,
 ): DashboardStats {
   const byId = new Map(roster.members.map((m) => [m.id, m]));
   const members = rows.map((row) => {
@@ -160,7 +169,7 @@ export function computeDashboardStats(
       },
       row.snapshots,
       now,
-      rosterMember?.baselineFollowers
+      rosterMember?.baselineFollowers,
     );
     // 赛道/标签透传：computeMemberStats 里是空数组，queries 层提供的真实值覆盖
     if (row.tracks) computed.tracks = row.tracks;
@@ -195,7 +204,7 @@ export function computeDashboardStats(
   // 注意从原始输入行取快照（members 映射后的 MemberStats 不携带 snapshots）。
   const trendDates = new Set<string>();
   for (const row of rows) for (const s of row.snapshots) trendDates.add(s.recordedAt.slice(0, 10));
-  const trend: TrendPoint[] = [...trendDates].sort().map((date) => ({
+  const trend: TrendPoint[] = [...trendDates].toSorted().map((date) => ({
     date,
     total: rows.reduce((sum, row) => {
       let latest = 0;
@@ -208,7 +217,7 @@ export function computeDashboardStats(
   }));
 
   const recentMilestones = [...ladderMilestones]
-    .sort((a, b) => b.achievedAt.localeCompare(a.achievedAt))
+    .toSorted((a, b) => b.achievedAt.localeCompare(a.achievedAt))
     .slice(0, 10);
 
   // 总排行按最新粉丝量从高到低；成长榜视角由前端按近期增长另行排序

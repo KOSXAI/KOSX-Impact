@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * 顶部加载进度条（纯 CSS 过渡）。

@@ -1,6 +1,6 @@
-import type { MemberStats } from "@/stats";
 import { fmt, signed } from "@/lib/format";
 import { titleOf } from "@/milestones";
+import type { MemberStats } from "@/stats";
 
 /**
  * 博主库的「视图」层——飞书多维表格的思路：一个数据集（成员表），多种保存的视图配置。
@@ -44,11 +44,7 @@ export function growthMetricValue(
   range: GrowthRange,
 ): number {
   if (metric === "growth")
-    return range === 1
-      ? (m.growth1d ?? 0)
-      : range === 7
-        ? m.growth7d
-        : m.growth30d;
+    return range === 1 ? (m.growth1d ?? 0) : range === 7 ? m.growth7d : m.growth30d;
   if (metric === "views")
     return range === 1
       ? (m.viewsTodayGain ?? 0)
@@ -56,11 +52,7 @@ export function growthMetricValue(
         ? (m.views7d ?? 0)
         : (m.views30d ?? 0);
   if (metric === "posts")
-    return range === 1
-      ? (m.postsToday ?? 0)
-      : range === 7
-        ? (m.posts7d ?? 0)
-        : (m.posts30d ?? 0);
+    return range === 1 ? (m.postsToday ?? 0) : range === 7 ? (m.posts7d ?? 0) : (m.posts30d ?? 0);
   return range === 1
     ? (m.repliesToday ?? 0)
     : range === 7
@@ -84,10 +76,7 @@ export const FOLLOWERS_BUCKETS = [
 ] as const;
 export type FollowersBucket = (typeof FOLLOWERS_BUCKETS)[number]["key"];
 
-export const BUCKET_MATCH: Record<
-  Exclude<FollowersBucket, "all">,
-  (f: number) => boolean
-> = {
+export const BUCKET_MATCH: Record<Exclude<FollowersBucket, "all">, (f: number) => boolean> = {
   lt10k: (f) => f < 10_000,
   "10k-50k": (f) => f >= 10_000 && f < 50_000,
   gt50k: (f) => f >= 50_000,
@@ -131,8 +120,8 @@ const followersMetric = (m: MemberStats): MetricValue => ({
     m.latestFollowers != null
       ? `还差 ${fmt(m.nextMilestone - m.latestFollowers)} 至「${titleOf(m.nextMilestone)}」`
       : m.collectFailed
-      ? "首次采集未成功"
-      : "排队中",
+        ? "首次采集未成功"
+        : "排队中",
   progress: m.latestFollowers != null ? m.progressToNext : undefined,
 });
 
@@ -152,8 +141,7 @@ export const VIEW_PRESETS: Record<ViewKey, ViewPreset> = {
       growthMetricValue(a, ctx.growthMetric, ctx.growthRange),
     metric: (m, ctx) => ({
       value: signed(growthMetricValue(m, ctx.growthMetric, ctx.growthRange)),
-      label:
-        GROWTH_METRICS.find((x) => x.key === ctx.growthMetric)?.label ?? "涨粉",
+      label: GROWTH_METRICS.find((x) => x.key === ctx.growthMetric)?.label ?? "涨粉",
       tone: "signal",
     }),
     empty: "成长数据在路上，明天见。",

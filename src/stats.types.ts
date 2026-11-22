@@ -5,7 +5,6 @@
 import type { Influence } from "./influence";
 import type { MemberInsights } from "./insights";
 
-
 export interface MemberStats {
   id: string;
   handle: string;
@@ -268,7 +267,13 @@ export interface MemberDetail {
     /** 每赛道内的名次（按粉丝量降序） */
     trackRanks: Array<{ track: string; rank: number; total: number }>;
     /** 同赛道其他成员（按粉丝量降序，最多 8 位，不含本人） */
-    members: Array<{ id: string; handle: string; displayName: string | null; profileImage: string | null; followers: number | null }>;
+    members: Array<{
+      id: string;
+      handle: string;
+      displayName: string | null;
+      profileImage: string | null;
+      followers: number | null;
+    }>;
   };
   /** 同粉丝圈：粉丝样本重叠度最高的其他成员（fan_profiles 采样重叠，queries 层填充） */
   fanCircle?: Array<{
@@ -368,4 +373,3 @@ export interface MemberCounters {
     favouritesCount: number | null;
   };
 }
-

@@ -26,14 +26,16 @@ export function MemberRankRow({
   return (
     <div
       className={cn(
-        "panel-card flex flex-wrap items-center gap-x-3 gap-y-3 p-4 sm:gap-x-4 sm:p-5",
-        podium && `card-lift ${podium.ring}`
+        "flex flex-wrap items-center gap-x-3 gap-y-3 panel-card p-4 sm:gap-x-4 sm:p-5",
+        podium && `card-lift ${podium.ring}`,
       )}
     >
       <div
         className={cn(
           "min-w-6 shrink-0 tabular-nums",
-          podium ? `bg-gradient-to-br bg-clip-text font-extrabold text-transparent ${podium.rankNum}` : "text-mist"
+          podium
+            ? `bg-gradient-to-br bg-clip-text font-extrabold text-transparent ${podium.rankNum}`
+            : "text-mist",
         )}
       >
         {rank}

@@ -6,7 +6,7 @@ export function getSource(env: Env): FollowerSource {
   const apiKey = env.SOCIALDATA_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "缺少 SOCIALDATA_API_KEY：本地开发放入 .dev.vars，线上用 `wrangler secret put SOCIALDATA_API_KEY`"
+      "缺少 SOCIALDATA_API_KEY：本地开发放入 .dev.vars，线上用 `wrangler secret put SOCIALDATA_API_KEY`",
     );
   }
   return socialDataSource(apiKey);

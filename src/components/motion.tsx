@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
 // 只用 vanilla 的 motion（animate / inView / stagger）：不再依赖 motion/react 全量运行时，
 // 否则它会因本文件被 _shell 引用而进入所有页面的公共 chunk（~131KB）
 import { animate, inView, stagger } from "motion";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { prefersReducedMotionNow, useReducedMotionPreference } from "@/components/motion-env";
 import { Progress } from "@/components/ui/progress";
 import { fmt } from "@/lib/format";
-import { prefersReducedMotionNow, useReducedMotionPreference } from "@/components/motion-env";
 
 // 动效环境（hydration/减弱动态）在 motion-env.tsx：那里不引 motion 运行时，
 // root 只 import Provider 就不会把动画运行时拖进首屏 chunk。这里再导出一次，
@@ -74,7 +74,7 @@ export function Reveal({
           { opacity: 1, transform: "translateY(0px)" },
           { duration: 0.5, ease: easeOutQuint, delay },
         );
-        controls.then(() => clearHidden(el));
+        void controls.then(() => clearHidden(el));
       },
       { margin: ENTRANCE_MARGIN },
     );
@@ -125,7 +125,7 @@ export function RevealGroup({
           { opacity: 1, transform: "translateY(0px)" },
           { duration: 0.4, ease: easeOutQuint, delay: stagger(step, { startDelay: 0.05 }) },
         );
-        controls.then(() => items.forEach(clearHidden));
+        void controls.then(() => items.forEach(clearHidden));
       },
       { margin: ENTRANCE_MARGIN },
     );
@@ -170,11 +170,7 @@ export function PopIn({ children, className }: { children: ReactNode; className?
   useEffect(() => {
     const el = ref.current;
     if (!el || reduced || prefersReducedMotionNow()) return;
-    const controls = animate(
-      el,
-      { opacity: [0, 1], y: [16, 0], scale: [0.92, 1] },
-      springPop,
-    );
+    const controls = animate(el, { opacity: [0, 1], y: [16, 0], scale: [0.92, 1] }, springPop);
     return () => controls.stop();
   }, [reduced]);
 
@@ -229,10 +225,14 @@ export function AnimatedNumber({
   return (
     <span className={className}>
       <span aria-hidden="true">
-        {prefix}{fmt(display)}{suffix}
+        {prefix}
+        {fmt(display)}
+        {suffix}
       </span>
       <span className="sr-only">
-        {prefix}{fmt(value)}{suffix}
+        {prefix}
+        {fmt(value)}
+        {suffix}
       </span>
     </span>
   );
@@ -258,5 +258,7 @@ export function GrowProgress({
     return () => cancelAnimationFrame(raf);
   }, [value, reduced]);
   // 减弱动态：直接显示终值，不做生长
-  return <Progress value={reduced ? value : display} className={className} aria-label={ariaLabel} />;
+  return (
+    <Progress value={reduced ? value : display} className={className} aria-label={ariaLabel} />
+  );
 }

@@ -5,7 +5,18 @@
 // 任一成员失败时进程以非零码退出：&& 链不会把半截数据灌进线上库。
 // 用法：node scripts/sync-posts.mjs && wrangler d1 execute kosx-impact --remote --file=/tmp/posts.sql
 import { writeFileSync } from "node:fs";
-import { readSocialDataKey, createThrottledGet, lit, jsonOrNull, extractMedia, extractQuoted, d1Query, BUMP_CACHE_BUST_SQL, acquireScriptLock, isFatalSocialDataError } from "./_lib.mjs";
+import {
+  readSocialDataKey,
+  createThrottledGet,
+  lit,
+  jsonOrNull,
+  extractMedia,
+  extractQuoted,
+  d1Query,
+  BUMP_CACHE_BUST_SQL,
+  acquireScriptLock,
+  isFatalSocialDataError,
+} from "./_lib.mjs";
 
 const apiKey = readSocialDataKey();
 if (!apiKey) throw new Error("缺少 SOCIALDATA_API_KEY（.dev.vars 或环境变量）");
@@ -23,9 +34,11 @@ const throttledFetch = createThrottledGet(apiKey);
 
 // 数字 ID 已随采集持久化在 members.user_id（0015 迁移）；只有缺失时才调 profile 补
 const members = d1Query(
-  "SELECT id, handle, user_id AS userId FROM members WHERE status = 'active' ORDER BY handle"
+  "SELECT id, handle, user_id AS userId FROM members WHERE status = 'active' ORDER BY handle",
 );
-console.log(`成员 ${members.length} 位（其中 ${members.filter((m) => !m.userId).length} 位缺 user_id，需补 profile）`);
+console.log(
+  `成员 ${members.length} 位（其中 ${members.filter((m) => !m.userId).length} 位缺 user_id，需补 profile）`,
+);
 
 const now = new Date().toISOString();
 const sql = [];
@@ -58,7 +71,7 @@ for (const member of members) {
            retweet_count = excluded.retweet_count, quote_count = excluded.quote_count,
            bookmark_count = excluded.bookmark_count, text = excluded.text,
            lang = excluded.lang, media = excluded.media, tweet_type = excluded.tweet_type,
-           quoted = excluded.quoted, recorded_at = excluded.recorded_at;`
+           quoted = excluded.quoted, recorded_at = excluded.recorded_at;`,
       );
     }
     membersOk++;
@@ -81,7 +94,9 @@ for (const member of members) {
 sql.push(BUMP_CACHE_BUST_SQL);
 
 writeFileSync("/tmp/posts.sql", sql.join("\n\n") + "\n");
-console.log(`\n完成：成员 ${membersOk}/${members.length}，帖子 ${tweetsTotal} 条，写入 /tmp/posts.sql`);
+console.log(
+  `\n完成：成员 ${membersOk}/${members.length}，帖子 ${tweetsTotal} 条，写入 /tmp/posts.sql`,
+);
 console.log(`执行：wrangler d1 execute kosx-impact --remote --file=/tmp/posts.sql`);
 if (failures.length) {
   console.log("失败清单：");

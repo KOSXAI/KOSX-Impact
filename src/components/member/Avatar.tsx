@@ -10,7 +10,10 @@ const AVATAR_PX = { sm: 200, lg: 400 } as const;
  * _200x200 / _400x400 变体。替换幂等（已是目标尺寸则原样返回），高清版 404 时逐级回退。
  */
 function hdVariant(url: string, px: number): string {
-  return url.replace(/_(?:normal|bigger|mini|\d+x\d+)(\.(?:jpe?g|png|webp|gif))$/i, `_${px}x${px}$1`);
+  return url.replace(
+    /_(?:normal|bigger|mini|\d+x\d+)(\.(?:jpe?g|png|webp|gif))$/i,
+    `_${px}x${px}$1`,
+  );
 }
 
 /**
@@ -39,8 +42,8 @@ export function Avatar({
     return (
       <div
         className={cn(
-          "bg-soft-surface flex size-10 shrink-0 items-center justify-center rounded-full font-semibold text-mist",
-          className
+          "flex size-10 shrink-0 items-center justify-center rounded-full bg-soft-surface font-semibold text-mist",
+          className,
         )}
         aria-hidden
       >
@@ -59,10 +62,7 @@ export function Avatar({
       loading="lazy"
       decoding="async"
       onError={() => setStage((s) => s + 1)}
-      className={cn(
-        "bg-soft-surface size-10 shrink-0 rounded-full object-cover",
-        className
-      )}
+      className={cn("size-10 shrink-0 rounded-full bg-soft-surface object-cover", className)}
     />
   );
 }

@@ -1,3 +1,4 @@
+import { ClientOnly } from "@tanstack/react-router";
 /**
  * 成员成长曲线（Recharts）。沿用旧版内联 SVG 的取值逻辑：
  * Y 轴以数据范围为主；目标线离数据太远（>2 倍数据跨度）时不纳入，
@@ -7,9 +8,8 @@
  * 懒加载：SSR 只输出占位骨架，图表 chunk 在水合后按需拉取（图表非 SEO 内容）。
  */
 import { Suspense, lazy } from "react";
-import { ClientOnly } from "@tanstack/react-router";
-import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 type Snapshot = { followers: number; recordedAt: string };
 
@@ -26,7 +26,7 @@ export function GrowthChart({
   className?: string;
 }) {
   if (snapshots.length === 0) {
-    return <p className="text-muted-foreground py-6 text-sm">还没有数据，加入追踪后每天更新。</p>;
+    return <p className="py-6 text-sm text-muted-foreground">还没有数据，加入追踪后每天更新。</p>;
   }
 
   return (

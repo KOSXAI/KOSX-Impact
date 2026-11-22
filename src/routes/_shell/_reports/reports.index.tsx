@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchDashboardSummary } from "@/data.functions";
-import { Reveal } from "@/components/motion";
-import { fmt } from "@/lib/format";
 import { CalendarRange, Newspaper, Zap } from "lucide-react";
+import { Reveal } from "@/components/motion";
+import { fetchDashboardSummary } from "@/data.functions";
+import { fmt } from "@/lib/format";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
@@ -38,11 +38,7 @@ function ReportsPage() {
       {/* 三份报告入口（门牌卡语言） */}
       <Reveal delay={0.04}>
         <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Link
-            to="/daily"
-            aria-label="社群日报"
-            className="card-lift panel-card p-6"
-          >
+          <Link to="/daily" aria-label="社群日报" className="card-lift panel-card p-6">
             <span className="inline-flex size-10 items-center justify-center rounded-xl bg-wash text-signal">
               <Newspaper className="size-5" aria-hidden="true" />
             </span>
@@ -52,11 +48,7 @@ function ReportsPage() {
             </div>
             <div className="mt-1 text-xs text-mist tabular-nums">今日登阶 {todayClimbers} 条</div>
           </Link>
-          <Link
-            to="/report"
-            aria-label="社群能量报告"
-            className="card-lift panel-card p-6"
-          >
+          <Link to="/report" aria-label="社群能量报告" className="card-lift panel-card p-6">
             <span className="inline-flex size-10 items-center justify-center rounded-xl bg-wash text-signal">
               <Zap className="size-5" aria-hidden="true" />
             </span>
@@ -64,25 +56,26 @@ function ReportsPage() {
               <span className="text-xl font-bold">社群能量报告</span>
               <span className="shrink-0 text-xs font-semibold text-mist tabular-nums">本周</span>
             </div>
-            <div className="mt-1 text-xs text-mist tabular-nums">覆盖 {stats.memberCount} 位成员</div>
+            <div className="mt-1 text-xs text-mist tabular-nums">
+              覆盖 {stats.memberCount} 位成员
+            </div>
           </Link>
-          <Link
-            to="/annual"
-            aria-label="年度报告"
-            className="card-lift panel-card p-6"
-          >
+          <Link to="/annual" aria-label="年度报告" className="card-lift panel-card p-6">
             <span className="inline-flex size-10 items-center justify-center rounded-xl bg-wash text-signal">
               <CalendarRange className="size-5" aria-hidden="true" />
             </span>
             <div className="mt-4 flex items-baseline justify-between gap-2">
               <span className="text-xl font-bold">年度报告</span>
-              <span className="shrink-0 text-xs font-semibold text-mist tabular-nums">{today.slice(0, 4)}</span>
+              <span className="shrink-0 text-xs font-semibold text-mist tabular-nums">
+                {today.slice(0, 4)}
+              </span>
             </div>
-            <div className="mt-1 text-xs text-mist tabular-nums">累计粉丝 {fmt(stats.totalFollowers)}</div>
+            <div className="mt-1 text-xs text-mist tabular-nums">
+              累计粉丝 {fmt(stats.totalFollowers)}
+            </div>
           </Link>
         </div>
       </Reveal>
-
     </div>
   );
 }

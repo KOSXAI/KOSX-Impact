@@ -36,7 +36,7 @@ describe("syncRoster", () => {
     });
 
     const snapshot = await env.DB.prepare(
-      "SELECT followers, recorded_at FROM snapshots WHERE member_id = 'alice'"
+      "SELECT followers, recorded_at FROM snapshots WHERE member_id = 'alice'",
     ).first();
     expect(snapshot).toMatchObject({ followers: 1200, recorded_at: "2026-08-01T00:00:00Z" });
   });
@@ -46,7 +46,7 @@ describe("syncRoster", () => {
     await syncRoster(env, rosterOf(alice));
 
     const { results } = await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'"
+      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'",
     ).all();
     expect((results[0] as { n: number }).n).toBe(1);
   });
@@ -56,12 +56,12 @@ describe("syncRoster", () => {
     await syncRoster(env, rosterOf(alice));
 
     const removed = (await env.DB.prepare(
-      "SELECT status FROM members WHERE id = 'bob'"
+      "SELECT status FROM members WHERE id = 'bob'",
     ).first()) as { status: string };
     expect(removed.status).toBe("removed");
 
     const snapshots = (await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'bob'"
+      "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'bob'",
     ).first()) as { n: number };
     expect(snapshots.n).toBe(0);
   });
@@ -72,7 +72,7 @@ describe("syncRoster", () => {
     await syncRoster(env, rosterOf(alice, bob));
 
     const restored = (await env.DB.prepare(
-      "SELECT status FROM members WHERE id = 'bob'"
+      "SELECT status FROM members WHERE id = 'bob'",
     ).first()) as { status: string };
     expect(restored.status).toBe("active");
   });
@@ -82,28 +82,28 @@ describe("syncRoster", () => {
     await syncRoster(env, rosterOf({ ...alice, handle: "alice_new" }));
 
     const member = (await env.DB.prepare(
-      "SELECT handle FROM members WHERE id = 'alice'"
+      "SELECT handle FROM members WHERE id = 'alice'",
     ).first()) as { handle: string };
     expect(member.handle).toBe("alice_new");
   });
 
   it("自助注册成员（self_registered=1）不被名册同步清扫，名册外普通成员仍被移除", async () => {
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('zoe', 'zoe_x', '2026-09-05', 1)"
+      "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('zoe', 'zoe_x', '2026-09-05', 1)",
     ).run();
     await env.DB.prepare(
-      "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('ghost', 'ghost_x', '2026-09-05', 0)"
+      "INSERT INTO members (id, handle, joined_at, self_registered) VALUES ('ghost', 'ghost_x', '2026-09-05', 0)",
     ).run();
 
     await syncRoster(env, rosterOf(alice));
 
-    const zoe = (await env.DB.prepare(
-      "SELECT status FROM members WHERE id = 'zoe'"
-    ).first()) as { status: string };
+    const zoe = (await env.DB.prepare("SELECT status FROM members WHERE id = 'zoe'").first()) as {
+      status: string;
+    };
     expect(zoe.status).toBe("active");
 
     const ghost = (await env.DB.prepare(
-      "SELECT status FROM members WHERE id = 'ghost'"
+      "SELECT status FROM members WHERE id = 'ghost'",
     ).first()) as { status: string };
     expect(ghost.status).toBe("removed");
   });
@@ -115,13 +115,13 @@ describe("syncRoster", () => {
     await syncRoster(env, rosterOf(alice, bob));
 
     const aliceRow = (await env.DB.prepare(
-      "SELECT status FROM members WHERE id = 'alice'"
+      "SELECT status FROM members WHERE id = 'alice'",
     ).first()) as { status: string };
     expect(aliceRow.status).toBe("removed");
 
     // 名单外成员不受影响
     const bobRow = (await env.DB.prepare(
-      "SELECT status FROM members WHERE id = 'bob'"
+      "SELECT status FROM members WHERE id = 'bob'",
     ).first()) as { status: string };
     expect(bobRow.status).toBe("active");
   });
@@ -129,13 +129,13 @@ describe("syncRoster", () => {
     await syncRoster(env, rosterOf(alice, bob));
     // 维护者手动移除（隐私退出），并上锁
     await env.DB.prepare(
-      "UPDATE members SET status = 'removed', status_locked = 1 WHERE id = 'bob'"
+      "UPDATE members SET status = 'removed', status_locked = 1 WHERE id = 'bob'",
     ).run();
 
     await syncRoster(env, rosterOf(alice, bob)); // bob 仍在名册里
 
     const bobRow = (await env.DB.prepare(
-      "SELECT status, status_locked FROM members WHERE id = 'bob'"
+      "SELECT status, status_locked FROM members WHERE id = 'bob'",
     ).first()) as { status: string; status_locked: number };
     expect(bobRow.status).toBe("removed"); // 人为决定不被覆盖
     expect(bobRow.status_locked).toBe(1);
@@ -144,7 +144,7 @@ describe("syncRoster", () => {
     await env.DB.prepare("UPDATE members SET status_locked = 0 WHERE id = 'bob'").run();
     await syncRoster(env, rosterOf(alice, bob));
     const restored = (await env.DB.prepare(
-      "SELECT status FROM members WHERE id = 'bob'"
+      "SELECT status FROM members WHERE id = 'bob'",
     ).first()) as { status: string };
     expect(restored.status).toBe("active");
   });

@@ -30,7 +30,7 @@ function printRows(rows) {
   }
   for (const r of rows) {
     console.log(
-      `  ${r.id}\t@${r.handle}\t${r.status}${r.status_locked ? "\t🔒锁定" : ""}\tself_registered=${r.self_registered}`
+      `  ${r.id}\t@${r.handle}\t${r.status}${r.status_locked ? "\t🔒锁定" : ""}\tself_registered=${r.self_registered}`,
     );
   }
 }
@@ -38,7 +38,7 @@ function printRows(rows) {
 if (listMode) {
   const where = onlyLocked ? "WHERE status_locked = 1" : "";
   const rows = d1Query(
-    `SELECT id, handle, status, status_locked, self_registered FROM members ${where} ORDER BY status, id`
+    `SELECT id, handle, status, status_locked, self_registered FROM members ${where} ORDER BY status, id`,
   );
   console.log(`成员状态${onlyLocked ? "（仅锁定）" : ""}：`);
   printRows(rows);
@@ -47,7 +47,9 @@ if (listMode) {
 
 const [id, next] = rest;
 if (!id) {
-  console.error("用法：node scripts/set-member-status.mjs <成员id> <active|paused|removed> [--apply]");
+  console.error(
+    "用法：node scripts/set-member-status.mjs <成员id> <active|paused|removed> [--apply]",
+  );
   console.error("      node scripts/set-member-status.mjs <成员id> --unlock [--apply]");
   console.error("      node scripts/set-member-status.mjs --list [--locked]");
   process.exit(1);
@@ -57,7 +59,9 @@ if (!unlock && !STATUSES.includes(next)) {
   process.exit(1);
 }
 
-const target = d1Query(`SELECT id, handle, status, status_locked FROM members WHERE id = ${lit(id)}`)[0];
+const target = d1Query(
+  `SELECT id, handle, status, status_locked FROM members WHERE id = ${lit(id)}`,
+)[0];
 if (!target) {
   console.error(`查无此成员：${id}`);
   process.exit(1);
@@ -67,7 +71,9 @@ const sql = unlock
   ? `UPDATE members SET status_locked = 0, updated_at = datetime('now') WHERE id = ${lit(id)};`
   : `UPDATE members SET status = ${lit(next)}, status_locked = 1, updated_at = datetime('now') WHERE id = ${lit(id)};`;
 
-console.log(`成员 ${target.id}（@${target.handle}）：当前 ${target.status}${target.status_locked ? " 🔒" : ""}`);
+console.log(
+  `成员 ${target.id}（@${target.handle}）：当前 ${target.status}${target.status_locked ? " 🔒" : ""}`,
+);
 console.log(apply ? "执行：" : "（干跑，未执行）将要执行：");
 console.log(`  ${sql}`);
 if (unlock) console.log("  解锁后：名册同步会在下一个整点按名册重新决定该成员状态");

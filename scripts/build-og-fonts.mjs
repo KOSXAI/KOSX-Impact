@@ -17,8 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import subsetFont from "subset-font";
 
-const FONT_BASE =
-  "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/SubsetOTF/SC";
+const FONT_BASE = "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/SubsetOTF/SC";
 const SOURCES = [
   { weight: 400, file: "NotoSansSC-Regular.otf", out: "og-noto-sc-400.ttf", wide: false },
   { weight: 700, file: "NotoSansSC-Bold.otf", out: "og-noto-sc-700.ttf", wide: true },
@@ -70,13 +69,14 @@ async function hanziChars() {
 
 const PRINTABLE = [...Array(0x7e - 0x20 + 1)].map((_, i) => String.fromCharCode(0x20 + i));
 const PUNCT = "·…—―→←↑↓•「」『』【】（）《》〈〉“”‘’！？：；、。，％＋＠＃￥";
-const HEAD_COMMENT = "本文件由 scripts/build-og-fonts.mjs 生成，勿手改；重新生成：npm run build:og-fonts";
+const HEAD_COMMENT =
+  "本文件由 scripts/build-og-fonts.mjs 生成，勿手改；重新生成：npm run build:og-fonts";
 
 async function main() {
   const [repo, hanzi] = await Promise.all([repoChars(), hanziChars()]);
   console.log(`仓库字符 ${repo.size}，makemeahanzi 字表 ${hanzi.size}`);
 
-  const shared = new Set([...PRINTABLE, ...PUNCT, ...repo]);
+  const shared = new Set([...PRINTABLE, ...Array.from(PUNCT), ...repo]);
   const wide = new Set([...shared, ...hanzi]);
   console.log(`子集字符集：400 档 ${shared.size}，700 档 ${wide.size}`);
 
@@ -90,7 +90,9 @@ async function main() {
     });
     const out = path.join(OUT_DIR, src.out);
     await writeFile(out, subset);
-    console.log(`${src.out}：${(original.length / 1e6).toFixed(1)}MB → ${(subset.length / 1e6).toFixed(2)}MB`);
+    console.log(
+      `${src.out}：${(original.length / 1e6).toFixed(1)}MB → ${(subset.length / 1e6).toFixed(2)}MB`,
+    );
   }
   console.log(`完成。注意：${HEAD_COMMENT}`);
 }

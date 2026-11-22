@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { MILESTONES, TITLE_FILL } from "@/milestones";
 import type { MemberStats } from "@/stats";
-import { cn } from "@/lib/utils";
 
 /**
  * 称号分布：分段条 + 图例（从首页社群全景区抽出，大屏里程碑分布区复用）。
@@ -18,7 +18,7 @@ export function TitleDistribution({ members }: { members: MemberStats[] }) {
 
   const census = useMemo(() => {
     const rows = [...MILESTONES]
-      .reverse()
+      .toReversed()
       .map(({ threshold, title }) => ({
         key: threshold,
         name: title,
@@ -27,7 +27,13 @@ export function TitleDistribution({ members }: { members: MemberStats[] }) {
       }))
       .filter((t) => t.count > 0);
     const novices = counts.get(0) ?? 0;
-    if (novices > 0) rows.push({ key: 0, name: "新人村", count: novices, fill: TITLE_FILL[0] ?? "var(--census-novice)" });
+    if (novices > 0)
+      rows.push({
+        key: 0,
+        name: "新人村",
+        count: novices,
+        fill: TITLE_FILL[0] ?? "var(--census-novice)",
+      });
     return rows;
   }, [counts]);
 
@@ -74,15 +80,22 @@ export function TitleDistribution({ members }: { members: MemberStats[] }) {
             className={cn(
               // 视觉高度仍是条高 12px；伪元素上下各外扩 10px，点击区 ≥32px
               "relative h-full min-w-1.5 cursor-pointer rounded-full transition-opacity before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']",
-              active != null && active !== t.key && "opacity-35"
+              active != null && active !== t.key && "opacity-35",
             )}
             style={{ flexGrow: t.count, flexBasis: 0, background: t.fill }}
           />
         ))}
         {activeBucket && (
-          <div className="pointer-events-none absolute bottom-full mb-1.5 -translate-x-1/2" style={{ left: tipX }}>
-            <div className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-soft-surface px-2.5 py-1 text-xs font-semibold text-ink shadow-xl">
-              <span className="size-2 rounded-full" style={{ background: activeBucket.fill }} aria-hidden="true" />
+          <div
+            className="pointer-events-none absolute bottom-full mb-1.5 -translate-x-1/2"
+            style={{ left: tipX }}
+          >
+            <div className="flex items-center gap-1.5 rounded-lg bg-soft-surface px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-ink shadow-xl">
+              <span
+                className="size-2 rounded-full"
+                style={{ background: activeBucket.fill }}
+                aria-hidden="true"
+              />
               {activeBucket.name}
               <b className="tabular-nums">{activeBucket.count} 人</b>
               <span className="font-normal text-mist tabular-nums">{percent(activeBucket)}%</span>
@@ -103,11 +116,15 @@ export function TitleDistribution({ members }: { members: MemberStats[] }) {
             className={cn(
               "inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors",
               active === t.key
-                ?"bg-wash-strong text-ink"
-                :"bg-soft-surface text-mist hover:text-ink"
+                ? "bg-wash-strong text-ink"
+                : "bg-soft-surface text-mist hover:text-ink",
             )}
           >
-            <span className="size-2 rounded-full" style={{ background: t.fill }} aria-hidden="true" />
+            <span
+              className="size-2 rounded-full"
+              style={{ background: t.fill }}
+              aria-hidden="true"
+            />
             {t.name}
             <b className="text-ink tabular-nums">{t.count}</b>
           </button>

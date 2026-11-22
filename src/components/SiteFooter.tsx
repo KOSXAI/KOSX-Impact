@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { SubmitDialog } from "@/components/member/SubmitDialog";
 import { ArrowUpRight } from "lucide-react";
+import { useState } from "react";
+import { SubmitDialog } from "@/components/member/SubmitDialog";
+import { Button } from "@/components/ui/button";
 import { GITHUB_URL, OFFICIAL_SITE_URL, SITE_NAME } from "@/lib/site";
 
 /** GitHub 官方 octocat 标记（lucide 已移除品牌图标，内联 SVG 用 currentColor 跟主题） */
@@ -51,7 +51,7 @@ export function SiteFooter() {
               target="_blank"
               rel="noopener noreferrer"
               title="KOSX-Impact 开源仓库"
-              className="inline-flex items-center gap-1.5 rounded-full bg-surface shadow-[var(--panel-elev)] px-3.5 py-1.5 text-sm font-semibold text-mist transition-colors hover:bg-wash-strong hover:text-ink"
+              className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3.5 py-1.5 text-sm font-semibold text-mist shadow-[var(--panel-elev)] transition-colors hover:bg-wash-strong hover:text-ink"
             >
               <GitHubIcon className="size-4" />
               GitHub

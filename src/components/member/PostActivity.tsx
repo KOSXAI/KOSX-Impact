@@ -1,11 +1,11 @@
-import type { PostActivity as PostActivityData } from "@/stats";
-import { Card, CardContent } from "@/components/ui/card";
-import { Metric } from "@/components/ui/Metric";
+import { ExternalLink, Eye, Heart, MessageCircle, Repeat2 } from "lucide-react";
 import { PostBody } from "@/components/content/PostText";
 import { AnimatedNumber, Reveal } from "@/components/motion";
-import { ExternalLink, Eye, Heart, MessageCircle, Repeat2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Metric } from "@/components/ui/Metric";
 import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { PostActivity as PostActivityData } from "@/stats";
 
 /** 成员页「帖子活跃度」：近 20 帖的浏览/赞/评论合计 + 帖子列表（摘要 + 原文外链） */
 export function PostActivity({ activity }: { activity: PostActivityData }) {
@@ -13,7 +13,7 @@ export function PostActivity({ activity }: { activity: PostActivityData }) {
     <Reveal>
       <section>
         <h2 className="text-2xl font-bold">帖子活跃度</h2>
-        <Card className="card-lift mt-6">
+        <Card className="mt-6 card-lift">
           <CardContent className="p-6 sm:p-8">
             {/* 聚合指标：近 20 帖的浏览 / 赞 / 评论合计 */}
             <div className="grid grid-cols-3 gap-4">
@@ -41,9 +41,21 @@ export function PostActivity({ activity }: { activity: PostActivityData }) {
                       <PostBody post={p} className="mt-1" />
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
                         <Metric icon={<Eye className="size-3.5" />} value={p.views} label="浏览" />
-                        <Metric icon={<Heart className="size-3.5" />} value={p.likes} label="点赞" />
-                        <Metric icon={<MessageCircle className="size-3.5" />} value={p.replies} label="评论" />
-                        <Metric icon={<Repeat2 className="size-3.5" />} value={p.retweets} label="转推" />
+                        <Metric
+                          icon={<Heart className="size-3.5" />}
+                          value={p.likes}
+                          label="点赞"
+                        />
+                        <Metric
+                          icon={<MessageCircle className="size-3.5" />}
+                          value={p.replies}
+                          label="评论"
+                        />
+                        <Metric
+                          icon={<Repeat2 className="size-3.5" />}
+                          value={p.retweets}
+                          label="转推"
+                        />
                       </div>
                     </div>
                     <a
@@ -52,7 +64,7 @@ export function PostActivity({ activity }: { activity: PostActivityData }) {
                       rel="noopener noreferrer"
                       className={cn(
                         "mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs text-mist transition-colors",
-                        "hover:bg-wash-strong hover:text-signal-ink"
+                        "hover:bg-wash-strong hover:text-signal-ink",
                       )}
                     >
                       原文

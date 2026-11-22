@@ -4,7 +4,7 @@
  * ③ 关键区块可见（入场动效没有把内容停在 initial 隐藏态）。
  * 用法：node scripts/smoke-pages.mjs [baseUrl]
  */
-import puppeteer from "puppeteer-core";
+import { launch } from "puppeteer-core";
 
 const BASE = process.argv[2] ?? "http://localhost:5173";
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -30,7 +30,7 @@ const MIN_TEXT = {
   "/report": 300,
 };
 
-const browser = await puppeteer.launch({
+const browser = await launch({
   executablePath: CHROME,
   headless: true,
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
@@ -54,13 +54,17 @@ for (const spec of PAGES) {
   page.on("response", (r) => {
     if (r.status() !== 404) return;
     const u = r.url();
-    if (/^https?:\/\/(localhost|127\.0\.0\.1|impact\.kosx\.ai)/.test(u)) errors.push(`同源 404: ${u}`);
+    if (/^https?:\/\/(localhost|127\.0\.0\.1|impact\.kosx\.ai)/.test(u))
+      errors.push(`同源 404: ${u}`);
     else external404s.push(u);
   });
   page.on("pageerror", (e) => errors.push(`PAGEERROR: ${String(e).slice(0, 200)}`));
 
   try {
-    const res = await page.goto(`${BASE}${spec.path}`, { waitUntil: "networkidle2", timeout: 45000 });
+    const res = await page.goto(`${BASE}${spec.path}`, {
+      waitUntil: "networkidle2",
+      timeout: 45000,
+    });
     const status = res?.status() ?? 0;
     // 等入场动效跑完再量
     await new Promise((r) => setTimeout(r, 1200));
@@ -71,7 +75,9 @@ for (const spec of PAGES) {
       // 统计「可见但内容区为空」的区块：入场动效若停在 initial，会是 opacity 0 / 高度塌陷
       const main = document.querySelector("main") ?? body;
       const rect = main.getBoundingClientRect();
-      const hiddenLayers = [...document.querySelectorAll("[style*='opacity: 0'], [style*='opacity:0']")].length;
+      const hiddenLayers = [
+        ...document.querySelectorAll("[style*='opacity: 0'], [style*='opacity:0']"),
+      ].length;
       return {
         len: text.length,
         head: text.slice(0, 120).replace(/\s+/g, " "),
@@ -99,7 +105,9 @@ for (const spec of PAGES) {
       console.log(`✗ ${spec.name} ${spec.path} — ${problems.join("; ")}`);
     } else {
       const note = notes.length ? `｜${notes.join("；")}` : "";
-      console.log(`✓ ${spec.name} ${spec.path} — ${probe.len} 字，主区 ${probe.mainHeight}px，隐藏层 ${probe.hiddenLayers}${note}`);
+      console.log(
+        `✓ ${spec.name} ${spec.path} — ${probe.len} 字，主区 ${probe.mainHeight}px，隐藏层 ${probe.hiddenLayers}${note}`,
+      );
     }
   } catch (error) {
     failures++;

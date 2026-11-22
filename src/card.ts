@@ -1,7 +1,7 @@
-import type { MemberStats } from "./stats";
-import { fmt, fmtDate } from "./lib/format";
-import { TIER_STYLE, titleOf } from "./milestones";
+import { fmtDate } from "./lib/format";
 import { SITE_URL } from "./lib/site";
+import { TIER_STYLE, titleOf } from "./milestones";
+import type { MemberStats } from "./stats";
 
 /**
  * 成员进度卡片：内联 SVG，可嵌入 GitHub README / 个人主页 / 博客。
@@ -13,11 +13,16 @@ import { SITE_URL } from "./lib/site";
 export function esc(s: string): string {
   return s.replace(/[&<>"']/g, (ch) => {
     switch (ch) {
-      case "&": return "&amp;";
-      case "<": return "&lt;";
-      case ">": return "&gt;";
-      case '"': return "&quot;";
-      default: return "&#39;";
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return "&#39;";
     }
   });
 }
@@ -32,7 +37,10 @@ const H = 200;
 /** 单成员进度卡片（SVG）：段位徽章 + 距下一称号的进度，永远有下一站 */
 export function renderMemberCard(
   member: MemberStats,
-  opts?: { variant?: "default" | "countdown" | "track"; trackRanks?: Array<{ track: string; rank: number; total: number }> }
+  opts?: {
+    variant?: "default" | "countdown" | "track";
+    trackRanks?: Array<{ track: string; rank: number; total: number }>;
+  },
 ): string {
   const variant = opts?.variant ?? "default";
   const name = member.displayName ?? member.handle;
@@ -60,7 +68,8 @@ export function renderMemberCard(
   const trackChips = member.tracks
     .slice(0, 3)
     .map(
-      (t) => `<rect x="32" y="112" width="${esc(t).length * 13 + 18}" height="20" rx="10" fill="#2a2a2e"/><text x="41" y="125" class="chip">${esc(t)}</text>`
+      (t) =>
+        `<rect x="32" y="112" width="${esc(t).length * 13 + 18}" height="20" rx="10" fill="#2a2a2e"/><text x="41" y="125" class="chip">${esc(t)}</text>`,
     )
     .join("");
   const rankLine = opts?.trackRanks?.[0]

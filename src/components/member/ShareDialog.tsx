@@ -1,14 +1,14 @@
+import { Check, Copy, Download } from "lucide-react";
 import { useRef, useState } from "react";
-import { Dialog, DialogCloseX, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/member/Avatar";
 import { TierBadge } from "@/components/member/TierBadge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogCloseX, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { fmt } from "@/lib/format";
-import { titleOf } from "@/milestones";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { titleOf } from "@/milestones";
 import type { MemberStats } from "@/stats";
-import { Check, Copy, Download } from "lucide-react";
 
 /** X 品牌标：lucide 已移除品牌图标，内联 SVG（simple-icons 官方路径） */
 function XLogo({ className }: { className?: string }) {
@@ -22,8 +22,7 @@ function XLogo({ className }: { className?: string }) {
 /** 分享文案模板：第一人称 + 段位/粉丝/下一道大关 + 档案链接（紧凑无空行，弹窗预览与复制内容一致） */
 function shareLines(member: MemberStats, pageUrl: string): string[] {
   const name = member.displayName ?? member.handle;
-  const stage =
-    member.latestFollowers != null ? `（${fmt(member.latestFollowers)} 粉）` : "";
+  const stage = member.latestFollowers != null ? `（${fmt(member.latestFollowers)} 粉）` : "";
   return [
     `我已经参加了 ${SITE_NAME}！🎉`,
     `${name}（@${member.handle}）现在是「${member.tierName}」段位${stage}，正在冲击下一道大关「${titleOf(member.nextMilestone)}」！`,
@@ -107,7 +106,7 @@ export function ShareDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 紧凑内边距 + 隐藏滚动条：正常窗口整卡可见，极小窗口静默滚动不出 bar */}
-      <DialogContent className="gap-3 p-4 [scrollbar-width:none] sm:p-5 [&::-webkit-scrollbar]:hidden">
+      <DialogContent className="[scrollbar-width:none] gap-3 p-4 sm:p-5 [&::-webkit-scrollbar]:hidden">
         <DialogCloseX />
 
         <div className="flex items-center gap-3.5 pr-8">
@@ -130,12 +129,20 @@ export function ShareDialog({
 
         {/* 分享文案：链接已含在文内，「复制文案 / 复制链接」两键并排收尾 */}
         <section className="min-w-0">
-          <p className="rounded-xl bg-soft-surface p-4 text-sm leading-relaxed whitespace-pre-wrap break-words text-mist select-all">
+          <p className="rounded-xl bg-soft-surface p-4 text-sm leading-relaxed break-words whitespace-pre-wrap text-mist select-all">
             {text}
           </p>
           <div className="mt-2.5 flex gap-2.5">
-            <ActionChip active={copied === "text"} label="复制文案" onClick={() => void copyText()} />
-            <ActionChip active={copied === "link"} label="复制链接" onClick={() => void copyLink()} />
+            <ActionChip
+              active={copied === "text"}
+              label="复制文案"
+              onClick={() => void copyText()}
+            />
+            <ActionChip
+              active={copied === "link"}
+              label="复制链接"
+              onClick={() => void copyLink()}
+            />
           </div>
         </section>
 
@@ -148,7 +155,12 @@ export function ShareDialog({
             className="aspect-[1200/630] w-full rounded-xl object-cover"
           />
           <div className="mt-2.5 flex gap-2.5">
-            <ActionChip active={copied === "image"} label="复制图片" onClick={() => void copyImage()} disabled={imgBusy} />
+            <ActionChip
+              active={copied === "image"}
+              label="复制图片"
+              onClick={() => void copyImage()}
+              disabled={imgBusy}
+            />
             <ActionChip asChild label="下载图片">
               <a href={ogUrl} download={`${member.handle}-kosx-impact.png`}>
                 <Download className="size-3.5" />

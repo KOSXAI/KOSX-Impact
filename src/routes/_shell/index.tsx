@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchDashboard } from "@/data.functions";
-import { StatCard } from "@/components/ui/StatCard";
-import { AnimatedNumber, Reveal } from "@/components/motion";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChampionCards } from "@/components/home/ChampionCards";
-import { WindowGrid } from "@/components/home/WindowGrid";
-import { TitleDistribution } from "@/components/home/TitleDistribution";
 import { CalendarRange, Newspaper, Zap } from "lucide-react";
 import { TrendChart } from "@/components/dashboard/TrendChart";
+import { ChampionCards } from "@/components/home/ChampionCards";
+import { TitleDistribution } from "@/components/home/TitleDistribution";
+import { WindowGrid } from "@/components/home/WindowGrid";
+import { AnimatedNumber, Reveal } from "@/components/motion";
+import { StatCard } from "@/components/ui/StatCard";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { fetchDashboard } from "@/data.functions";
 import { fmt, fmtDate } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
@@ -16,7 +16,10 @@ export const Route = createFileRoute("/_shell/")({
   head: () => ({
     meta: [
       { title: SITE_NAME },
-      { name: "description", content: `${SITE_NAME}：追踪每一位成员冲刺一个个称号大关的过程，看见每个人的成长，也看见整个社群正在产生多大的影响。` },
+      {
+        name: "description",
+        content: `${SITE_NAME}：追踪每一位成员冲刺一个个称号大关的过程，看见每个人的成长，也看见整个社群正在产生多大的影响。`,
+      },
       { property: "og:title", content: SITE_NAME },
       { property: "og:description", content: SLOGAN },
       { property: "og:type", content: "website" },
@@ -34,13 +37,16 @@ function DashboardPage() {
   const stats = Route.useLoaderData();
   const today = new Date().toISOString().slice(0, 10);
   const todayClimbers = new Set(
-    stats.recentMilestones.filter((m) => m.achievedAt.slice(0, 10) === today).map((m) => m.memberId)
+    stats.recentMilestones
+      .filter((m) => m.achievedAt.slice(0, 10) === today)
+      .map((m) => m.memberId),
   ).size;
   const totalClimbs = stats.members.reduce((sum, m) => sum + m.climbs, 0);
   // 最新采集时间 = 全成员最新一点快照。固定用 ISO 字段直切，不用 toLocaleString，避免 SSR/水化时区错位闪变
   const latestSnapshotAt = stats.members.reduce<string | null>(
-    (acc, m) => (m.latestRecordedAt && (!acc || m.latestRecordedAt > acc) ? m.latestRecordedAt : acc),
-    null
+    (acc, m) =>
+      m.latestRecordedAt && (!acc || m.latestRecordedAt > acc) ? m.latestRecordedAt : acc,
+    null,
   );
   const fans = stats.fansSample;
 
@@ -78,7 +84,8 @@ function DashboardPage() {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  对全成员粉丝圈抽样 {fmt(fans.sampleSize)} 个账号加权统计（月度采样），粉丝质量的最直接证据
+                  对全成员粉丝圈抽样 {fmt(fans.sampleSize)}{" "}
+                  个账号加权统计（月度采样），粉丝质量的最直接证据
                 </TooltipContent>
               </Tooltip>
             )}
@@ -133,7 +140,10 @@ function DashboardPage() {
         <div className="mt-8 panel-card p-6 sm:p-8">
           <h2 className="text-xl font-bold">报告</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Link to="/daily" className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong">
+            <Link
+              to="/daily"
+              className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong"
+            >
               <div className="flex items-center gap-2">
                 <Newspaper className="size-4 shrink-0 text-signal" aria-hidden="true" />
                 <span className="truncate text-sm font-semibold text-ink">社群日报</span>
@@ -143,21 +153,33 @@ function DashboardPage() {
                 {todayClimbers > 0 ? `今日登阶 ${todayClimbers} 条` : "今天还没有登阶"}
               </div>
             </Link>
-            <Link to="/report" className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong">
+            <Link
+              to="/report"
+              className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong"
+            >
               <div className="flex items-center gap-2">
                 <Zap className="size-4 shrink-0 text-signal" aria-hidden="true" />
                 <span className="truncate text-sm font-semibold text-ink">社群能量报告</span>
                 <span className="ml-auto shrink-0 text-xs text-mist tabular-nums">本周</span>
               </div>
-              <div className="mt-1 text-xs text-mist tabular-nums">覆盖 {stats.members.length} 位成员</div>
+              <div className="mt-1 text-xs text-mist tabular-nums">
+                覆盖 {stats.members.length} 位成员
+              </div>
             </Link>
-            <Link to="/annual" className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong">
+            <Link
+              to="/annual"
+              className="rounded-xl bg-soft-surface px-4 py-3.5 transition-colors hover:bg-wash-strong"
+            >
               <div className="flex items-center gap-2">
                 <CalendarRange className="size-4 shrink-0 text-signal" aria-hidden="true" />
                 <span className="truncate text-sm font-semibold text-ink">年度报告</span>
-                <span className="ml-auto shrink-0 text-xs text-mist tabular-nums">{today.slice(0, 4)}</span>
+                <span className="ml-auto shrink-0 text-xs text-mist tabular-nums">
+                  {today.slice(0, 4)}
+                </span>
               </div>
-              <div className="mt-1 text-xs text-mist tabular-nums">累计粉丝 {fmt(stats.totalFollowers)}</div>
+              <div className="mt-1 text-xs text-mist tabular-nums">
+                累计粉丝 {fmt(stats.totalFollowers)}
+              </div>
             </Link>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -168,7 +190,8 @@ function DashboardPage() {
                     className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-xs font-semibold text-mist transition-colors hover:text-ink"
                     tabIndex={0}
                   >
-                    🤝 成员互相关注 <b className="text-ink tabular-nums">{stats.followNet.mutualPairs}</b> 对
+                    🤝 成员互相关注{" "}
+                    <b className="text-ink tabular-nums">{stats.followNet.mutualPairs}</b> 对
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -203,7 +226,8 @@ function DashboardPage() {
       {/* 新鲜度注脚 */}
       {latestSnapshotAt && (
         <p className="mt-10 text-center text-xs text-mist tabular-nums">
-          数据更新于 {fmtDate(latestSnapshotAt).slice(5)} {latestSnapshotAt.slice(11, 16)} UTC · 每小时自动采集
+          数据更新于 {fmtDate(latestSnapshotAt).slice(5)} {latestSnapshotAt.slice(11, 16)} UTC ·
+          每小时自动采集
         </p>
       )}
     </div>

@@ -6,14 +6,14 @@
  * 注意：查询层全部走 cachedResponse 边缘缓存（键带 site_meta.cache_bust），
  * beforeEach 递增 bust 让每个测试拿到新缓存键，避免上一测试的缓存串数据。
  */
-import { env, exports } from "cloudflare:workers";
+import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import "../src/api-entry";
+import { resetCacheBustMemo } from "../src/cache";
 import { getTopPosts } from "../src/queries";
 import { getAnnualReport, getDailyArchive } from "../src/queries/archive";
 import { getCommunitySignals, getContentRecipe } from "../src/queries/community";
 import { getDashboardStats } from "../src/queries/dashboard";
-import { resetCacheBustMemo } from "../src/cache";
 
 const TABLES = [
   "refresh_queue",
@@ -42,16 +42,29 @@ beforeEach(async () => {
   resetCacheBustMemo();
 });
 
-async function seedMember(id: string, handle: string, over: { tracks?: string; tags?: string; joinedAt?: string } = {}) {
+async function seedMember(
+  id: string,
+  handle: string,
+  over: { tracks?: string; tags?: string; joinedAt?: string } = {},
+) {
   await env.DB.prepare(
-    "INSERT INTO members (id, handle, display_name, joined_at, tracks, tags) VALUES (?, ?, ?, ?, ?, ?)"
-  ).bind(id, handle, id === "alice" ? "Alice" : "Bob", over.joinedAt ?? "2026-08-01", over.tracks ?? null, over.tags ?? null).run();
+    "INSERT INTO members (id, handle, display_name, joined_at, tracks, tags) VALUES (?, ?, ?, ?, ?, ?)",
+  )
+    .bind(
+      id,
+      handle,
+      id === "alice" ? "Alice" : "Bob",
+      over.joinedAt ?? "2026-08-01",
+      over.tracks ?? null,
+      over.tags ?? null,
+    )
+    .run();
 }
 
 async function seedSnapshot(memberId: string, followers: number, recordedAt: string) {
-  await env.DB.prepare(
-    "INSERT INTO snapshots (member_id, followers, recorded_at) VALUES (?, ?, ?)"
-  ).bind(memberId, followers, recordedAt).run();
+  await env.DB.prepare("INSERT INTO snapshots (member_id, followers, recorded_at) VALUES (?, ?, ?)")
+    .bind(memberId, followers, recordedAt)
+    .run();
 }
 
 async function seedPost(
@@ -70,27 +83,29 @@ async function seedPost(
     recordedAt?: string;
     media?: Array<{ kind: string; url: string; videoUrl?: string }> | null;
     tweetType?: string | null;
-  } = {}
+  } = {},
 ) {
   await env.DB.prepare(
     `INSERT INTO posts (tweet_id, member_id, created_at, views_count, views_prev, like_count, reply_count, retweet_count, quote_count, bookmark_count, text, lang, media, tweet_type, recorded_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'zh', ?, ?, ?)`
-  ).bind(
-    tweetId,
-    memberId,
-    over.createdAt ?? new Date(Date.now() - 3 * 86_400_000).toISOString(),
-    over.views ?? null,
-    over.viewsPrev ?? null,
-    over.likes ?? null,
-    over.replies ?? null,
-    over.retweets ?? null,
-    over.quotes ?? null,
-    over.bookmarks ?? null,
-    over.text ?? null,
-    over.media ? JSON.stringify(over.media) : null,
-    over.tweetType ?? null,
-    over.recordedAt ?? new Date().toISOString()
-  ).run();
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'zh', ?, ?, ?)`,
+  )
+    .bind(
+      tweetId,
+      memberId,
+      over.createdAt ?? new Date(Date.now() - 3 * 86_400_000).toISOString(),
+      over.views ?? null,
+      over.viewsPrev ?? null,
+      over.likes ?? null,
+      over.replies ?? null,
+      over.retweets ?? null,
+      over.quotes ?? null,
+      over.bookmarks ?? null,
+      over.text ?? null,
+      over.media ? JSON.stringify(over.media) : null,
+      over.tweetType ?? null,
+      over.recordedAt ?? new Date().toISOString(),
+    )
+    .run();
 }
 
 describe("getTopPosts", () => {
@@ -123,8 +138,10 @@ describe("getDashboardStats 深层聚合", () => {
     // bob 的帖子正文 @ 到 alice → 互推边
     await seedPost("bob", "m1", { views: 50, text: "强烈推荐看 @alice_x 的成长档案" });
     await env.DB.prepare(
-      "INSERT INTO milestones (member_id, threshold, achieved_at, announced) VALUES (?, ?, ?, 1)"
-    ).bind("alice", 1000, day2).run();
+      "INSERT INTO milestones (member_id, threshold, achieved_at, announced) VALUES (?, ?, ?, 1)",
+    )
+      .bind("alice", 1000, day2)
+      .run();
 
     const stats = await getDashboardStats(env);
 
@@ -153,8 +170,10 @@ describe("getDashboardStats 深层聚合", () => {
     await seedSnapshot("alice", 1000, new Date().toISOString());
     const at = new Date(Date.now() - 2 * 86_400_000).toISOString();
     await env.DB.prepare(
-      "INSERT INTO member_mentions (member_id, tweet_id, author_handle, text, mentioned_at, collected_at) VALUES (?, ?, ?, ?, ?, ?)"
-    ).bind("alice", "t9", "outsider", "提到 alice", at, at).run();
+      "INSERT INTO member_mentions (member_id, tweet_id, author_handle, text, mentioned_at, collected_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+      .bind("alice", "t9", "outsider", "提到 alice", at, at)
+      .run();
 
     const stats = await getDashboardStats(env);
     expect(stats.members[0].mentionCount30d).toBe(1);
@@ -169,14 +188,20 @@ describe("getDailyArchive", () => {
     await seedSnapshot("alice", 1100, "2026-09-09T05:00:00Z");
     await seedSnapshot("bob", 2500, "2026-09-09T06:00:00Z");
     await env.DB.prepare(
-      "INSERT INTO milestones (member_id, threshold, achieved_at) VALUES (?, ?, ?)"
-    ).bind("alice", 1000, "2026-09-09T03:00:00Z").run();
+      "INSERT INTO milestones (member_id, threshold, achieved_at) VALUES (?, ?, ?)",
+    )
+      .bind("alice", 1000, "2026-09-09T03:00:00Z")
+      .run();
     await env.DB.prepare(
-      "INSERT INTO mentions (keyword, author_handle, text, collected_at) VALUES (?, ?, ?, ?)"
-    ).bind("KOSX", "fan1", "不错", "2026-09-09 10:00:00").run();
+      "INSERT INTO mentions (keyword, author_handle, text, collected_at) VALUES (?, ?, ?, ?)",
+    )
+      .bind("KOSX", "fan1", "不错", "2026-09-09 10:00:00")
+      .run();
     await env.DB.prepare(
-      "INSERT INTO mentions (keyword, author_handle, text, collected_at) VALUES (?, ?, ?, ?)"
-    ).bind("KOSX", "fan2", "厉害", "2026-09-09 11:00:00").run();
+      "INSERT INTO mentions (keyword, author_handle, text, collected_at) VALUES (?, ?, ?, ?)",
+    )
+      .bind("KOSX", "fan2", "厉害", "2026-09-09 11:00:00")
+      .run();
 
     const a = await getDailyArchive(env, "2026-09-09");
     expect(a.totalFollowers).toBe(3600); // 截至当日各自最新快照：1100 + 2500
@@ -196,8 +221,10 @@ describe("getAnnualReport", () => {
     // 年前旧快照不进 YTD 窗口
     await seedSnapshot("alice", 100, "2025-12-20T00:00:00Z");
     await env.DB.prepare(
-      "INSERT INTO milestones (member_id, threshold, achieved_at) VALUES (?, ?, ?)"
-    ).bind("alice", 1000, "2026-02-01T00:00:00Z").run();
+      "INSERT INTO milestones (member_id, threshold, achieved_at) VALUES (?, ?, ?)",
+    )
+      .bind("alice", 1000, "2026-02-01T00:00:00Z")
+      .run();
 
     const r = await getAnnualReport(env);
     expect(r.year).toBe(2026);
@@ -216,7 +243,7 @@ describe("getCommunitySignals", () => {
   it("按 kind 与 count 降序返回", async () => {
     const now = new Date().toISOString();
     const stmt = env.DB.prepare(
-      "INSERT INTO community_signal_counts (kind, handle, name, count, updated_at) VALUES (?, ?, ?, ?, ?)"
+      "INSERT INTO community_signal_counts (kind, handle, name, count, updated_at) VALUES (?, ?, ?, ?, ?)",
     );
     await env.DB.batch([
       stmt.bind("following", "bigv_a", "大V甲", 5, now),
@@ -245,7 +272,11 @@ describe("getContentRecipe", () => {
     const longText = "这是一条没有链接的长文本帖。".repeat(10);
     // 带链接 3 帖（均值 100）、长文 3 帖（均值 300）
     for (let i = 0; i < 3; i++) {
-      await seedPost("alice", `f${i}`, { createdAt: atHour, views: 100, text: `看这里 https://example.com/${i}` });
+      await seedPost("alice", `f${i}`, {
+        createdAt: atHour,
+        views: 100,
+        text: `看这里 https://example.com/${i}`,
+      });
       await seedPost("alice", `g${i}`, { createdAt: atHour, views: 300, text: longText });
     }
 
@@ -264,11 +295,28 @@ describe("getContentRecipe", () => {
     await seedMember("alice", "alice_x");
     // 纯图片帖：正文只有一条 t.co（X 的附件包裹形式）——旧口径会误判成「带链接」
     for (let i = 0; i < 3; i++) {
-      await seedPost("alice", `m${i}`, { createdAt: atHour, views: 1000, text: "看这个 https://t.co/pic", media: [{ kind: "photo", url: "https://pbs.twimg.com/a.jpg" }] });
+      await seedPost("alice", `m${i}`, {
+        createdAt: atHour,
+        views: 1000,
+        text: "看这个 https://t.co/pic",
+        media: [{ kind: "photo", url: "https://pbs.twimg.com/a.jpg" }],
+      });
     }
     // 视频帖 3 条各带 50 赞：验证互动率池化
     for (let i = 0; i < 3; i++) {
-      await seedPost("alice", `v${i}`, { createdAt: atHour, views: 1000, text: "视频 https://t.co/vid", media: [{ kind: "video", url: "https://pbs.twimg.com/v.jpg", videoUrl: "https://video.twimg.com/v.mp4" }], likes: 50 });
+      await seedPost("alice", `v${i}`, {
+        createdAt: atHour,
+        views: 1000,
+        text: "视频 https://t.co/vid",
+        media: [
+          {
+            kind: "video",
+            url: "https://pbs.twimg.com/v.jpg",
+            videoUrl: "https://video.twimg.com/v.mp4",
+          },
+        ],
+        likes: 50,
+      });
     }
 
     const r = await getContentRecipe(env);
@@ -293,7 +341,12 @@ describe("getContentRecipe", () => {
           { kind: "photo", url: "https://pbs.twimg.com/2.jpg" },
         ],
       });
-      await seedPost("alice", `a${i}`, { createdAt: atHour, views: 500, text: "动图", media: [{ kind: "gif", url: "https://pbs.twimg.com/g.jpg" }] });
+      await seedPost("alice", `a${i}`, {
+        createdAt: atHour,
+        views: 500,
+        text: "动图",
+        media: [{ kind: "gif", url: "https://pbs.twimg.com/g.jpg" }],
+      });
     }
 
     const r = await getContentRecipe(env);
@@ -317,8 +370,18 @@ describe("getContentRecipe", () => {
 
   it("回复与转推不计入配方（回复/转推是互动而非发布）", async () => {
     await seedMember("alice", "alice_x");
-    await seedPost("alice", "r1", { createdAt: atHour, views: 99999, text: "回复", tweetType: "reply" });
-    await seedPost("alice", "r2", { createdAt: atHour, views: 99999, text: "转推", tweetType: "retweet" });
+    await seedPost("alice", "r1", {
+      createdAt: atHour,
+      views: 99999,
+      text: "回复",
+      tweetType: "reply",
+    });
+    await seedPost("alice", "r2", {
+      createdAt: atHour,
+      views: 99999,
+      text: "转推",
+      tweetType: "retweet",
+    });
     await seedPost("alice", "r3", { createdAt: atHour, views: 10, text: "原创" });
     await seedPost("alice", "r4", { createdAt: atHour, views: 10, text: "原创2" });
 

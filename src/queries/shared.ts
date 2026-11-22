@@ -47,7 +47,12 @@ export type MemberRow = {
   bannerUrl: string | null;
   userId: string | null;
 };
-export type SnapshotRow = { memberId: string; followers: number; recordedAt: string; listedCount?: number | null };
+export type SnapshotRow = {
+  memberId: string;
+  followers: number;
+  recordedAt: string;
+  listedCount?: number | null;
+};
 export type PostRow = {
   tweetId: string;
   createdAt: string;
@@ -102,7 +107,7 @@ export function parseJsonObject<T>(raw: string | null): T | null {
 /** 中位数（数值数组，空数组返回 0） */
 export function median(nums: number[]): number {
   if (nums.length === 0) return 0;
-  const sorted = [...nums].sort((a, b) => a - b);
+  const sorted = [...nums].toSorted((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
@@ -144,11 +149,11 @@ export const LATEST_FOLLOWERS_SQL =
 export function rankInTrack(
   rows: Array<{ id: string; tracks: string[]; followers: number | null }>,
   memberId: string,
-  track: string
+  track: string,
 ): { rank: number; total: number } {
   const inTrack = rows
     .filter((r) => r.tracks.includes(track))
-    .sort((a, b) => (b.followers ?? 0) - (a.followers ?? 0));
+    .toSorted((a, b) => (b.followers ?? 0) - (a.followers ?? 0));
   return { rank: inTrack.findIndex((r) => r.id === memberId) + 1, total: inTrack.length };
 }
 
@@ -168,6 +173,7 @@ export function mapPostRow(row: PostRow, handle: string): PostItem {
   };
   if (row.media !== undefined) item.media = parseJsonArray<PostMediaItem>(row.media ?? null);
   if (row.tweetType !== undefined) item.tweetType = row.tweetType;
-  if (row.quoted !== undefined) item.quoted = parseJsonObject<NonNullable<PostItem["quoted"]>>(row.quoted ?? null);
+  if (row.quoted !== undefined)
+    item.quoted = parseJsonObject<NonNullable<PostItem["quoted"]>>(row.quoted ?? null);
   return item;
 }

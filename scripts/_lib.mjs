@@ -1,7 +1,7 @@
+import { execFileSync } from "node:child_process";
 // scripts/_lib.mjs — 本地脚本共享工具层：SocialData key 读取、节流 fetch、SQL 转义、
 // cache_bust 语句、wrangler d1 查询包装。只给 scripts/ 用，Worker 侧有各自实现，勿反向依赖。
 import { readFileSync, existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -104,7 +104,9 @@ export function createThrottledGet(apiKey, intervalMs = SHARED_INTERVAL_MS) {
         throw new SocialDataError(res.status, path, body);
       }
       const backoff = RETRY_BACKOFF_MS[attempt];
-      console.warn(`[socialdata] HTTP ${res.status} ${path} — ${backoff / 1000}s 后重试（第 ${attempt + 1} 次）`);
+      console.warn(
+        `[socialdata] HTTP ${res.status} ${path} — ${backoff / 1000}s 后重试（第 ${attempt + 1} 次）`,
+      );
       await new Promise((r) => setTimeout(r, backoff));
       attempt++;
     }
@@ -137,7 +139,7 @@ export function acquireScriptLock(name, opts = {}) {
   d1Execute(
     `INSERT INTO site_meta (key, value) VALUES (${lit(key)}, ${lit(owner)})
      ON CONFLICT(key) DO UPDATE SET value = ${lit(owner)}
-     WHERE (julianday(${lit(now)}) - julianday(site_meta.value)) * 1440 >= ${ttlMinutes};`
+     WHERE (julianday(${lit(now)}) - julianday(site_meta.value)) * 1440 >= ${ttlMinutes};`,
   );
   // CAS 落败时本次写入不生效，读回的值仍是持有者；用 owner 精确比对（而非只比存在性）
   const row = d1Query(`SELECT value FROM site_meta WHERE key = ${lit(key)}`)[0];
@@ -171,9 +173,9 @@ export function extractMedia(tweet) {
     const best =
       kind === "photo"
         ? null
-        : (m.video_info?.variants ?? [])
+        : ((m.video_info?.variants ?? [])
             .filter((v) => v.content_type === "video/mp4" && v.url)
-            .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0]?.url ?? null;
+            .toSorted((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0]?.url ?? null);
     out.push({
       kind,
       url: m.media_url_https,
@@ -197,7 +199,9 @@ export function extractQuoted(tweet) {
     name: q.user.name ?? null,
     profileImage: q.user.profile_image_url_https ?? null,
     text: q.full_text ?? null,
-    url: q.id_str ? `https://x.com/${encodeURIComponent(q.user.screen_name)}/status/${q.id_str}` : null,
+    url: q.id_str
+      ? `https://x.com/${encodeURIComponent(q.user.screen_name)}/status/${q.id_str}`
+      : null,
     media: media?.[0] ?? null,
   };
 }
@@ -227,12 +231,12 @@ export function d1Execute(command) {
   const out = execFileSync(
     WRANGLER_BIN,
     ["d1", "execute", "kosx-impact", "--remote", "--json", "--command", command],
-    { encoding: "utf-8", maxBuffer: 20 * 1024 * 1024 }
+    { encoding: "utf-8", maxBuffer: 20 * 1024 * 1024 },
   );
   return JSON.parse(out)[0] ?? { results: [], meta: {} };
 }
 
 /** wrangler d1 --remote --json 查询，返回扁平化的 results 数组 */
 export function d1Query(command) {
-  return (d1Execute(command).results ?? []);
+  return d1Execute(command).results ?? [];
 }

@@ -1,17 +1,31 @@
 import { Link } from "@tanstack/react-router";
-import { toggleFavorite, useFavorites } from "@/lib/favorites";
-import { toast } from "@/components/ui/toast";
-import type { MemberStats, MemberProfile, PostItem } from "@/stats";
-import type { MemberInsights } from "@/insights";
+import {
+  BadgeCheck,
+  ExternalLink,
+  MapPin,
+  PauseCircle,
+  Share2,
+  Star,
+  type LucideIcon,
+  Blocks,
+  CandlestickChart,
+  Globe,
+  PenTool,
+  Shapes,
+  Sparkles,
+} from "lucide-react";
 import { Avatar } from "@/components/member/Avatar";
 import { BannerImage } from "@/components/member/BannerImage";
 import { TierBadge } from "@/components/member/TierBadge";
 import { Badge } from "@/components/ui/badge";
-import { trackOf } from "@/tracks";
-import { BadgeCheck, ExternalLink, MapPin, PauseCircle, Share2, Star, type LucideIcon, Blocks, CandlestickChart, Globe, PenTool, Shapes, Sparkles } from "lucide-react";
+import { toast } from "@/components/ui/toast";
+import type { MemberInsights } from "@/insights";
+import { toggleFavorite, useFavorites } from "@/lib/favorites";
 import { fmtDate } from "@/lib/format";
 import { xProfileUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import type { MemberStats, MemberProfile, PostItem } from "@/stats";
+import { trackOf } from "@/tracks";
 
 /** 赛道图标映射（src/tracks.ts 存图标名字符串，这里映射到 lucide 组件） */
 const TRACK_ICON_MAP: Record<string, LucideIcon> = {
@@ -50,13 +64,7 @@ const frostedBtn =
 /** 横幅上的分享钮：打开分享弹窗（X 分享/文案/链接/OG 卡预览复制下载） */
 function ShareButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="分享"
-      title="分享"
-      className={frostedBtn}
-    >
+    <button type="button" onClick={onClick} aria-label="分享" title="分享" className={frostedBtn}>
       <Share2 className="size-4" />
     </button>
   );
@@ -111,12 +119,12 @@ export function ProfileHero({
         ) : (
           <div
             aria-hidden="true"
-            className="bg-gradient-to-r size-full from-signal/15 via-surface to-surface"
+            className="size-full bg-gradient-to-r from-signal/15 via-surface to-surface"
           />
         )}
         <div
           aria-hidden="true"
-          className="from-surface via-surface/30 absolute inset-0 bg-gradient-to-t to-transparent"
+          className="absolute inset-0 bg-gradient-to-t from-surface via-surface/30 to-transparent"
         />
         {/* 分享圆钮压在横幅右上角：磨砂玻璃质感，同时填起顶部留白 */}
         <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-end gap-2 p-3 sm:p-4">
@@ -128,12 +136,20 @@ export function ProfileHero({
         {/* z-10：横幅容器是定位元素会盖住静态兄弟，头像压边必须抬高一层 */}
         <div className="relative z-10 -mt-12 sm:-mt-14">
           <div className="flex items-end gap-4">
-            <Avatar url={member.profileImage} name={name} size="lg" className="ring-surface size-20 ring-4 sm:size-24" />
+            <Avatar
+              url={member.profileImage}
+              name={name}
+              size="lg"
+              className="size-20 ring-4 ring-surface sm:size-24"
+            />
             <div className="min-w-0 pb-1">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{name}</h1>
                 {profile.verified && (
-                  <BadgeCheck className="size-5 text-sky-600 dark:text-sky-400" aria-label="X 认证账号" />
+                  <BadgeCheck
+                    className="size-5 text-sky-600 dark:text-sky-400"
+                    aria-label="X 认证账号"
+                  />
                 )}
                 <TierBadge tierKey={member.tierKey} tierName={member.tierName} />
               </div>
@@ -153,8 +169,8 @@ export function ProfileHero({
                 className="inline-flex items-center gap-1.5 rounded-full bg-soft-surface px-3 py-1 text-sm text-mist"
                 title="近 14 天没有发布新内容"
               >
-                <PauseCircle className="size-3.5 text-signal-ink" aria-hidden="true" />
-                已 {insights.inactiveDays} 天未更新
+                <PauseCircle className="size-3.5 text-signal-ink" aria-hidden="true" />已{" "}
+                {insights.inactiveDays} 天未更新
               </span>
             )}
             {profile.location && (
@@ -197,9 +213,7 @@ export function ProfileHero({
                   title={track.description}
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
-                    t === "AI工具"
-                      ?"bg-signal/10 text-signal-ink"
-                      :"bg-soft-surface text-ink"
+                    t === "AI工具" ? "bg-signal/10 text-signal-ink" : "bg-soft-surface text-ink",
                   )}
                 >
                   <Icon className="size-3.5" aria-hidden="true" />
@@ -241,7 +255,9 @@ export function ProfileHero({
           </div>
         )}
         {profile.bio && (
-          <p className="text-mist mt-4 text-sm leading-relaxed whitespace-pre-line">{profile.bio}</p>
+          <p className="mt-4 text-sm leading-relaxed whitespace-pre-line text-mist">
+            {profile.bio}
+          </p>
         )}
       </div>
     </section>

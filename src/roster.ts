@@ -26,15 +26,13 @@ export const roster = membersFile as RosterFile;
  *   否则「隐私退出」会在下一个整点被名册静默复活
  * - 新成员有 baselineFollowers 且尚无快照时，以 joinedAt 为起点回填首条快照
  */
-export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
+export async function syncRoster(env: Env, rosterFile: RosterFile): Promise<void> {
   const { results: excludedRows } = await env.DB.prepare(
-    "SELECT handle FROM excluded_handles"
+    "SELECT handle FROM excluded_handles",
   ).all();
-  const excluded = new Set(
-    excludedRows.map((r) => (r as { handle: string }).handle.toLowerCase())
-  );
+  const excluded = new Set(excludedRows.map((r) => (r as { handle: string }).handle.toLowerCase()));
 
-  for (const member of roster.members) {
+  for (const member of rosterFile.members) {
     if (excluded.has(member.handle.toLowerCase())) continue;
     await env.DB.prepare(
       `INSERT INTO members (id, handle, display_name, joined_at)
@@ -44,47 +42,46 @@ export async function syncRoster(env: Env, roster: RosterFile): Promise<void> {
          display_name = COALESCE(display_name, excluded.display_name),
          joined_at = excluded.joined_at,
          status = CASE WHEN members.status_locked = 1 OR members.status = 'suspended' THEN members.status ELSE 'active' END,
-         updated_at = datetime('now')`
-    ).bind(
-      member.id,
-      member.handle,
-      member.displayName ?? null,
-      member.joinedAt
-    ).run();
+         updated_at = datetime('now')`,
+    )
+      .bind(member.id, member.handle, member.displayName ?? null, member.joinedAt)
+      .run();
 
     // 基线回填：只在还没有任何快照时插入，日期取加入追踪当天
     if (member.baselineFollowers !== undefined) {
       await env.DB.prepare(
         `INSERT INTO snapshots (member_id, followers, recorded_at)
          SELECT ?1, ?2, ?3
-         WHERE NOT EXISTS (SELECT 1 FROM snapshots WHERE member_id = ?1)`
-      ).bind(member.id, member.baselineFollowers, `${member.joinedAt}T00:00:00Z`).run();
+         WHERE NOT EXISTS (SELECT 1 FROM snapshots WHERE member_id = ?1)`,
+      )
+        .bind(member.id, member.baselineFollowers, `${member.joinedAt}T00:00:00Z`)
+        .run();
     }
   }
 
   // removed 收敛放在全部 upsert 成功之后：中途失败最多让新多成员晚一步恢复，
   // 绝不会让本应在线的成员被人间蒸发（旧先删后恢复方案的中间态事故）。
   // 名册成员数远低于 D1 参数上限，用 IN 列表精确圈定，成员不在名册（含自助成员豁免）。
-  const rosterIds = roster.members.map((m) => m.id);
+  const rosterIds = rosterFile.members.map((m) => m.id);
   const { results: rows } = await env.DB.prepare(
-    "SELECT id FROM members WHERE status != 'removed' AND self_registered = 0"
+    "SELECT id FROM members WHERE status != 'removed' AND self_registered = 0",
   ).all();
-  const doomed = rows
-    .map((r) => (r as { id: string }).id)
-    .filter((id) => !rosterIds.includes(id));
+  const doomed = rows.map((r) => (r as { id: string }).id).filter((id) => !rosterIds.includes(id));
   // 分批 100 个绑定参数（D1 单语句绑定上限）
   for (let i = 0; i < doomed.length; i += 100) {
     const batch = doomed.slice(i, i + 100);
     await env.DB.prepare(
       `UPDATE members SET status = 'removed', updated_at = datetime('now')
-       WHERE id IN (${batch.map(() => "?").join(",")})`
-    ).bind(...batch).run();
+       WHERE id IN (${batch.map(() => "?").join(",")})`,
+    )
+      .bind(...batch)
+      .run();
   }
 
   // 名单内成员不参与展示与采集（历史快照与帖子保留）
   await env.DB.prepare(
     `UPDATE members SET status = 'removed', updated_at = datetime('now')
      WHERE status != 'removed'
-       AND lower(handle) IN (SELECT lower(handle) FROM excluded_handles)`
+       AND lower(handle) IN (SELECT lower(handle) FROM excluded_handles)`,
   ).run();
 }

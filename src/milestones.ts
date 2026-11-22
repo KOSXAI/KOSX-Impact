@@ -153,7 +153,7 @@ export function detectMilestones(
   prevFollowers: number | undefined,
   current: number,
   thresholds: number[],
-  achievedAt: string
+  achievedAt: string,
 ): MilestoneEvent[] {
   if (prevFollowers === undefined) return [];
   return thresholds
@@ -171,7 +171,9 @@ export interface ClimbGroup<T> {
   items: T[];
 }
 
-export function groupClimbs<T extends { memberId: string; achievedAt: string }>(items: T[]): ClimbGroup<T>[] {
+export function groupClimbs<T extends { memberId: string; achievedAt: string }>(
+  items: T[],
+): ClimbGroup<T>[] {
   const groups: ClimbGroup<T>[] = [];
   const byKey = new Map<string, ClimbGroup<T>>();
   for (const it of items) {

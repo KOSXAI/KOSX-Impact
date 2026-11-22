@@ -1,6 +1,14 @@
-import { Blocks, CandlestickChart, Globe, PenTool, Shapes, Sparkles, type LucideIcon } from "lucide-react";
-import { trackOf } from "@/tracks";
+import {
+  Blocks,
+  CandlestickChart,
+  Globe,
+  PenTool,
+  Shapes,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { trackOf } from "@/tracks";
 
 /** 赛道图标映射（src/tracks.ts 存图标名字符串，组件侧映射到 lucide 组件）——全站唯一出处 */
 export const TRACK_ICONS: Record<string, LucideIcon> = {
@@ -22,7 +30,7 @@ export function TrackChip({ name, className }: { name: string; className?: strin
       className={cn(
         "inline-flex items-center gap-1 rounded-full bg-soft-surface px-2 py-0.5 text-xs font-semibold text-mist",
         name === "综合" && "border-dashed",
-        className
+        className,
       )}
       title={track.description}
     >

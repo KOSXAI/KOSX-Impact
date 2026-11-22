@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { PostMedia } from "@/components/content/PostMedia";
 import { parsePostContent } from "@/lib/format";
-import type { PostItem } from "@/stats";
 import { cn } from "@/lib/utils";
+import type { PostItem } from "@/stats";
 
 /** 折叠态最大行数：短帖全显示，长帖先露这么多行再「展开全文」 */
 const COLLAPSED_CLAMP = "line-clamp-10";
@@ -52,7 +52,13 @@ export function PostText({
   return (
     <div className={className}>
       {body && (
-        <p ref={ref} className={cn("text-sm leading-relaxed break-words whitespace-pre-line", !expanded && COLLAPSED_CLAMP)}>
+        <p
+          ref={ref}
+          className={cn(
+            "text-sm leading-relaxed break-words whitespace-pre-line",
+            !expanded && COLLAPSED_CLAMP,
+          )}
+        >
           {body}
         </p>
       )}

@@ -1,8 +1,8 @@
-import type { CommunityInsights, PostItem } from "@/stats";
 import { Link } from "@tanstack/react-router";
-import { Avatar } from "@/components/member/Avatar";
 import { Eye, Heart, MessageCircle, PauseCircle, Tags } from "lucide-react";
+import { Avatar } from "@/components/member/Avatar";
 import { fmtDate, postExcerpt } from "@/lib/format";
+import type { CommunityInsights, PostItem } from "@/stats";
 
 /**
  * 看板「内容洞察」：爆款帖（近 30 天单帖浏览 ≥5000 且 ≥ 本人均值×2）、
@@ -90,7 +90,11 @@ function ViralCard({ post: p }: { post: PostItem }) {
   return (
     <div className="group rounded-2xl border border-signal/25 bg-gradient-to-r from-signal/8 to-transparent px-3.5 py-3 transition-colors hover:bg-wash-strong">
       <div className="flex items-center gap-3">
-        <Link to="/members/$id" params={{ id: p.member?.id ?? "" }} className="flex min-w-0 flex-1 items-center gap-3">
+        <Link
+          to="/members/$id"
+          params={{ id: p.member?.id ?? "" }}
+          className="flex min-w-0 flex-1 items-center gap-3"
+        >
           <Avatar url={p.member?.profileImage ?? null} name={name} className="size-9 shrink-0" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{name}</div>
@@ -107,7 +111,9 @@ function ViralCard({ post: p }: { post: PostItem }) {
           <Eye className="size-3.5" />
         </a>
       </div>
-      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">{postExcerpt(p.text, 120) ?? "分享了一条链接"}</p>
+      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mist">
+        {postExcerpt(p.text, 120) ?? "分享了一条链接"}
+      </p>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-mist">
         <span className="inline-flex items-center gap-1 font-semibold text-signal-ink" title="浏览">
           <Eye className="size-3.5" aria-hidden="true" />

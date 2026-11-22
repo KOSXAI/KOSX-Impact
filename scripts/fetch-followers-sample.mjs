@@ -28,18 +28,21 @@ if (wantHandles.length) {
   // 用 d1Query（execFileSync 传参数数组）：handle 来自 argv，拼 shell 字符串时
   // 引号翻倍挡不住 $ 与反引号展开
   members = d1Query(
-    `SELECT id, handle, user_id AS userId FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => lit(h)).join(",")})`
+    `SELECT id, handle, user_id AS userId FROM members WHERE status='active' AND handle IN (${wantHandles.map((h) => lit(h)).join(",")})`,
   );
 } else {
   members = d1Query(
-    "SELECT id, handle, user_id AS userId FROM members WHERE status='active' ORDER BY handle"
+    "SELECT id, handle, user_id AS userId FROM members WHERE status='active' ORDER BY handle",
   );
 }
 // 复用库内 user_id（每日采集已持久化）：缺值的跳过，下次采集补上后重跑，不再调 profile 拿 ID
 const ready = members.filter((m) => m.userId);
 const skipped = members.filter((m) => !m.userId).map((m) => m.handle);
-console.log(`待采样 ${ready.length} 位（${members.length - ready.length} 位缺 user_id 跳过），目标 ${SAMPLE_SIZE} 粉丝/账号，节流走全脚本共享闸门`);
-if (skipped.length) console.log("缺 user_id 跳过:", skipped.join(", "), "（下次采集自动补齐后重跑）");
+console.log(
+  `待采样 ${ready.length} 位（${members.length - ready.length} 位缺 user_id 跳过），目标 ${SAMPLE_SIZE} 粉丝/账号，节流走全脚本共享闸门`,
+);
+if (skipped.length)
+  console.log("缺 user_id 跳过:", skipped.join(", "), "（下次采集自动补齐后重跑）");
 
 const get = createThrottledGet(apiKey);
 
@@ -50,7 +53,7 @@ async function sampleFollowers(userId) {
   const seen = new Set();
   while (users.length < SAMPLE_SIZE) {
     const page = await get(
-      `/twitter/user/${encodeURIComponent(userId)}/followers${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`
+      `/twitter/user/${encodeURIComponent(userId)}/followers${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
     );
     const batch = Array.isArray(page.users) ? page.users : [];
     for (const u of batch) {
@@ -71,7 +74,7 @@ function aggregate(users, now) {
   const avg = (fn) => users.reduce((s, u) => s + (fn(u) ?? 0), 0) / n;
   const pct = (fn) => (users.filter((u) => fn(u)).length / n) * 100;
   const top = [...users]
-    .sort((a, b) => (b.followers_count ?? 0) - (a.followers_count ?? 0))
+    .toSorted((a, b) => (b.followers_count ?? 0) - (a.followers_count ?? 0))
     .slice(0, 20)
     .map((u) => ({
       handle: u.screen_name ?? u.username ?? u.id_str,
@@ -94,7 +97,7 @@ function aggregate(users, now) {
               if (!u.created_at) return s;
               const age = (Date.parse(now) - Date.parse(u.created_at)) / 86_400_000;
               return s + (Number.isFinite(age) && age > 0 ? age : 0);
-            }, 0) / users.length
+            }, 0) / users.length,
           ),
     top_handles: top,
   };
@@ -118,10 +121,12 @@ for (let i = 0; i < ready.length; i++) {
   }
 }
 
+const esc = (s) => String(s ?? "").replaceAll("'", "''");
+
 if (APPLY && profiles.length) {
-  const esc = (s) => String(s ?? "").replaceAll("'", "''");
-  const rows = profiles.map((p) =>
-    `INSERT OR REPLACE INTO fan_profiles (member_id, sampled_at, sample_size, avg_followers, pct_followers_1k, pct_followers_10k, verified_pct, avg_friends, avg_tweets, avg_age_days, top_handles) VALUES ('${esc(p.member_id)}', '${now}', ${p.sample_size}, ${p.avg_followers}, ${p.pct_followers_1k}, ${p.pct_followers_10k}, ${p.verified_pct}, ${p.avg_friends}, ${p.avg_tweets}, ${p.avg_age_days}, '${esc(JSON.stringify(p.top_handles))}');`
+  const rows = profiles.map(
+    (p) =>
+      `INSERT OR REPLACE INTO fan_profiles (member_id, sampled_at, sample_size, avg_followers, pct_followers_1k, pct_followers_10k, verified_pct, avg_friends, avg_tweets, avg_age_days, top_handles) VALUES ('${esc(p.member_id)}', '${now}', ${p.sample_size}, ${p.avg_followers}, ${p.pct_followers_1k}, ${p.pct_followers_10k}, ${p.verified_pct}, ${p.avg_friends}, ${p.avg_tweets}, ${p.avg_age_days}, '${esc(JSON.stringify(p.top_handles))}');`,
   );
   const sqlPath = "/tmp/fan-profiles.sql";
   writeFileSync(sqlPath, rows.join("\n"));
@@ -138,4 +143,7 @@ if (failed.length) {
   process.exitCode = 1;
 }
 console.log(`产物: /tmp/fan-profiles.json ${APPLY ? "（已入库）" : ""}`);
-writeFileSync("/tmp/fan-profiles.json", JSON.stringify({ profiles, failed, sampled_at: now }, null, 2));
+writeFileSync(
+  "/tmp/fan-profiles.json",
+  JSON.stringify({ profiles, failed, sampled_at: now }, null, 2),
+);

@@ -43,22 +43,27 @@ async function recordAccountFailure(env: Env, memberId: string, nowIso: string):
        last_fail_at = ?2,
        status = CASE WHEN fail_count + 1 >= ?3 THEN 'suspended' ELSE status END,
        updated_at = datetime('now')
-     WHERE id = ?1 AND status = 'active'`
-  ).bind(memberId, nowIso, SUSPEND_THRESHOLD).run();
+     WHERE id = ?1 AND status = 'active'`,
+  )
+    .bind(memberId, nowIso, SUSPEND_THRESHOLD)
+    .run();
 }
 
 /** 熔断是否处于打开状态（打开 = SocialData 余额疑似耗尽，跳过一切出站调用） */
 export async function sdBreakerOpen(env: Env): Promise<boolean> {
-  const row = (await env.DB.prepare("SELECT value FROM site_meta WHERE key = ?1").bind(BREAKER_KEY)
-    .first()) as { value: string } | null;
+  const row = await env.DB.prepare("SELECT value FROM site_meta WHERE key = ?1")
+    .bind(BREAKER_KEY)
+    .first<{ value: string }>();
   return row != null && new Date(row.value).getTime() > Date.now();
 }
 
 /** 拉 402 时合闸：接下来的 1 小时不再对 SocialData 发任何请求（分片/兜底双通道都跳过） */
 export async function tripBreaker(env: Env): Promise<void> {
   await env.DB.prepare(
-    "INSERT INTO site_meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-  ).bind(BREAKER_KEY, new Date(Date.now() + BREAKER_COOLDOWN_MS).toISOString()).run();
+    "INSERT INTO site_meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+  )
+    .bind(BREAKER_KEY, new Date(Date.now() + BREAKER_COOLDOWN_MS).toISOString())
+    .run();
 }
 
 /**
@@ -91,19 +96,20 @@ export async function collectWithSource(
   rosterFile: RosterFile = roster,
   ctx?: ExecutionContext,
   /** 覆盖当前 UTC 小时（测试用）；缺省取真实时间 */
-  hourOverride?: number
+  hourOverride?: number,
 ): Promise<CollectSummary> {
   await syncRoster(env, rosterFile);
 
   // 采集池 = active 全体（suspended 已隔离停采，不再有任何出站调用）
   const { results: members } = (await env.DB.prepare(
-    "SELECT id, handle FROM members WHERE status = 'active'"
+    "SELECT id, handle FROM members WHERE status = 'active'",
   ).all()) as { results: ActiveMember[] };
 
   // 兜底通道：先清自助更新队列（FIFO、小批量），与分片采集共用同一数据源实例，
   // 数据源内置的节流在两次调用间统一生效；熔断打开时两通道一起短路，不烧余额
   const breakerOpen = await sdBreakerOpen(env);
-  if (breakerOpen) console.warn(`[collect] SocialData 熔断打开（402 冷却中），本轮跳过全部出站采集`);
+  if (breakerOpen)
+    console.warn(`[collect] SocialData 熔断打开（402 冷却中），本轮跳过全部出站采集`);
   const refreshDrain = breakerOpen
     ? { ok: 0, failed: 0, memberIds: [] as string[] }
     : await drainRefreshQueue(env, source);
@@ -116,7 +122,11 @@ export async function collectWithSource(
     ok: 0,
     failed: [],
     shard: { hourUtc, eligible: sampled.length, sampled: sampled.length },
-    refreshQueue: { ok: refreshDrain.ok, failed: refreshDrain.failed, drained: refreshDrain.memberIds.length },
+    refreshQueue: {
+      ok: refreshDrain.ok,
+      failed: refreshDrain.failed,
+      drained: refreshDrain.memberIds.length,
+    },
     posts: { ok: 0, failed: 0, upserted: 0, cleaned: 0 },
   };
 
@@ -124,7 +134,9 @@ export async function collectWithSource(
     // 余额耗尽即合闸：本轮剩余成员与后续 cron 都跳过，直到冷却结束（避免 402 死循环烧钱）
     if (await sdBreakerOpen(env)) {
       summary.shard!.sampled = summary.ok + summary.failed.length;
-      console.warn(`[collect] 熔断打开，分片提前收车（已采 ${summary.ok}/失败 ${summary.failed.length}）`);
+      console.warn(
+        `[collect] 熔断打开，分片提前收车（已采 ${summary.ok}/失败 ${summary.failed.length}）`,
+      );
       break;
     }
     try {
@@ -141,7 +153,8 @@ export async function collectWithSource(
           summary.posts!.upserted += posts.length;
           summary.posts!.cleaned += cleaned;
         } catch (error) {
-          if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) throw error;
+          if (error instanceof SocialDataError && (error.status === 402 || error.status === 429))
+            throw error;
           summary.posts!.failed++;
           console.error(`[collect] @${member.handle} 帖子采集失败：`, error);
         }
@@ -155,8 +168,11 @@ export async function collectWithSource(
       if (error instanceof SocialDataError && error.status === 404) {
         // 404 = 账号在 X 侧已不可达（冻结/注销/改名）：确定性失败，记账并在达阈值后隔离停采
         await recordAccountFailure(env, member.id, nowIso);
-        console.warn(`[collect] @${member.handle} 账号不可达（404），连续 ${SUSPEND_THRESHOLD} 次将自动隔离`);
-      }if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) {
+        console.warn(
+          `[collect] @${member.handle} 账号不可达（404），连续 ${SUSPEND_THRESHOLD} 次将自动隔离`,
+        );
+      }
+      if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) {
         await tripBreaker(env);
         break;
       }
@@ -182,7 +198,7 @@ async function writeSnapshot(
   env: Env,
   memberId: string,
   stats: FollowerStats,
-  now: string
+  now: string,
 ): Promise<void> {
   await env.DB.batch([
     env.DB.prepare(
@@ -194,7 +210,7 @@ async function writeSnapshot(
          posts = COALESCE(excluded.posts, posts),
          listed_count = COALESCE(excluded.listed_count, listed_count),
          favourites_count = COALESCE(excluded.favourites_count, favourites_count),
-         recorded_at = excluded.recorded_at`
+         recorded_at = excluded.recorded_at`,
     ).bind(
       memberId,
       stats.followers,
@@ -202,7 +218,7 @@ async function writeSnapshot(
       stats.posts ?? null,
       stats.listedCount ?? null,
       stats.favouritesCount ?? null,
-      now
+      now,
     ),
     env.DB.prepare(
       `UPDATE members SET
@@ -220,7 +236,7 @@ async function writeSnapshot(
          user_id = COALESCE(?10, user_id),
          fail_count = 0,
          updated_at = datetime('now')
-       WHERE id = ?1`
+       WHERE id = ?1`,
     ).bind(
       memberId,
       stats.displayName ?? null,
@@ -231,7 +247,7 @@ async function writeSnapshot(
       stats.bannerUrl ?? null,
       stats.xCreatedAt ?? null,
       stats.verified == null ? null : stats.verified ? 1 : 0,
-      stats.userId ?? null
+      stats.userId ?? null,
     ),
   ]);
 }
@@ -242,8 +258,8 @@ async function writeSnapshot(
 export async function bumpCacheBust(env: Env): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO site_meta (key, value) VALUES ('cache_bust', '1')
-     ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`
-  ).run();  // 本 isolate 立即读到新版本号（不等 5 秒记忆过期）
+     ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1`,
+  ).run(); // 本 isolate 立即读到新版本号（不等 5 秒记忆过期）
   resetCacheBustMemo();
 }
 
@@ -254,26 +270,30 @@ async function checkMilestones(
   env: Env,
   memberId: string,
   followers: number,
-  now: string
+  now: string,
 ): Promise<void> {
-  const prev = (await env.DB.prepare(
-    "SELECT followers FROM snapshots WHERE member_id = ?1 AND recorded_at < ?2 ORDER BY recorded_at DESC LIMIT 1"
-  ).bind(memberId, now).first()) as { followers: number } | null;
+  const prev = await env.DB.prepare(
+    "SELECT followers FROM snapshots WHERE member_id = ?1 AND recorded_at < ?2 ORDER BY recorded_at DESC LIMIT 1",
+  )
+    .bind(memberId, now)
+    .first<{ followers: number }>();
 
   const events = prev
     ? detectMilestones(prev.followers, followers, MILESTONE_THRESHOLDS, now)
-    : MILESTONE_THRESHOLDS
-        .filter((t) => t <= followers)
-        .map((threshold) => ({ threshold, achievedAt: now }));
+    : MILESTONE_THRESHOLDS.filter((t) => t <= followers).map((threshold) => ({
+        threshold,
+        achievedAt: now,
+      }));
   for (const event of events) {
     await env.DB.prepare(
-      "INSERT OR IGNORE INTO milestones (member_id, threshold, achieved_at, announced) VALUES (?1, ?2, ?3, 1)"
-    ).bind(memberId, event.threshold, event.achievedAt).run();
+      "INSERT OR IGNORE INTO milestones (member_id, threshold, achieved_at, announced) VALUES (?1, ?2, ?3, 1)",
+    )
+      .bind(memberId, event.threshold, event.achievedAt)
+      .run();
   }
   // announced=1 标记该登阶已计入公告流（首页「最新达成」读 milestones 表）；
   // 未来接入推文播报等渠道时复用此标记
 }
-
 
 /**
  * 写入成员最近帖子（posts 表批量 upsert，tweet_id 幂等）+ 清理超期旧帖。
@@ -284,7 +304,7 @@ async function writeRecentPosts(
   env: Env,
   memberId: string,
   posts: PostData[],
-  nowIso: string
+  nowIso: string,
 ): Promise<number> {
   if (posts.length === 0) return 0;
   // 幂等 upsert（不用 REPLACE——REPLACE 删旧重建会丢 views_prev）：已存在的行把旧 views 挪进 views_prev。
@@ -310,7 +330,7 @@ async function writeRecentPosts(
        media = COALESCE(excluded.media, posts.media),
        tweet_type = COALESCE(excluded.tweet_type, posts.tweet_type),
        quoted = COALESCE(excluded.quoted, posts.quoted),
-       recorded_at = excluded.recorded_at`
+       recorded_at = excluded.recorded_at`,
   );
   const writes = posts.map((p) =>
     stmt.bind(
@@ -328,12 +348,17 @@ async function writeRecentPosts(
       p.media ? JSON.stringify(p.media) : null,
       p.tweetType,
       p.quoted ? JSON.stringify(p.quoted) : null,
-      nowIso
-    )
+      nowIso,
+    ),
   );
   // 清理保留窗口外的旧帖（精华帖近 30 天，90 天 3 倍余量），控表增长
   const cutoff = new Date(Date.now() - POST_RETENTION_DAYS * 86_400_000).toISOString();
-  writes.push(env.DB.prepare("DELETE FROM posts WHERE member_id = ?1 AND created_at < ?2").bind(memberId, cutoff));
+  writes.push(
+    env.DB.prepare("DELETE FROM posts WHERE member_id = ?1 AND created_at < ?2").bind(
+      memberId,
+      cutoff,
+    ),
+  );
   await env.DB.batch(writes);
   return 0; // 清理行数由调用方无需感知，保留返回值供未来统计
 }
@@ -351,7 +376,7 @@ export async function applyFollowerStats(
   memberId: string,
   stats: FollowerStats,
   nowIso: string,
-  source?: FollowerSource
+  source?: FollowerSource,
 ): Promise<void> {
   await writeSnapshot(env, memberId, stats, nowIso);
   await checkMilestones(env, memberId, stats.followers, nowIso);
@@ -385,20 +410,26 @@ async function processRefreshJob(
   env: Env,
   source: FollowerSource,
   jobId: number,
-  memberId: string
+  memberId: string,
 ): Promise<boolean> {
   const claim = await env.DB.prepare(
-    "UPDATE refresh_queue SET status = 'processing' WHERE id = ?1 AND status = 'pending'"
-  ).bind(jobId).run();
+    "UPDATE refresh_queue SET status = 'processing' WHERE id = ?1 AND status = 'pending'",
+  )
+    .bind(jobId)
+    .run();
   if ((claim.meta.changes ?? 0) === 0) return false;
 
-  const member = (await env.DB.prepare(
-    "SELECT handle FROM members WHERE id = ?1 AND status = 'active'"
-  ).bind(memberId).first()) as { handle: string } | null;
+  const member = await env.DB.prepare(
+    "SELECT handle FROM members WHERE id = ?1 AND status = 'active'",
+  )
+    .bind(memberId)
+    .first<{ handle: string }>();
   if (!member) {
     await env.DB.prepare(
-      "UPDATE refresh_queue SET status = 'failed', processed_at = ?2, error = 'member not active' WHERE id = ?1"
-    ).bind(jobId, new Date().toISOString()).run();
+      "UPDATE refresh_queue SET status = 'failed', processed_at = ?2, error = 'member not active' WHERE id = ?1",
+    )
+      .bind(jobId, new Date().toISOString())
+      .run();
     return false;
   }
 
@@ -408,16 +439,20 @@ async function processRefreshJob(
     // 帖子采集已并入 applyFollowerStats（source 传入时同步刷新）
     await applyFollowerStats(env, memberId, stats, nowIso, source);
     await env.DB.prepare(
-      "UPDATE refresh_queue SET status = 'done', processed_at = ?2, followers_after = ?3, error = NULL WHERE id = ?1"
-    ).bind(jobId, nowIso, stats.followers).run();
+      "UPDATE refresh_queue SET status = 'done', processed_at = ?2, followers_after = ?3, error = NULL WHERE id = ?1",
+    )
+      .bind(jobId, nowIso, stats.followers)
+      .run();
     return true;
   } catch (error) {
     // 保留 pending 供下次提交/cron 重试；累计超过上限转 failed
     // （job 已被本协程领取为 processing，读取以 processing 判位）
     if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) {
       await env.DB.prepare(
-        "UPDATE refresh_queue SET status = 'pending', processed_at = NULL, error = ?2 WHERE id = ?1"
-      ).bind(jobId, `${String(error.message).slice(0, 200)}（额度/限流，留队待恢复）`).run();
+        "UPDATE refresh_queue SET status = 'pending', processed_at = NULL, error = ?2 WHERE id = ?1",
+      )
+        .bind(jobId, `${error.message.slice(0, 200)}（额度/限流，留队待恢复）`)
+        .run();
       await tripBreaker(env);
       return false;
     }
@@ -426,18 +461,22 @@ async function processRefreshJob(
       await recordAccountFailure(env, memberId, nowIso);
     }
     const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
-    const row = (await env.DB.prepare(
-      "SELECT attempts FROM refresh_queue WHERE id = ?1 AND status = 'processing'"
-    ).bind(jobId).first()) as { attempts: number } | null;
+    const row = await env.DB.prepare(
+      "SELECT attempts FROM refresh_queue WHERE id = ?1 AND status = 'processing'",
+    )
+      .bind(jobId)
+      .first<{ attempts: number }>();
     if (!row) return false;
     await env.DB.prepare(
-      "UPDATE refresh_queue SET attempts = ?2, error = ?3, status = ?4 WHERE id = ?1"
-    ).bind(
-      jobId,
-      row.attempts + 1,
-      message,
-      row.attempts + 1 >= REFRESH_MAX_ATTEMPTS ? "failed" : "pending"
-    ).run();
+      "UPDATE refresh_queue SET attempts = ?2, error = ?3, status = ?4 WHERE id = ?1",
+    )
+      .bind(
+        jobId,
+        row.attempts + 1,
+        message,
+        row.attempts + 1 >= REFRESH_MAX_ATTEMPTS ? "failed" : "pending",
+      )
+      .run();
     return false;
   }
 }
@@ -448,9 +487,9 @@ async function processRefreshJob(
  *  既烧时长又不断续期熔断（旧实现只给 cron 兜底通道加了闸门）。 */
 export async function processOldestPending(env: Env, source: FollowerSource): Promise<boolean> {
   if (await sdBreakerOpen(env)) return false;
-  const job = (await env.DB.prepare(
-    "SELECT id, member_id AS memberId FROM refresh_queue WHERE status = 'pending' ORDER BY requested_at, id LIMIT 1"
-  ).first()) as { id: number; memberId: string } | null;
+  const job = await env.DB.prepare(
+    "SELECT id, member_id AS memberId FROM refresh_queue WHERE status = 'pending' ORDER BY requested_at, id LIMIT 1",
+  ).first<{ id: number; memberId: string }>();
   if (!job) return false;
   const ok = await processRefreshJob(env, source, job.id, job.memberId);
   if (ok) await bumpCacheBust(env);
@@ -463,12 +502,14 @@ export async function processOldestPending(env: Env, source: FollowerSource): Pr
 export async function drainRefreshQueue(
   env: Env,
   source: FollowerSource,
-  limit: number = REFRESH_DRAIN_LIMIT
+  limit: number = REFRESH_DRAIN_LIMIT,
 ): Promise<RefreshDrainResult> {
   if (await sdBreakerOpen(env)) return { ok: 0, failed: 0, memberIds: [] };
   const { results: jobs } = (await env.DB.prepare(
-    "SELECT id, member_id AS memberId FROM refresh_queue WHERE status = 'pending' ORDER BY requested_at, id LIMIT ?"
-  ).bind(limit).all()) as { results: Array<{ id: number; memberId: string }> };
+    "SELECT id, member_id AS memberId FROM refresh_queue WHERE status = 'pending' ORDER BY requested_at, id LIMIT ?",
+  )
+    .bind(limit)
+    .all()) as { results: Array<{ id: number; memberId: string }> };
 
   const summary: RefreshDrainResult = { ok: 0, failed: 0, memberIds: [] };
   for (const job of jobs) {
@@ -495,11 +536,11 @@ async function pruneRefreshQueue(env: Env): Promise<void> {
   await env.DB.batch([
     env.DB.prepare(
       `DELETE FROM refresh_queue WHERE status NOT IN ('pending','processing')
-       AND processed_at IS NOT NULL AND julianday(processed_at) < julianday('now', '-30 days')`
+       AND processed_at IS NOT NULL AND julianday(processed_at) < julianday('now', '-30 days')`,
     ),
     env.DB.prepare(
       `UPDATE refresh_queue SET status = 'failed', processed_at = ?1, error = '处理超时回收'
-       WHERE status = 'processing' AND julianday(requested_at) < julianday('now', '-1 hour')`
+       WHERE status = 'processing' AND julianday(requested_at) < julianday('now', '-1 hour')`,
     ).bind(nowIso),
   ]);
 }
