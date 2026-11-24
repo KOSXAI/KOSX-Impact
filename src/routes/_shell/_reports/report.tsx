@@ -79,9 +79,14 @@ function ReportPage() {
     URL.revokeObjectURL(a.href);
   };
   const fanCount = fan.length;
-  const avgKol = fan.length ? fan.reduce((s, f) => s + f.pctFollowers10k, 0) / fan.length : 0;
-  const avgVerified = fan.length ? fan.reduce((s, f) => s + f.verifiedPct, 0) / fan.length : 0;
   const totalSample = fan.reduce((s, f) => s + f.sampleSize, 0);
+  // 与首页 dashboard.ts 对齐：按样本量 sampleSize 加权平均，避免两页同一指标数值打架
+  const avgKol =
+    totalSample > 0
+      ? fan.reduce((s, f) => s + f.pctFollowers10k * f.sampleSize, 0) / totalSample
+      : 0;
+  const avgVerified =
+    totalSample > 0 ? fan.reduce((s, f) => s + f.verifiedPct * f.sampleSize, 0) / totalSample : 0;
   const influenceTop = [...stats.members]
     .filter((m) => m.influence != null)
     .toSorted((a, b) => (b.influence?.score ?? -1) - (a.influence?.score ?? -1))

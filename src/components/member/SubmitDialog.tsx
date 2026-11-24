@@ -103,9 +103,9 @@ async function postSubmit(body: Record<string, unknown>): Promise<PostResult | n
   return res.json<SubmitResponse>();
 }
 
-/** 服务端错误响应（成功响应即使带 error 字段也走正常分支） */
+/** 服务端错误响应（HTTP 200 的 { status: "failed", error } 带 status 字段，走正常分支展示精准文案） */
 function isSubmitError(result: PostResult): result is SubmitError {
-  return typeof (result as SubmitError).error === "string";
+  return !("status" in result) && typeof result.error === "string";
 }
 
 /**

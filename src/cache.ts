@@ -71,23 +71,22 @@ export const CACHE_KEYS = {
   /** 以下为无独立 API 端点的查询层键（/q/ 前缀仅作缓存键，不构成可请求路径） */
   /** 社群信号：共同关注 / 社群热议（内容页策展） */
   communitySignals: "/q/community-signals?v=1",
-  /** 内容配方：黄金时段 + 形态（30 天 posts 全扫聚合，最重的未缓存查询）——v2：媒体形态分类 + 互动率 */
-  contentRecipe: "/q/content-recipe?v=2",
+  /** 内容配方：黄金时段 + 形态（30 天 posts 全扫聚合，最重的未缓存查询）——v3：仅统计活跃成员 */
+  contentRecipe: "/q/content-recipe?v=3",
   /** 内容洞察（/posts 页专用轻量包：爆款/停更/标签云，替代拉整份 dashboard） */
   insights: "/q/insights?v=1",
   /** 对比页选人列表（id/handle/展示头像/最新粉丝，替代拉整份 dashboard） */
   memberPicker: "/q/member-picker?v=1",
-  /** 粉丝质量聚合（社群能量报告） */
-  fanOverview: "/q/fan-overview?v=1",
-  /** 帖子互动头部（社群能量报告） */
-  topEngagement: "/q/top-engagement?v=1",
+  /** 粉丝质量聚合（社群能量报告）——v2：仅统计活跃成员 */
+  fanOverview: "/q/fan-overview?v=2",
+  /** 帖子互动头部（社群能量报告）——v2：仅统计活跃成员 */
+  topEngagement: "/q/top-engagement?v=2",
   /** 邀请荣誉榜（社群能量报告） */
   inviteLeaders: "/q/invite-leaders?v=1",
-  /** 年度影响力报告 */
-  annualReport: "/q/annual-report?v=1",
-  /** 社群日报归档（按日期分键）——date 必须编码后入键：调用方传入的用户输入
-   *  若含 `/`、`..`、`#`，会让键在 URL 解析后逃逸到别的路径（缓存投毒） */
-  dailyArchive: (date: string) => `/q/daily/${encodeURIComponent(date)}?v=1`,
+  /** 年度影响力报告——v2：月度趋势仅统计活跃成员 */
+  annualReport: "/q/annual-report?v=2",
+  /** 社群日报归档（按日期分键）——date 必须编码后入键，v2：仅统计活跃成员 + 覆盖当日最后一秒 */
+  dailyArchive: (date: string) => `/q/daily/${encodeURIComponent(date)}?v=2`,
   /** 报告板块门牌数（今日登阶 / 成员数 / 累计粉丝）——/reports 只需三个数，
    *  不再为它们拉整份 dashboard */
   dashboardSummary: "/q/dashboard-summary?v=1",

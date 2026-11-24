@@ -7,6 +7,7 @@ import {
   processOldestPending,
   shardMembersForHour,
 } from "../src/collector";
+import { lookupRefreshMember } from "../src/refresh-queue";
 import type { RosterFile } from "../src/roster";
 import { SocialDataError } from "../src/sources/socialdata";
 import type { FollowerSource, FollowerStats } from "../src/sources/types";
@@ -800,5 +801,31 @@ describe("账号失效隔离（404 → suspended）", () => {
       "SELECT COUNT(*) AS n FROM snapshots WHERE member_id = 'alice'",
     ).first()) as { n: number };
     expect(snap.n).toBe(0);
+  });
+
+  it("自助队列连续失败 3 次转 failed 时必须写入 processed_at，支撑 24h 失败提示与过期清理", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at, status) VALUES ('alice', 'alice_x', '2026-08-30', 'active')",
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO refresh_queue (member_id, status, attempts, requested_at) VALUES ('alice', 'pending', 2, ?)",
+    )
+      .bind(new Date().toISOString())
+      .run();
+
+    const failSource = stubSource({ alice_x: new SocialDataError("HTTP 500 upstream", 500) });
+    const ok = await processOldestPending(env, failSource);
+    expect(ok).toBe(false);
+
+    const row = await env.DB.prepare(
+      "SELECT status, attempts, processed_at FROM refresh_queue WHERE member_id = 'alice'",
+    ).first<{ status: string; attempts: number; processed_at: string | null }>();
+    expect(row?.status).toBe("failed");
+    expect(row?.attempts).toBe(3);
+    expect(row?.processed_at).not.toBeNull();
+
+    // lookupRefreshMember 应能读回 24h 内 recentFailure
+    const preview = await lookupRefreshMember(env, "alice_x");
+    expect(preview?.recentFailure?.error).toContain("HTTP 500");
   });
 });

@@ -54,7 +54,8 @@ for (const spec of PAGES) {
   page.on("response", (r) => {
     if (r.status() !== 404) return;
     const u = r.url();
-    if (/^https?:\/\/(localhost|127\.0\.0\.1|impact\.kosx\.ai)/.test(u))
+    // /api/avatar 代理的外部 X 头像（博主换/删头像后上游 404，Avatar 自动降级）按站外资源归类
+    if (/^https?:\/\/(localhost|127\.0\.0\.1|impact\.kosx\.ai)(?!\/api\/avatar\?)/.test(u))
       errors.push(`同源 404: ${u}`);
     else external404s.push(u);
   });

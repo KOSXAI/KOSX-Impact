@@ -7,12 +7,12 @@ import { WindowGrid } from "@/components/home/WindowGrid";
 import { AnimatedNumber, Reveal } from "@/components/motion";
 import { StatCard } from "@/components/ui/StatCard";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { fetchDashboard } from "@/data.functions";
+import { fetchHomeDashboard } from "@/data.functions";
 import { fmt, fmtDate } from "@/lib/format";
 import { SITE_NAME, SITE_URL, SLOGAN } from "@/lib/site";
 
 export const Route = createFileRoute("/_shell/")({
-  loader: () => fetchDashboard(),
+  loader: () => fetchHomeDashboard(),
   head: () => ({
     meta: [
       { title: SITE_NAME },
@@ -34,8 +34,7 @@ export const Route = createFileRoute("/_shell/")({
 });
 
 function DashboardPage() {
-  const stats = Route.useLoaderData();
-  const today = new Date().toISOString().slice(0, 10);
+  const { stats, today } = Route.useLoaderData();
   const todayClimbers = new Set(
     stats.recentMilestones
       .filter((m) => m.achievedAt.slice(0, 10) === today)

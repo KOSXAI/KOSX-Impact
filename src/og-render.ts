@@ -35,13 +35,21 @@ function fetchAsset(env: Env, path: string, origin: string): Promise<Response> {
 }
 
 function loadFonts(env: Env, origin: string): Promise<Uint8Array[]> {
-  return (fontsPromise ??= Promise.all(
-    FONT_PATHS.map(async (path) => {
-      const res = await fetchAsset(env, path, origin);
-      if (!res.ok) throw new Error(`OG 字体缺失：${path}（res ${res.status}）`);
-      return new Uint8Array(await res.arrayBuffer());
-    }),
-  ));
+  if (!fontsPromise) {
+    const task = Promise.all(
+      FONT_PATHS.map(async (path) => {
+        const res = await fetchAsset(env, path, origin);
+        if (!res.ok) throw new Error(`OG 字体缺失：${path}（res ${res.status}）`);
+        return new Uint8Array(await res.arrayBuffer());
+      }),
+    );
+    fontsPromise = task;
+    // 瞬态失败清零：避免一次失败永久污染当前 isolate
+    task.catch(() => {
+      if (fontsPromise === task) fontsPromise = null;
+    });
+  }
+  return fontsPromise;
 }
 
 function pngAspect(buf: ArrayBuffer): number {
@@ -70,7 +78,14 @@ async function loadLogo(env: Env, origin: string): Promise<OgLogo | null> {
 }
 
 function loadLogoMemo(env: Env, origin: string): Promise<OgLogo | null> {
-  return (logoPromise ??= loadLogo(env, origin));
+  if (!logoPromise) {
+    const task = loadLogo(env, origin);
+    logoPromise = task;
+    task.catch(() => {
+      if (logoPromise === task) logoPromise = null;
+    });
+  }
+  return logoPromise;
 }
 
 /** SVG → PNG。仅用自带子集字体（Workers 无系统字体，同时保证各端渲染一致） */
@@ -93,10 +108,15 @@ export async function renderOgPng(
   const resvg = new Resvg(svg, {
     font: { fontBuffers, defaultFontFamily: "Noto Sans SC" },
   });
-  const png = resvg.render().asPng();
-  resvg.free();
-  // asPng 的 Uint8Array 与 BodyInit 的 TS 视图不兼容，拷贝为标准 ArrayBuffer 视图
-  return new Uint8Array(png);
+  let rendered: ReturnType<typeof resvg.render> | null = null;
+  try {
+    rendered = resvg.render();
+    // asPng 的 Uint8Array 与 BodyInit 的 TS 视图不兼容，拷贝为标准 ArrayBuffer 视图
+    return new Uint8Array(rendered.asPng());
+  } finally {
+    rendered?.free();
+    resvg.free();
+  }
 }
 
 export function ogNotFound(): Response {

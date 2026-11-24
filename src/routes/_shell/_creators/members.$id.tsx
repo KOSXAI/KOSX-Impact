@@ -89,7 +89,7 @@ export const Route = createFileRoute("/_shell/_creators/members/$id")({
                       },
                     ],
                   },
-                }),
+                }).replace(/</g, "\\u003c"),
               },
             ],
           }

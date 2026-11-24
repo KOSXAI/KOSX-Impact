@@ -5,8 +5,8 @@ import { useState } from "react";
  * priority=true 用于首屏横幅（LCP 候选）：立即加载 + 高优先级，默认仍懒加载。
  */
 export function BannerImage({ src, priority = false }: { src: string; priority?: boolean }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  if (failedSrc === src) {
     return (
       <div
         aria-hidden="true"
@@ -22,7 +22,7 @@ export function BannerImage({ src, priority = false }: { src: string; priority?:
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : undefined}
       decoding="async"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
       className="size-full object-cover"
     />
   );

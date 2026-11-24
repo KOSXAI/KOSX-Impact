@@ -130,12 +130,17 @@ export async function getMemberDetail(env: Env, id: string): Promise<MemberDetai
           `SELECT handle, name, avatar, reason, difference, created_at AS createdAt
            FROM similar_accounts WHERE member_id = ?1 ORDER BY created_at`,
         ).bind(id),
-        // 赛道邻居：全体活跃成员 + 最新粉丝（引流 / SEO 用）
+        // 赛道邻居：仅在当前成员有赛道分类时扫描活跃成员（无赛道成员占比近半，EXISTS 0 成本短路）
         env.DB.prepare(
           `SELECT m.id, m.handle, m.display_name AS displayName, m.profile_image AS profileImage, m.tracks,
                   ${LATEST_FOLLOWERS_SQL} AS followers
-           FROM members m WHERE m.status = 'active'`,
-        ),
+           FROM members m
+           WHERE m.status = 'active'
+             AND EXISTS (
+               SELECT 1 FROM members self
+               WHERE self.id = ?1 AND self.tracks IS NOT NULL AND self.tracks != '' AND self.tracks != '[]'
+             )`,
+        ).bind(id),
         // 首采失败态：队列最近一次为 failed（仅在无快照时使用，OG 卡与「排队中」区分用）
         env.DB.prepare(
           "SELECT 1 AS x FROM refresh_queue INDEXED BY idx_refresh_queue_member_status WHERE member_id = ?1 AND status = 'failed' LIMIT 1",

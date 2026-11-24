@@ -75,7 +75,7 @@ function ReportPage() {
 
   const name = report.displayName ?? `@${report.handle}`;
   const nextTitle = titleOf(report.nextMilestone);
-  const shareText = `${weeklyShareText(report)} ${SITE_URL}/reports/${report.memberId}`;
+  const shareText = `${weeklyShareText(report)} ${SITE_URL}/reports/${report.memberId}?invite=${encodeURIComponent(report.memberId)}`;
 
   const copyShare = async () => {
     try {

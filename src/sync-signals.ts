@@ -13,12 +13,19 @@ import { SocialDataError, FETCH_TIMEOUT_MS } from "./sources/socialdata";
 
 const API_BASE = "https://api.socialdata.tools";
 
-/** 致命出站错误（余额/鉴权）：立刻中止整轮，别再逐个成员打注定失败的请求 */
+/** 致命出站错误（余额/鉴权/限流）：立刻中止整轮并合闸，别再逐个成员打注定失败的请求 */
 function isFatal(error: unknown): boolean {
   return (
     error instanceof SocialDataError &&
-    (error.status === 401 || error.status === 402 || error.status === 403)
+    (error.status === 401 || error.status === 402 || error.status === 403 || error.status === 429)
   );
+}
+
+/** 确定性字符串哈希（与 collector 分片同算法，把成员均匀分到 N 组轮转，控单轮调用规模与账单） */
+function memberBucket(id: string, mod: number): number {
+  let hash = 0;
+  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return hash % mod;
 }
 
 interface SocialTweet {
@@ -77,16 +84,28 @@ async function bumpCacheBust(env: Env): Promise<void> {
   resetCacheBustMemo();
 }
 
-/** 成员被提及：遍历活跃成员，search @handle -filter:replies 拉站外提及，写 member_mentions（幂等） */
-export async function syncMemberMentions(env: Env): Promise<{ ok: number; total: number }> {
+/**
+ * 成员被提及：按 3 天轮转分片遍历活跃成员（每人每 3 天完整刷新一次近 30 天站外被提及），
+ * 较原先每日全量直省 ~67% SocialData 提及搜索调用，且避免成员规模扩大后单轮超时或与队列 cron 撞车。
+ */
+export async function syncMemberMentions(
+  env: Env,
+  opts?: { shardMod?: number; shardIndex?: number },
+): Promise<{ ok: number; total: number }> {
   // 熔断期内不发出站请求（余额疑似耗尽；等冷却结束或人工处理）
   if (await sdBreakerOpen(env)) {
     console.warn("[sync-signals] 熔断打开，本轮被提及同步跳过");
     return { ok: 0, total: 0 };
   }
-  const { results: members } = await env.DB.prepare(
+  const { results: allMembers } = await env.DB.prepare(
     "SELECT id, handle FROM members WHERE status = 'active'",
   ).all<{ id: string; handle: string }>();
+  const shardMod = Math.max(1, opts?.shardMod ?? 3);
+  const shardIndex = opts?.shardIndex ?? Math.floor(Date.now() / 86_400_000) % shardMod;
+  const members =
+    shardMod > 1
+      ? allMembers.filter((m) => memberBucket(m.id, shardMod) === shardIndex)
+      : allMembers;
   const stmt = env.DB.prepare(
     // DO NOTHING 而非 REPLACE：REPLACE 会把已入库行的 collected_at 刷成本次时间，
     // 丢掉「首次看到该提及」的语义（本地脚本 scripts/sync-member-mentions.mjs 同口径）
@@ -134,11 +153,10 @@ export async function syncMemberMentions(env: Env): Promise<{ ok: number; total:
       ok++;
     } catch (error) {
       if (isFatal(error)) {
-        // 余额/鉴权问题：剩余成员注定同样失败，立即合闸 + 中止本轮，
-        // 不再对每个成员各打一次（旧实现会把 402 当普通错误跑完整份名册）
-        await tripBreaker(env);
+        // 余额/鉴权/限流问题：剩余成员注定同样失败，立即合闸 + 中止本轮
+        await tripBreaker(env, `被提及同步 @${m.handle} HTTP ${(error as SocialDataError).status}`);
         console.error(
-          "[sync-signals] 余额/鉴权错误，中止本轮被提及同步：",
+          "[sync-signals] 余额/鉴权/限流错误，中止本轮被提及同步：",
           error instanceof Error ? error.message : error,
         );
         break;
@@ -150,7 +168,7 @@ export async function syncMemberMentions(env: Env): Promise<{ ok: number; total:
       );
     }
   }
-  await bumpCacheBust(env);
+  if (ok > 0) await bumpCacheBust(env);
   return { ok, total };
 }
 
@@ -191,10 +209,13 @@ export async function syncCommunitySignals(
       }
     } catch (error) {
       if (isFatal(error)) {
-        await tripBreaker(env);
+        await tripBreaker(
+          env,
+          `共同关注采样 @${m.handle} HTTP ${(error as SocialDataError).status}`,
+        );
         breakerTripped = true;
         console.error(
-          "[sync-signals] 余额/鉴权错误，中止共同关注采样：",
+          "[sync-signals] 余额/鉴权/限流错误，中止共同关注采样：",
           error instanceof Error ? error.message : error,
         );
         break;
@@ -208,10 +229,14 @@ export async function syncCommunitySignals(
   }
 
   // 社群品味：帖子正文里被提及最多的外部账号（排除成员自身，零额外 API）。
-  // 只读近 30 天窗口：D1 按扫描行计费，无 WHERE 全表 SELECT text 随帖子量线性变贵。
+  // 只读近 30 天窗口且严格限定活跃成员：已离场/冻结成员的残留帖子不得污染社群品味。
   // 排除集必须用**全部**活跃成员，而不是上面那个 8 人采样——否则其余成员之间的
   // 内部互提会被当成「外部品味」信号
-  const { results: posts } = await env.DB.prepare("SELECT text FROM posts WHERE created_at >= ?1")
+  const { results: posts } = await env.DB.prepare(
+    `SELECT p.text FROM posts p
+     JOIN members m ON m.id = p.member_id
+     WHERE m.status = 'active' AND p.created_at >= ?1`,
+  )
     .bind(new Date(Date.now() - 30 * 86_400_000).toISOString())
     .all<{ text: string | null }>();
   const memberHandles = new Set(members.map((m) => m.handle.toLowerCase()));
@@ -231,23 +256,33 @@ export async function syncCommunitySignals(
     "INSERT OR REPLACE INTO community_signal_counts (kind, handle, name, count, updated_at) VALUES (?, ?, ?, ?, ?)",
   );
   const now = new Date().toISOString();
-  const batch = [];
+  const followingRows = [];
   for (const [handle, rec] of followingCount) {
-    if (rec.set.size >= 2) batch.push(stmt.bind("following", handle, rec.name, rec.set.size, now));
+    if (rec.set.size >= 2)
+      followingRows.push(stmt.bind("following", handle, rec.name, rec.set.size, now));
   }
-  for (const [handle, count] of tasteTop) batch.push(stmt.bind("taste", handle, null, count, now));
-  if (batch.length) {
-    // 先清空本轮两种 kind 的旧行再写：只 insert 会让掉出榜的 handle 长期留旧值，
-    // 前端展示的「共同关注 / 社群品味」会与最新一轮计算结果不一致。
-    // 清空+写入放在同一 batch（D1 batch 是事务），不会出现空窗。
-    await env.DB.batch([
-      env.DB.prepare("DELETE FROM community_signal_counts WHERE kind IN ('following', 'taste')"),
-      ...batch,
-    ]);
+  const tasteRows = tasteTop.map(([handle, count]) => stmt.bind("taste", handle, null, count, now));
+
+  // 按 kind 独立原子替换：熔断或采样失败导致 following 为空时，绝不连带清空历史共同关注数据
+  const ops = [];
+  if (followingRows.length > 0) {
+    ops.push(
+      env.DB.prepare("DELETE FROM community_signal_counts WHERE kind = 'following'"),
+      ...followingRows,
+    );
   }
-  await bumpCacheBust(env);
+  if (tasteRows.length > 0) {
+    ops.push(
+      env.DB.prepare("DELETE FROM community_signal_counts WHERE kind = 'taste'"),
+      ...tasteRows,
+    );
+  }
+  if (ops.length > 0) {
+    await env.DB.batch(ops);
+    await bumpCacheBust(env);
+  }
   return {
-    following: [...followingCount.values()].filter((r) => r.set.size >= 2).length,
-    taste: tasteTop.length,
+    following: followingRows.length,
+    taste: tasteRows.length,
   };
 }

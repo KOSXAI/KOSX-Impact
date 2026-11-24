@@ -314,4 +314,135 @@ describe("API", () => {
     expect(res!.status).toBe(404);
     expect(await res!.text()).toContain("svg");
   });
+
+  it("GET /api/health?strict=1 熔断打开时返回 503，默认探活仍返回 200 带诊断字段", async () => {
+    await env.DB.prepare("INSERT INTO site_meta (key, value) VALUES ('sd_circuit_open_until', ?)")
+      .bind(new Date(Date.now() + 3_600_000).toISOString())
+      .run();
+
+    const normal = await exports.default.fetch("https://example.com/api/health");
+    expect(normal.status).toBe(200);
+    expect(await normal.json()).toMatchObject({ ok: true, healthy: false, breakerOpen: true });
+
+    const strict = await exports.default.fetch("https://example.com/api/health?strict=1");
+    expect(strict.status).toBe(503);
+    expect(await strict.json()).toMatchObject({ ok: false, healthy: false, breakerOpen: true });
+  });
+
+  it("POST /api/refresh 粉丝超过风控阈值（20 万）拒绝自助加入且不建行", async () => {
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(JSON.stringify({ followers_count: 500_000, name: "Mega VIP" }), {
+          status: 200,
+        }),
+    );
+    try {
+      const res = await postRefresh({ input: "megavip", register: true });
+      expect(res.status).toBe(422);
+      const body = await res.json<{ error: string }>();
+      expect(body.error).toBe("followers_too_high");
+      const row = await env.DB.prepare("SELECT id FROM members WHERE id = 'megavip'").first();
+      expect(row).toBeNull();
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
+  it("POST /api/refresh 对 status_locked 成员前置拦截（403）且零出站调用", async () => {
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, joined_at, status, status_locked) VALUES ('locked_x', 'locked_x', '2026-08-01', 'removed', 1)",
+    ).run();
+    let calls = 0;
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      return new Response(JSON.stringify({ followers_count: 500 }), { status: 200 });
+    });
+    try {
+      const res = await postRefresh({ input: "locked_x", register: true });
+      expect(res.status).toBe(403);
+      expect(calls).toBe(0);
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
+  it("POST /api/invite 同一被邀请人不能被多位邀请人重复冒领", async () => {
+    await seedMember();
+    await env.DB.batch([
+      env.DB.prepare(
+        "INSERT INTO members (id, handle, joined_at) VALUES ('bob', 'bob_x', '2026-08-02')",
+      ),
+      env.DB.prepare(
+        "INSERT INTO members (id, handle, joined_at) VALUES ('carol', 'carol_x', '2026-08-02')",
+      ),
+    ]);
+
+    await exports.default.fetch("https://example.com/api/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "CF-Connecting-IP": "10.8.0.1" },
+      body: JSON.stringify({ inviterId: "alice", invitedMemberId: "bob" }),
+    });
+    await exports.default.fetch("https://example.com/api/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "CF-Connecting-IP": "10.8.0.2" },
+      body: JSON.stringify({ inviterId: "carol", invitedMemberId: "bob" }),
+    });
+
+    const rows = await env.DB.prepare(
+      "SELECT inviter_id FROM invite_events WHERE invited_member_id = 'bob'",
+    ).all<{
+      inviter_id: string;
+    }>();
+    expect(rows.results).toEqual([{ inviter_id: "alice" }]);
+  });
+
+  it("GET /api/avatar 严格白名单防 SSRF，仅放行 pbs.twimg.com/profile_images/ 且拒重定向", async () => {
+    for (const bad of [
+      "https://evil.com/profile_images/1.jpg",
+      "http://pbs.twimg.com/profile_images/1.jpg",
+      "https://pbs.twimg.com/media/1.jpg",
+      "https://pbs.twimg.com/profile_images/../secret.jpg",
+      "https://pbs.twimg.com/profile_images/1.jpg?foo=bar",
+    ]) {
+      const res = await exports.default.fetch(
+        `https://example.com/api/avatar?u=${encodeURIComponent(bad)}`,
+      );
+      expect(res.status).toBe(400);
+    }
+
+    const originalFetch = globalThis.fetch;
+    try {
+      vi.stubGlobal(
+        "fetch",
+        async () =>
+          new Response(new Uint8Array([0xff, 0xd8, 0xff]), {
+            status: 200,
+            headers: { "Content-Type": "image/jpeg" },
+          }),
+      );
+      const ok = await exports.default.fetch(
+        `https://example.com/api/avatar?u=${encodeURIComponent("https://pbs.twimg.com/profile_images/12345/abc_200x200.jpg")}`,
+      );
+      expect(ok.status).toBe(200);
+      expect(ok.headers.get("Content-Type")).toBe("image/jpeg");
+
+      vi.stubGlobal(
+        "fetch",
+        async () =>
+          new Response(null, {
+            status: 302,
+            headers: { Location: "https://evil.com/x.jpg" },
+          }),
+      );
+      const redir = await exports.default.fetch(
+        `https://example.com/api/avatar?u=${encodeURIComponent("https://pbs.twimg.com/profile_images/99999/redir_200x200.jpg")}`,
+      );
+      expect(redir.status).toBe(403);
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
 });

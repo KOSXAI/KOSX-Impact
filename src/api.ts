@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { notifyAlert } from "./alert";
 import { CACHE_KEYS, assertSafeCacheKey, cachedResponse, readCacheBust } from "./cache";
 import { renderMemberCard, renderNotFoundCard, renderSiteOgCard } from "./card";
 import {
@@ -30,16 +31,18 @@ import {
 } from "./queries/shared";
 import {
   enqueueRefresh,
+  findLockedMember,
   findSuspendedMember,
   isHandleExcluded,
   lookupRefreshMember,
   normalizeHandle,
   registerCapReached,
   registerMember,
+  SELF_REGISTER_MAX_FOLLOWERS,
   tryGrabRefreshSlot,
 } from "./refresh-queue";
 import { getSource } from "./sources";
-import { SocialDataError } from "./sources/socialdata";
+import { fetchWithTimeout, SocialDataError } from "./sources/socialdata";
 import { computeMemberStats } from "./stats";
 import { syncMemberMentions, syncCommunitySignals } from "./sync-signals";
 import { TRACKS } from "./tracks";
@@ -71,10 +74,57 @@ function clientKey(c: { req: { header: (n: string) => string | undefined } }): s
   return c.req.header("CF-Connecting-IP") ?? c.req.header("User-Agent") ?? "unknown";
 }
 
-// 健康检查：供 CI 与监控探活使用
-api.get("/api/health", (c) => c.json({ ok: true, now: new Date().toISOString() }));
+/** 数据新鲜度告警阈值（小时）：超过 48h 无新快照判定采集降级 */
+const HEALTH_STALE_HOURS = 48;
 
-// 邀请裂变上报：新成员自助加入后，把分享链接里的 ?invite= 归因到邀请人（幂等，一人只计一次）
+// 健康检查：返回基础探活 + 采集新鲜度 / 熔断器诊断；传 ?strict=1 时降级返回 503 供 Uptime 监控告警
+api.get("/api/health", async (c) => {
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const strict = c.req.query("strict") === "1";
+  try {
+    const row = await c.env.DB.prepare(
+      `SELECT
+         (SELECT value FROM site_meta WHERE key = 'sd_circuit_open_until') AS breakerUntil,
+         (SELECT MAX(s.recorded_at) FROM snapshots s JOIN members m ON m.id = s.member_id WHERE m.status = 'active') AS latestSnapshotAt,
+         (SELECT COUNT(*) FROM members WHERE status = 'active') AS activeMembers`,
+    ).first<{
+      breakerUntil: string | null;
+      latestSnapshotAt: string | null;
+      activeMembers: number;
+    }>();
+    const breakerUntil = row?.breakerUntil ?? null;
+    const breakerOpen = breakerUntil != null && new Date(breakerUntil).getTime() > now.getTime();
+    const latestSnapshotAt = row?.latestSnapshotAt ?? null;
+    const activeMembers = row?.activeMembers ?? 0;
+    const staleHours =
+      latestSnapshotAt != null
+        ? Math.max(
+            0,
+            Math.round(((now.getTime() - Date.parse(latestSnapshotAt)) / 3_600_000) * 10) / 10,
+          )
+        : null;
+    const stale = activeMembers > 0 && (staleHours == null || staleHours > HEALTH_STALE_HOURS);
+    const healthy = !breakerOpen && !stale;
+    return c.json(
+      {
+        ok: strict ? healthy : true,
+        healthy,
+        now: nowIso,
+        breakerOpen,
+        breakerUntil,
+        activeMembers,
+        latestSnapshotAt,
+        staleHours,
+      },
+      strict && !healthy ? 503 : 200,
+    );
+  } catch {
+    return c.json({ ok: !strict, healthy: false, now: nowIso }, strict ? 503 : 200);
+  }
+});
+
+// 邀请裂变上报：新成员自助加入后，把分享链接里的 ?invite= 归因到邀请人（每人至多归因一次）
 api.post("/api/invite", async (c) => {
   // 无鉴权写端点：频率闸门挡脚本自刷（荣誉榜可被刷 + 免费 D1 写入面）
   if (!rateLimit(`invite:${clientKey(c)}`, 10, 60_000)) {
@@ -85,6 +135,9 @@ api.post("/api/invite", async (c) => {
     invitedMemberId?: string;
   } | null;
   if (!body?.inviterId || !body?.invitedMemberId) return c.json({ error: "invalid" }, 400);
+  if (!MEMBER_ID_RE.test(body.inviterId) || !MEMBER_ID_RE.test(body.invitedMemberId)) {
+    return c.json({ error: "invalid" }, 400);
+  }
   // 自己邀请自己不算（否则空手刷榜）
   if (body.inviterId === body.invitedMemberId) return c.json({ error: "invalid" }, 400);
   const inviter = await c.env.DB.prepare(
@@ -98,6 +151,13 @@ api.post("/api/invite", async (c) => {
     .bind(body.invitedMemberId)
     .first();
   if (!inviter || !invited) return c.json({ error: "unknown_member" }, 422);
+  // 一位被邀请人只能归因给首位邀请人：防止不同人反复冒领同一成员刷荣誉榜
+  const claimed = await c.env.DB.prepare(
+    "SELECT 1 AS x FROM invite_events WHERE invited_member_id = ? LIMIT 1",
+  )
+    .bind(body.invitedMemberId)
+    .first();
+  if (claimed) return c.json({ ok: true });
   await c.env.DB.prepare(
     "INSERT OR IGNORE INTO invite_events (inviter_id, invited_member_id, created_at) VALUES (?, ?, ?)",
   )
@@ -109,13 +169,84 @@ api.post("/api/invite", async (c) => {
 // 看板统计：社群总量 + 总排行 + 登阶记录（API 与首页 SSR 共用 queries.ts 的缓存）
 api.get("/api/dashboard", async (c) => {
   const stats = await getDashboardStats(c.env);
+  c.header("Cache-Control", "public, s-maxage=300, max-age=60");
   return c.json(stats);
 });
 
 // 精华帖：近 30 天单帖浏览 Top（独立页 /posts 与 API 共用缓存）
 api.get("/api/top-posts", async (c) => {
   const posts = await getTopPosts(c.env);
+  c.header("Cache-Control", "public, s-maxage=300, max-age=60");
   return c.json({ posts, updatedAt: new Date().toISOString() });
+});
+
+/** 头像代理允许的上游路径白名单：仅限 X 公开头像（防 SSRF 与开放代理滥用） */
+const AVATAR_PATH_RE = /^\/profile_images\/[a-zA-Z0-9_./-]+\.(?:jpe?g|png|webp|gif)$/i;
+const AVATAR_CACHE_TTL = 7 * 86_400; // 7 天：X 换头像会变 URL，同 URL 基本不可变
+
+// 同源头像代理：解决国内直连访问时 pbs.twimg.com 被墙导致全员首字母圆圈的问题
+api.get("/api/avatar", async (c) => {
+  const raw = c.req.query("u") ?? "";
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return c.text("invalid url", 400);
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname !== "pbs.twimg.com" ||
+    parsed.username ||
+    parsed.password ||
+    parsed.port ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.pathname.includes("..") ||
+    !AVATAR_PATH_RE.test(parsed.pathname)
+  ) {
+    return c.text("forbidden url", 400);
+  }
+  const canonicalUrl = `https://pbs.twimg.com${parsed.pathname}`;
+  const cacheKey = new Request(`${SITE_URL}/api/avatar?u=${encodeURIComponent(canonicalUrl)}`, {
+    method: "GET",
+  });
+  return cachedResponse(
+    cacheKey,
+    AVATAR_CACHE_TTL,
+    async () => {
+      try {
+        // Cloudflare Workers fetch 仅支持 follow / manual（不支持 error）；用 manual 显式拒跳转防 SSRF
+        const upstream = await fetchWithTimeout(
+          canonicalUrl,
+          {
+            redirect: "manual",
+            headers: { Accept: "image/*", "User-Agent": "kosx-impact/1.0" },
+          },
+          10_000,
+        );
+        if (upstream.status >= 300 && upstream.status < 400) {
+          return new Response("forbidden redirect", { status: 403 });
+        }
+        if (!upstream.ok) {
+          return new Response("not found", {
+            status: 404,
+            headers: { "Cache-Control": "public, max-age=3600" },
+          });
+        }
+        const contentType = upstream.headers.get("Content-Type") ?? "";
+        if (!contentType.startsWith("image/")) {
+          return new Response("invalid content type", { status: 415 });
+        }
+        return new Response(upstream.body, {
+          status: 200,
+          headers: { "Content-Type": contentType },
+        });
+      } catch {
+        return new Response("upstream error", { status: 502 });
+      }
+    },
+    { browserTtl: AVATAR_CACHE_TTL },
+  );
 });
 
 // 成员列表，附带每人最新一次快照的粉丝量
@@ -146,6 +277,7 @@ api.get("/api/members", async (c) => {
 api.get("/api/members/:id", async (c) => {
   const detail = await getMemberDetail(c.env, c.req.param("id") ?? "");
   if (!detail) return c.json({ error: "member not found" }, 404);
+  c.header("Cache-Control", "public, s-maxage=300, max-age=60");
   return c.json(detail);
 });
 
@@ -213,6 +345,16 @@ api.post("/api/refresh", async (c) => {
   if (isNewRegistration && (await isHandleExcluded(c.env, handle))) {
     return c.json(REGISTRATION_UNAVAILABLE, 422);
   }
+  // 维护者人为锁定移出的账号：前置拒绝，避免先抢槽白烧一次 SocialData API 调用再被 registerMember 拦截
+  if (isNewRegistration && (await findLockedMember(c.env, handle))) {
+    return c.json(
+      {
+        error: "account_locked",
+        message: "该账号已被移出追踪名单，如需重新加入请联系社群管理员。",
+      },
+      403,
+    );
+  }
   // 自助注册名额闸门：新注册/复活每条都要烧 SocialData 额度并永久扩大分片成本，
   // 全站每日新增有上限（正常加入远够用），触顶一律拒绝，防脚本刷额度
   if (isNewRegistration && (await registerCapReached(c.env, nowIso))) {
@@ -235,6 +377,17 @@ api.post("/api/refresh", async (c) => {
     }
     try {
       const stats = await source.fetchStats(handle);
+      // 粉丝量级风控：拦截站外超大V（如百万/亿级公众人物）经自助表单混入主榜污染全站数据
+      if (stats.followers > SELF_REGISTER_MAX_FOLLOWERS) {
+        return c.json(
+          {
+            error: "followers_too_high",
+            message:
+              "该账号粉丝量超出自助加入范围，为避免误收录站外账号，请联系社群管理员人工收录。",
+          },
+          422,
+        );
+      }
       const registered = await registerMember(c.env, handle, nowIso);
       if (!registered.ok) {
         if (registered.reason === "excluded") return c.json(REGISTRATION_UNAVAILABLE, 422);
@@ -262,7 +415,7 @@ api.post("/api/refresh", async (c) => {
       }
       // 额度/限流：合闸并明确失败，不降级建行（降级建行 = 脏 handle 永久入库）
       if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) {
-        await tripBreaker(c.env);
+        await tripBreaker(c.env, `自助加入校验 @${handle} HTTP ${error.status}`);
         return c.json({ error: "upstream_limited", message: "数据源额度受限，请稍后再试。" }, 503);
       }
       console.error(
@@ -391,8 +544,9 @@ export async function renderMemberCardSvg(
 // 只需每成员最新一条快照（窗口 LIMIT 1），缓存 6 小时挡爬虫高频预览
 // 高频图：浏览器也按 ttl 长缓存（browserTtl）
 export async function renderOgSvg(env: Env): Promise<Response> {
+  const bust = await readCacheBust(env);
   return cachedResponse(
-    new Request(`${SITE_URL}${CACHE_KEYS.og}`),
+    new Request(`${SITE_URL}${CACHE_KEYS.og}?v=2&cb=${bust}`),
     21600,
     async () => {
       // 只要两个数（累计粉丝 / 成员数），不必把全量成员+快照拉进内存再算：
@@ -597,7 +751,7 @@ async function buildFeed(env: Env): Promise<Response> {
 ${items
   .map(
     (i) =>
-      `<item><title>${escapeXml(i.title)}</title><link>${i.link}</link><guid isPermaLink="false">${escapeXml(i.guid)}</guid><pubDate>${i.pubDate}</pubDate><description>${escapeXml(i.description)}</description></item>`,
+      `<item><title>${escapeXml(i.title)}</title><link>${escapeXml(i.link)}</link><guid isPermaLink="false">${escapeXml(i.guid)}</guid><pubDate>${i.pubDate}</pubDate><description>${escapeXml(i.description)}</description></item>`,
   )
   .join("\n")}
 </channel></rss>`;
@@ -682,10 +836,24 @@ export async function handleWorkerRoutes(request: Request, env: Env): Promise<Re
  *   不必等下一个整点；错峰避开整点避免与采集撞车
  */
 export async function runScheduled(env: Env, ctx: ExecutionContext, cron: string): Promise<void> {
+  const guard = (task: Promise<unknown>, label: string) =>
+    task.catch(async (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[cron:${label}] 执行异常：`, msg);
+      await notifyAlert(env, {
+        key: `cron_error:${label}`,
+        title: `定时任务 ${label} 执行异常`,
+        detail: msg,
+      });
+    });
+
   if (cron === "0 * * * *") {
     ctx.waitUntil(
-      collect(env, ctx).then((summary) =>
-        console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`),
+      guard(
+        collect(env, ctx).then((summary) =>
+          console.log(`[collect] 完成：成功 ${summary.ok}，失败 ${summary.failed.length}`),
+        ),
+        "collect",
       ),
     );
     return;
@@ -694,21 +862,27 @@ export async function runScheduled(env: Env, ctx: ExecutionContext, cron: string
     // 串行执行：两个任务共用同一把 SocialData key 与共享限流（120 req/min），
     // Promise.all 并发会让有效速率翻倍、在每日任务开头就打出 429 并触发全局熔断
     ctx.waitUntil(
-      (async () => {
-        const mentions = await syncMemberMentions(env);
-        const signals = await syncCommunitySignals(env);
-        console.log(
-          `[daily-signals] 被提及 ${mentions.total} 条（成员 ${mentions.ok}），共同关注 ${signals.following} 条，品味 ${signals.taste} 条`,
-        );
-      })(),
+      guard(
+        (async () => {
+          const mentions = await syncMemberMentions(env);
+          const signals = await syncCommunitySignals(env);
+          console.log(
+            `[daily-signals] 被提及 ${mentions.total} 条（成员 ${mentions.ok}），共同关注 ${signals.following} 条，品味 ${signals.taste} 条`,
+          );
+        })(),
+        "daily-signals",
+      ),
     );
     return;
   }
   ctx.waitUntil(
-    drainRefreshQueue(env, getSource(env)).then(async (s) => {
-      // 本 cron 只跑队列（不走 collect 的收尾换键），排空成功时在这里换一次
-      if (s.ok > 0) await bumpCacheBust(env);
-      console.log(`[refresh-queue] 兜底清空：成功 ${s.ok}，失败 ${s.failed}`);
-    }),
+    guard(
+      drainRefreshQueue(env, getSource(env)).then(async (s) => {
+        // 本 cron 只跑队列（不走 collect 的收尾换键），排空成功时在这里换一次
+        if (s.ok > 0) await bumpCacheBust(env);
+        console.log(`[refresh-queue] 兜底清空：成功 ${s.ok}，失败 ${s.failed}`);
+      }),
+      "refresh-queue",
+    ),
   );
 }

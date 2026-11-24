@@ -1,3 +1,4 @@
+import { notifyAlert } from "./alert";
 import { resetCacheBustMemo } from "./cache";
 import { detectMilestones, MILESTONE_THRESHOLDS } from "./milestones";
 import type { RosterFile } from "./roster";
@@ -57,13 +58,19 @@ export async function sdBreakerOpen(env: Env): Promise<boolean> {
   return row != null && new Date(row.value).getTime() > Date.now();
 }
 
-/** 拉 402 时合闸：接下来的 1 小时不再对 SocialData 发任何请求（分片/兜底双通道都跳过） */
-export async function tripBreaker(env: Env): Promise<void> {
+/** 拉 402/429 时合闸：接下来的 1 小时不再对 SocialData 发任何请求（分片/兜底双通道都跳过） */
+export async function tripBreaker(env: Env, reason?: string): Promise<void> {
+  const untilIso = new Date(Date.now() + BREAKER_COOLDOWN_MS).toISOString();
   await env.DB.prepare(
     "INSERT INTO site_meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
   )
-    .bind(BREAKER_KEY, new Date(Date.now() + BREAKER_COOLDOWN_MS).toISOString())
+    .bind(BREAKER_KEY, untilIso)
     .run();
+  await notifyAlert(env, {
+    key: "sd_breaker",
+    title: "SocialData 采集触发熔断（402/429）",
+    detail: `${reason ? `原因：${reason}\n` : ""}已合闸冷却至 ${untilIso}，请检查 SocialData 账户余额或限流状态。`,
+  });
 }
 
 /**
@@ -173,7 +180,7 @@ export async function collectWithSource(
         );
       }
       if (error instanceof SocialDataError && (error.status === 402 || error.status === 429)) {
-        await tripBreaker(env);
+        await tripBreaker(env, `分片采集 @${member.handle} HTTP ${error.status}`);
         break;
       }
     }
@@ -284,12 +291,13 @@ async function checkMilestones(
         threshold,
         achievedAt: now,
       }));
-  for (const event of events) {
-    await env.DB.prepare(
+  if (events.length > 0) {
+    const stmt = env.DB.prepare(
       "INSERT OR IGNORE INTO milestones (member_id, threshold, achieved_at, announced) VALUES (?1, ?2, ?3, 1)",
-    )
-      .bind(memberId, event.threshold, event.achievedAt)
-      .run();
+    );
+    await env.DB.batch(
+      events.map((event) => stmt.bind(memberId, event.threshold, event.achievedAt)),
+    );
   }
   // announced=1 标记该登阶已计入公告流（首页「最新达成」读 milestones 表）；
   // 未来接入推文播报等渠道时复用此标记
@@ -453,7 +461,7 @@ async function processRefreshJob(
       )
         .bind(jobId, `${error.message.slice(0, 200)}（额度/限流，留队待恢复）`)
         .run();
-      await tripBreaker(env);
+      await tripBreaker(env, `自助队列 @${member.handle} HTTP ${error.status}`);
       return false;
     }
     if (error instanceof SocialDataError && error.status === 404) {
@@ -467,15 +475,19 @@ async function processRefreshJob(
       .bind(jobId)
       .first<{ attempts: number }>();
     if (!row) return false;
+    const nextAttempts = row.attempts + 1;
+    const nextStatus = nextAttempts >= REFRESH_MAX_ATTEMPTS ? "failed" : "pending";
+    // 转 failed 时必须落 processed_at：既支撑 lookupRefreshMember 的 24h recentFailure 展示，
+    // 又保证 30 天过期清理能正常回收，避免僵尸行长期滞留
     await env.DB.prepare(
-      "UPDATE refresh_queue SET attempts = ?2, error = ?3, status = ?4 WHERE id = ?1",
+      `UPDATE refresh_queue
+       SET attempts = ?2,
+           error = ?3,
+           status = ?4,
+           processed_at = CASE WHEN ?4 = 'failed' THEN ?5 ELSE processed_at END
+       WHERE id = ?1`,
     )
-      .bind(
-        jobId,
-        row.attempts + 1,
-        message,
-        row.attempts + 1 >= REFRESH_MAX_ATTEMPTS ? "failed" : "pending",
-      )
+      .bind(jobId, nextAttempts, message, nextStatus, nowIso)
       .run();
     return false;
   }
@@ -536,7 +548,7 @@ async function pruneRefreshQueue(env: Env): Promise<void> {
   await env.DB.batch([
     env.DB.prepare(
       `DELETE FROM refresh_queue WHERE status NOT IN ('pending','processing')
-       AND processed_at IS NOT NULL AND julianday(processed_at) < julianday('now', '-30 days')`,
+       AND julianday(COALESCE(processed_at, requested_at)) < julianday('now', '-30 days')`,
     ),
     env.DB.prepare(
       `UPDATE refresh_queue SET status = 'failed', processed_at = ?1, error = '处理超时回收'

@@ -8,7 +8,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && cf deploy",
+    "deploy": "npm run check && npm run build && cf deploy",
     "cf": "cf",
     "cf-typegen": "wrangler types",
     "db:create": "cf d1 create kosx-impact",

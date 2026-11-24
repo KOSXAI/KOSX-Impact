@@ -65,12 +65,18 @@ export function renderMemberCard(
   <text x="32" y="172" class="trophy">迈向「${esc(nextTitle)}」 · KOSX 万粉影响力计划</text>`;
 
   // 赛道变体：底部改为赛道 chips + 赛道内名次（opts.trackRanks 提供排名）
+  // 按字符宽动态推进 x 坐标，避免多赛道胶囊重叠在一起（汉字按 12px、ASCII 按 7px 估算）
+  let chipX = 32;
   const trackChips = member.tracks
     .slice(0, 3)
-    .map(
-      (t) =>
-        `<rect x="32" y="112" width="${esc(t).length * 13 + 18}" height="20" rx="10" fill="#2a2a2e"/><text x="41" y="125" class="chip">${esc(t)}</text>`,
-    )
+    .map((t) => {
+      let textW = 0;
+      for (let i = 0; i < t.length; i++) textW += t.charCodeAt(i) > 127 ? 12 : 7;
+      const boxW = Math.max(36, textW + 18);
+      const x = chipX;
+      chipX += boxW + 8;
+      return `<rect x="${x}" y="112" width="${boxW}" height="20" rx="10" fill="#2a2a2e"/><text x="${x + 9}" y="126" class="chip">${esc(t)}</text>`;
+    })
     .join("");
   const rankLine = opts?.trackRanks?.[0]
     ? `赛道内 <tspan class="signal">第 ${opts.trackRanks[0].rank} 名 / ${opts.trackRanks[0].total} 人</tspan>`
@@ -79,8 +85,7 @@ export function renderMemberCard(
   <text x="32" y="150" class="muted">${rankLine}</text>
   <text x="32" y="172" class="trophy">KOSX ${esc(member.tierName)} · 万粉影响力计划</text>`;
 
-  const bottom =
-    variant === "track" ? trackBottom : variant === "countdown" ? countdownBottom : countdownBottom;
+  const bottom = variant === "track" ? trackBottom : countdownBottom;
 
   const gradientId = `g${member.id.replace(/[^a-z0-9]/gi, "")}`;
 

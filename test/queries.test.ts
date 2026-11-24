@@ -12,7 +12,12 @@ import "../src/api-entry";
 import { resetCacheBustMemo } from "../src/cache";
 import { getTopPosts } from "../src/queries";
 import { getAnnualReport, getDailyArchive } from "../src/queries/archive";
-import { getCommunitySignals, getContentRecipe } from "../src/queries/community";
+import {
+  getCommunitySignals,
+  getContentRecipe,
+  getFanOverview,
+  getTopEngagementMembers,
+} from "../src/queries/community";
 import { getDashboardStats } from "../src/queries/dashboard";
 
 const TABLES = [
@@ -398,5 +403,55 @@ describe("getContentRecipe", () => {
 
     const r = await getContentRecipe(env);
     expect(r.hours).toEqual([{ hour: 10, count: 2, avgViews: 150 }]);
+  });
+});
+
+describe("非 active 成员残留数据隔离", () => {
+  it("年报、日报、内容配方、粉丝质量与强互动榜严格排除 removed / suspended 成员", async () => {
+    await seedMember("alice", "alice_x", { joinedAt: "2026-08-01" });
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, display_name, joined_at, status) VALUES ('ghost', 'ghost_x', 'Ghost', '2026-08-01', 'removed')",
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO members (id, handle, display_name, joined_at, status) VALUES ('banned', 'banned_x', 'Banned', '2026-08-01', 'suspended')",
+    ).run();
+
+    // 当日最后一秒含毫秒的快照也应被日报归档覆盖
+    await seedSnapshot("alice", 1000, "2026-09-09T23:59:59.500Z");
+    await seedSnapshot("ghost", 99_999_999, "2026-09-09T12:00:00Z");
+    await seedSnapshot("banned", 88_888_888, "2026-09-09T12:00:00Z");
+
+    const now = new Date();
+    const recent = new Date(now.getTime() - 2 * 86_400_000).toISOString();
+    await seedPost("alice", "a1", { createdAt: recent, views: 2000, text: "活跃成员原创1" });
+    await seedPost("alice", "a2", { createdAt: recent, views: 2000, text: "活跃成员原创2" });
+    await seedPost("ghost", "g1", { createdAt: recent, views: 99_000_000, text: "离场成员1" });
+    await seedPost("ghost", "g2", { createdAt: recent, views: 99_000_000, text: "离场成员2" });
+    await seedPost("banned", "b1", { createdAt: recent, views: 88_000_000, text: "冻结成员1" });
+
+    await env.DB.batch([
+      env.DB.prepare(
+        "INSERT INTO fan_profiles (member_id, sampled_at, sample_size, pct_followers_10k, verified_pct) VALUES ('alice', ?, 100, 12, 20)",
+      ).bind(recent),
+      env.DB.prepare(
+        "INSERT INTO fan_profiles (member_id, sampled_at, sample_size, pct_followers_10k, verified_pct) VALUES ('ghost', ?, 100, 99, 99)",
+      ).bind(recent),
+    ]);
+
+    const daily = await getDailyArchive(env, "2026-09-09");
+    expect(daily.memberCount).toBe(1);
+    expect(daily.totalFollowers).toBe(1000);
+
+    const annual = await getAnnualReport(env);
+    expect(annual.monthlyTrend).toEqual([{ month: "2026-09", total: 1000 }]);
+
+    const recipe = await getContentRecipe(env);
+    expect(recipe.hours.every((h) => h.avgViews === 2000)).toBe(true);
+
+    const fans = await getFanOverview(env);
+    expect(fans.map((f) => f.memberId)).toEqual(["alice"]);
+
+    const topEng = await getTopEngagementMembers(env);
+    expect(topEng.map((e) => e.memberId)).toEqual(["alice"]);
   });
 });

@@ -5,6 +5,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { env } from "cloudflare:workers";
+import type { Influence } from "./influence";
 import {
   getDashboardStats,
   getDashboardSummary,
@@ -20,21 +21,61 @@ import {
   getInsights,
   getMemberPicker,
 } from "./queries";
-import type { DashboardStats, MemberDetail, PostItem } from "./stats";
+import type { DashboardStats, MemberDetail, MemberStats, PostItem } from "./stats";
+
+/** 精简榜单成员中仅详情页消费的重字段（influence 明细 ~21KB），保留 score 供排序与展示 */
+function slimDashboardMembers(
+  members: MemberStats[],
+  opts?: { dropCardMeta?: boolean },
+): MemberStats[] {
+  return members.map((m) => {
+    const out: MemberStats = {
+      ...m,
+      influence: m.influence ? ({ score: m.influence.score } as Influence) : undefined,
+    };
+    if (opts?.dropCardMeta) {
+      delete out.bio;
+      delete out.bannerUrl;
+    }
+    return out;
+  });
+}
 
 export const fetchDashboard = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardStats> => {
     const stats = await getDashboardStats(env);
-    // 注水数据瘦身：以下三个字段没有任何组件消费（品牌声量整线下架后遗留），
-    // 却会随 SSR payload 发到全部 dashboard 消费路由的客户端。此处剥掉，
-    // /api/dashboard 的对外契约保持不变。
+    // 注水数据瘦身：剥掉已下架字段与列表页不消费的 influence breakdown 明细；
+    // /api/dashboard 的对外 JSON 契约保持不变。
     const {
       mentions: _mentions,
       mentionsTrend: _mentionsTrend,
       mutualEdges: _mutualEdges,
       ...ui
     } = stats;
-    return ui as DashboardStats;
+    return {
+      ...ui,
+      members: slimDashboardMembers(ui.members),
+    } as DashboardStats;
+  },
+);
+
+/** 首页专用轻量包：在 fetchDashboard 基础上再剥掉首页不渲染的 bio/bannerUrl，并随 SSR 下发统一日期基准防 Hydration 错位 */
+export const fetchHomeDashboard = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ stats: DashboardStats; today: string }> => {
+    const stats = await getDashboardStats(env);
+    const {
+      mentions: _mentions,
+      mentionsTrend: _mentionsTrend,
+      mutualEdges: _mutualEdges,
+      ...ui
+    } = stats;
+    return {
+      stats: {
+        ...ui,
+        members: slimDashboardMembers(ui.members, { dropCardMeta: true }),
+      } as DashboardStats,
+      today: new Date().toISOString().slice(0, 10),
+    };
   },
 );
 

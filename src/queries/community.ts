@@ -68,13 +68,14 @@ export async function getContentRecipe(env: Env): Promise<{
   return cachedQuery(env, CACHE_KEYS.contentRecipe, 3600, async () => {
     const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { results: posts } = await env.DB.prepare(
-      `SELECT text, views_count AS views, created_at AS createdAt, tweet_type AS tweetType,
-              json_extract(media, '$[0].kind') AS mediaKind, json_array_length(media) AS mediaCount,
-              like_count AS likes, reply_count AS replies, retweet_count AS retweets,
-              quote_count AS quotes, bookmark_count AS bookmarks
-       FROM posts
-       WHERE created_at >= ?1 AND views_count IS NOT NULL
-         AND (tweet_type IS NULL OR tweet_type IN ('tweet', 'quote'))`,
+      `SELECT p.text, p.views_count AS views, p.created_at AS createdAt, p.tweet_type AS tweetType,
+              json_extract(p.media, '$[0].kind') AS mediaKind, json_array_length(p.media) AS mediaCount,
+              p.like_count AS likes, p.reply_count AS replies, p.retweet_count AS retweets,
+              p.quote_count AS quotes, p.bookmark_count AS bookmarks
+       FROM posts p
+       JOIN members m ON m.id = p.member_id
+       WHERE m.status = 'active' AND p.created_at >= ?1 AND p.views_count IS NOT NULL
+         AND (p.tweet_type IS NULL OR p.tweet_type IN ('tweet', 'quote'))`,
     )
       .bind(cutoff)
       .all<PostFormRow>();
@@ -126,13 +127,15 @@ type FanOverviewRow = {
   verifiedPct: number;
 };
 
-/** 粉丝质量聚合（社群能量报告 /report 用）：fan_profiles 全量样本指标 */
+/** 粉丝质量聚合（社群能量报告 /report 用）：仅统计活跃成员的 fan_profiles 样本指标 */
 export async function getFanOverview(env: Env): Promise<FanOverviewRow[]> {
   return cachedQuery(env, CACHE_KEYS.fanOverview, 3600, async () => {
     const { results } = await env.DB.prepare(
-      `SELECT member_id AS memberId, sample_size AS sampleSize,
-              pct_followers_10k AS pctFollowers10k, verified_pct AS verifiedPct
-       FROM fan_profiles`,
+      `SELECT fp.member_id AS memberId, fp.sample_size AS sampleSize,
+              fp.pct_followers_10k AS pctFollowers10k, fp.verified_pct AS verifiedPct
+       FROM fan_profiles fp
+       JOIN members m ON m.id = fp.member_id
+       WHERE m.status = 'active'`,
     ).all<FanOverviewRow>();
     return results;
   });
@@ -140,17 +143,16 @@ export async function getFanOverview(env: Env): Promise<FanOverviewRow[]> {
 
 type TopEngagementRow = { memberId: string; n: number };
 
-/** 帖子互动顶部：互动率中位数 >0 的成员里取近 30 天强互动的成员（社群能量报告维度，轻量查询） */
+/** 帖子互动顶部：互动率中位数 >0 的成员里取近 30 天强互动的活跃成员（社群能量报告维度，轻量查询） */
 export async function getTopEngagementMembers(env: Env): Promise<TopEngagementRow[]> {
   return cachedQuery(env, CACHE_KEYS.topEngagement, 3600, async () => {
     const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    // 刻意不换 covering index：posts 有 90 天保留窗口，30 天窗口≈整表的 98%，
-    // 而 idx_posts_member_created 的 member_id 序让 GROUP BY 免排序。
-    // 实测（线上数据）：保留原计划 7422 行读取，改走 (created_at, views_count, member_id)
-    // 覆盖索引反而 9861 行（范围只削掉 2%，却多背一次 GROUP BY 排序）。
     const { results } = await env.DB.prepare(
-      `SELECT member_id AS memberId, COUNT(*) AS n FROM posts
-       WHERE created_at >= ?1 AND views_count >= 1000 GROUP BY member_id ORDER BY n DESC LIMIT 8`,
+      `SELECT p.member_id AS memberId, COUNT(*) AS n
+       FROM posts p
+       JOIN members m ON m.id = p.member_id
+       WHERE m.status = 'active' AND p.created_at >= ?1 AND p.views_count >= 1000
+       GROUP BY p.member_id ORDER BY n DESC LIMIT 8`,
     )
       .bind(cutoff)
       .all<TopEngagementRow>();

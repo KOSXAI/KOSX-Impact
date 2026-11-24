@@ -16,6 +16,12 @@ function hdVariant(url: string, px: number): string {
   );
 }
 
+/** X 头像直链走同源白名单代理：解决国内未开代理访问时 pbs.twimg.com 不可达导致全员首字母占位的问题 */
+const TWITTER_AVATAR_RE = /^https:\/\/pbs\.twimg\.com\/profile_images\//;
+function avatarSrc(url: string): string {
+  return TWITTER_AVATAR_RE.test(url) ? `/api/avatar?u=${encodeURIComponent(url)}` : url;
+}
+
 /**
  * 成员头像：按 size 档尝试对应尺寸变体（默认 sm=200px，列表行不浪费流量），
  * 失败退 API 原图，再失败回退首字母占位。
@@ -34,8 +40,11 @@ export function Avatar({
 }) {
   const px = AVATAR_PX[size];
   const hd = url ? hdVariant(url, px) : null;
-  // 0=高清变体 1=API 原图 2=占位；原样 URL（无 _normal 后缀可换）跳过重试档
-  const [stage, setStage] = useState(hd && hd !== url ? 0 : 1);
+  const initStage = hd && hd !== url ? 0 : 1;
+  const sourceKey = `${url ?? ""}|${px}`;
+  // 0=高清变体 1=API 原图 2=占位；当 url 或 size 变化时重置降级态，避免组件复用（如对比页换人）粘滞旧的 404 状态
+  const [state, setState] = useState({ key: sourceKey, stage: initStage });
+  const stage = state.key === sourceKey ? state.stage : initStage;
   const initial = (name.trim()[0] ?? "?").toUpperCase();
 
   if (!url || stage >= 2) {
@@ -54,14 +63,19 @@ export function Avatar({
 
   return (
     <img
-      src={stage === 0 && hd ? hd : url}
+      src={avatarSrc(stage === 0 && hd ? hd : url)}
       alt={`${name} 的头像`}
       // 与请求尺寸一致的固有宽高（预留比例、防 CLS）；实际显示尺寸由 CSS 类覆盖
       width={px}
       height={px}
       loading="lazy"
       decoding="async"
-      onError={() => setStage((s) => s + 1)}
+      onError={() =>
+        setState((prev) => ({
+          key: sourceKey,
+          stage: (prev.key === sourceKey ? prev.stage : initStage) + 1,
+        }))
+      }
       className={cn("size-10 shrink-0 rounded-full bg-soft-surface object-cover", className)}
     />
   );

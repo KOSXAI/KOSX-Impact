@@ -44,6 +44,10 @@ const RESUBMIT_WINDOW_MS = 60_000;
  *  正常加入是低频事件（全社群 <100 人/数月），触碰上限即说明是灌水，一律拒绝 */
 export const REGISTER_DAILY_CAP = 20;
 
+/** 自助加入粉丝量级风控上限：防止站外超大V（如百万/亿级账号）被路人随意填进主榜，
+ *  拉爆全站总量并永久占用采集配额；超过该量级需由管理员经名册/脚本人工收录 */
+export const SELF_REGISTER_MAX_FOLLOWERS = 200_000;
+
 /** 当日注册计数键（site_meta）：新注册与「复活已移除成员」都计入——
  *  复活同样要付出一次存在性校验 + 永久分片成本，旧口径只数 joined_at=当日 会漏掉复活 */
 function registerCountKey(nowIso: string): string {
@@ -156,6 +160,15 @@ export async function findSuspendedMember(
   handle: string,
 ): Promise<{ id: string } | null> {
   return env.DB.prepare("SELECT id FROM members WHERE lower(handle) = ?1 AND status = 'suspended'")
+    .bind(handle)
+    .first<{ id: string }>();
+}
+
+/** 被维护者人为锁定的成员（status_locked=1，如隐私退出）：前置拦截，避免先烧 SocialData 额度再拒绝 */
+export async function findLockedMember(env: Env, handle: string): Promise<{ id: string } | null> {
+  return env.DB.prepare(
+    "SELECT id FROM members WHERE lower(handle) = ?1 AND status_locked = 1 AND status != 'active'",
+  )
     .bind(handle)
     .first<{ id: string }>();
 }

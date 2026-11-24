@@ -79,7 +79,7 @@ export async function getAnnualReport(env: Env): Promise<AnnualReport> {
 
 async function buildAnnualReport(env: Env): Promise<AnnualReport> {
   const now = new Date();
-  const year = now.getFullYear();
+  const year = now.getUTCFullYear();
   const yearStart = new Date(Date.UTC(year, 0, 1)).toISOString();
 
   const { results: memberRows } = await env.DB.prepare(
@@ -108,10 +108,13 @@ async function buildAnnualReport(env: Env): Promise<AnnualReport> {
     0,
   );
 
-  // 月度总粉丝趋势：取每月该成员最后一条快照加总
+  // 月度总粉丝趋势：只统计当前活跃成员，取每月该成员最后一条快照加总
   const { results: snapRows } = await env.DB.prepare(
-    `SELECT member_id AS memberId, substr(recorded_at, 1, 7) AS month, followers
-     FROM snapshots WHERE recorded_at >= ?1 ORDER BY recorded_at`,
+    `SELECT s.member_id AS memberId, substr(s.recorded_at, 1, 7) AS month, s.followers
+     FROM snapshots s
+     JOIN members m ON m.id = s.member_id
+     WHERE m.status = 'active' AND s.recorded_at >= ?1
+     ORDER BY s.recorded_at`,
   )
     .bind(yearStart)
     .all<MonthSnapRow>();
@@ -213,14 +216,16 @@ export async function getDailyArchive(env: Env, date: string): Promise<DailyArch
 }
 
 async function buildDailyArchive(env: Env, date: string): Promise<DailyArchiveReport> {
-  const dayEnd = `${date}T23:59:59`;
-  // 每成员「该日及之前最后一条快照」：相关子查询按 (member_id, recorded_at) 逐成员 seek，
-  // 外层按 (recorded_at) 索引限定到统计日为止的窗口——两段都走索引，不整表扫描
+  // 带毫秒与 Z 后缀覆盖当日最后一秒（23:59:59.xxxZ）；严格过滤活跃成员避免已移除/冻结残留污染归档
+  const dayEnd = `${date}T23:59:59.999Z`;
   const { results: followerRows } = await env.DB.prepare(
-    `SELECT member_id AS memberId, followers FROM snapshots INDEXED BY idx_snapshots_recorded
-     WHERE recorded_at <= ?1
-       AND recorded_at = (SELECT MAX(s2.recorded_at) FROM snapshots s2
-                          WHERE s2.member_id = snapshots.member_id AND s2.recorded_at <= ?1)`,
+    `SELECT s.member_id AS memberId, s.followers
+     FROM snapshots s INDEXED BY idx_snapshots_recorded
+     JOIN members m ON m.id = s.member_id
+     WHERE m.status = 'active'
+       AND s.recorded_at <= ?1
+       AND s.recorded_at = (SELECT MAX(s2.recorded_at) FROM snapshots s2
+                            WHERE s2.member_id = s.member_id AND s2.recorded_at <= ?1)`,
   )
     .bind(dayEnd)
     .all<DayFollowerRow>();

@@ -40,6 +40,8 @@ SocialData 的 120 req/min 是**账号级共享**的，且本机脚本与线上 
 | --- | --- | --- |
 | `sync-new-members.mjs` | 名册新增成员入职：拉粉丝数 / 显示名 / 头像，生成 `/tmp/onboard.sql`（显示名回写名册） | 每次引入新成员**必须**跑（见 CONTRIBUTING） |
 | `apply-tracks.mjs` | 赛道/标签分类 JSON 入库（校验白名单 + bump cache_bust），支持显式空数组清空分类 | 人工/agent 判断产出分类后手动执行 |
+| `set-member-status.mjs` | 成员状态维护与人为锁（`active`/`paused`/`removed` + `status_locked`，保留历史数据） | 手动（隐私退出 / 恢复隔离） |
+| `purge-member.mjs` | 彻底物理清理成员（级联删除全部关联表 + 加入 `excluded_handles` + bump `cache_bust`，默认干跑） | 手动（清退误收录站外大V / 物理抹除） |
 | `sync-posts.mjs` | 帖子活跃度手动补跑（已纳入每日采集，仅兜底） | 手动 |
 
 ## 数据同步（手动）

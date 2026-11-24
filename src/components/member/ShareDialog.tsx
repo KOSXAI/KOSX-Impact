@@ -52,7 +52,8 @@ export function ShareDialog({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const name = member.displayName ?? member.handle;
-  const pageUrl = `${SITE_URL}/members/${member.id}`;
+  // 携带 ?invite= 归因参数打通邀请裂变闭环（server.ts 已将 invite 纳入 TRACKING_PARAMS，不打散边缘缓存）
+  const pageUrl = `${SITE_URL}/members/${member.id}?invite=${encodeURIComponent(member.id)}`;
   const ogUrl = `/og/members/${member.id}.png?v=2`;
 
   const lines = shareLines(member, pageUrl);
